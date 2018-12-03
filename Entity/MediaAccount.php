@@ -19,10 +19,22 @@ use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Mapping\ClassMetadata;
 
 /**
- * Class Account.
+ * Class MediaAccount.
  */
-class Account extends FormEntity
+class MediaAccount extends FormEntity
 {
+    /** @var string */
+    const PROVIDER_BING = 'bing';
+
+    /** @var string */
+    const PROVIDER_FACEBOOK = 'facebook';
+
+    /** @var string */
+    const PROVIDER_GOOGLE = 'google';
+
+    /** @var string */
+    const PROVIDER_SNAPCHAT = 'snapchat';
+
     /** @var int */
     private $id;
 
@@ -80,8 +92,8 @@ class Account extends FormEntity
     {
         $builder = new ClassMetadataBuilder($metadata);
 
-        $builder->setTable('Account')
-            ->setCustomRepositoryClass('MauticPlugin\MauticAccountBundle\Entity\AccountRepository');
+        $builder->setTable('media_account')
+            ->setCustomRepositoryClass('MauticPlugin\MauticAccountBundle\Entity\MediaAccountRepository');
 
         $builder->addIdColumns();
 
@@ -96,6 +108,9 @@ class Account extends FormEntity
         $builder->addNamedField('clientSecret', 'string', 'client_secret', true);
 
         $builder->addNamedField('refreshToken', 'string', 'refresh_token', true);
+
+        $builder->addNamedField('campaignMap', 'string', 'campaign_map', true);
+
     }
 
     /**

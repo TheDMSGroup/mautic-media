@@ -14,9 +14,9 @@ namespace MauticPlugin\MauticMediaBundle\Entity;
 use Mautic\CoreBundle\Entity\CommonRepository;
 
 /**
- * Class AccountRepository.
+ * Class MediaAccountRepository.
  */
-class AccountRepository extends CommonRepository
+class MediaAccountRepository extends CommonRepository
 {
     /**
      * Get a list of entities.
