@@ -65,6 +65,9 @@ class MediaAccount extends FormEntity
     /** @var \DateTime */
     private $publishDown;
 
+    /** @var string */
+    private $campaignMap;
+
     /**
      * @param ClassMetadata $metadata
      */
@@ -228,6 +231,27 @@ class MediaAccount extends FormEntity
         return $this;
     }
 
+    /**
+     * @return string
+     */
+    public function getCampaignMap()
+    {
+        return $this->campaignMap;
+    }
+
+    /**
+     * @param string $campaignMap
+     *
+     * @return $this
+     */
+    public function setCampaignMap($campaignMap)
+    {
+        $this->isChanged('campaignMap', $campaignMap);
+
+        $this->campaignMap = $campaignMap;
+
+        return $this;
+    }
 
     /**
      * @return string
