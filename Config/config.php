@@ -32,33 +32,6 @@ return [
         ],
     ],
     'services' => [
-        'events'       => [
-            'mautic.media.subscriber.stat'  => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatSubscriber',
-                'arguments' => [
-                    'mautic.media.model.media',
-                ],
-            ],
-            'mautic.media.subscriber.media' => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\MadiaSubscriber',
-                'arguments' => [
-                    'router',
-                    'mautic.helper.ip_lookup',
-                    'mautic.core.model.auditlog',
-                    'mautic.page.model.trackable',
-                    'mautic.page.helper.token',
-                    'mautic.asset.helper.token',
-                    'mautic.form.helper.token',
-                    'mautic.media.model.media',
-                ],
-            ],
-            'mautic.media.stats.subscriber' => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatsSubscriber',
-                'arguments' => [
-                    'doctrine.orm.entity_manager',
-                ],
-            ],
-        ],
         'forms'        => [
             'mautic.media.form.type.mediashow_list' => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MadiaShowType',
@@ -83,7 +56,7 @@ return [
         ],
         'models'       => [
             'mautic.media.model.media' => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\Model\MediaAccount',
+                'class'     => 'MauticPlugin\MauticMediaBundle\Model\MediaAccountModel',
                 'arguments' => [
                     'mautic.form.model.form',
                     'mautic.page.model.trackable',
