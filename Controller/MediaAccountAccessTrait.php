@@ -11,8 +11,6 @@
 
 namespace MauticPlugin\MauticMediaBundle\Controller;
 
-use MauticPlugin\MauticMediaBundle\Entity\File;
-use MauticPlugin\MauticMediaBundle\Entity\FileRepository;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 
 /**

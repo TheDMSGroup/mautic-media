@@ -13,7 +13,6 @@ namespace MauticPlugin\MauticMediaBundle\Form\Type;
 
 use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CoreBundle\Factory\MauticFactory;
-use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -76,10 +75,6 @@ class ChartFilterType extends AbstractType
             // ''           => '--- By Source ---',
             'revenue' => 'Revenue',
         ];
-        $stat        = new Stat();
-        foreach ($stat->getAllTypes() as $type) {
-            $typeChoices[$type] = 'mautic.media.graph.'.$type;
-        }
 
         $builder->add(
             'type',

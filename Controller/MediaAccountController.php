@@ -141,6 +141,7 @@ class MediaAccountController extends FormController
      * @param $view
      *
      * @return array
+     *
      * @throws \Exception
      */
     public function customizeViewArguments($args, $view)
@@ -153,20 +154,13 @@ class MediaAccountController extends FormController
 
             // Setup page forms in session
             $order = [
-                $session->get('mautic.media.'.$item->getId().'.transactions.orderby')
-                    ? $session->get('mautic.media.'.$item->getId().'.transactions.orderby')
-                    : 'date_added',
-                $session->get('mautic.media.'.$item->getId().'.transactions.orderbydir')
-                    ? $session->get('mautic.media.'.$item->getId().'.transactions.orderbydir')
-                    : 'DESC',
+                'date_added',
+                'DESC',
             ];
             if ('POST' == $this->request->getMethod()) {
                 $chartFilterValues = $this->request->request->has('chartfilter')
                     ? $this->request->request->get('chartfilter')
                     : $session->get('mautic.media.'.$item->getId().'.chartfilter');
-                $search            = $this->request->request->has('search')
-                    ? $this->request->request->get('search')
-                    : $session->get('mautic.media.'.$item->getId().'.transactions.search', '');
                 if ($this->request->request->has('orderby')) {
                     $order[0] = $this->request->request->get('orderby');
                 }
@@ -184,24 +178,9 @@ class MediaAccountController extends FormController
                         'date_to'   => 'midnight tomorrow -1 second',
                         'type'      => '',
                     ];
-
-                $search = $session->get('mautic.media.'.$item->getId().'.transactions.search')
-                    ? $session->get('mautic.media.'.$item->getId().'.transactions.search')
-                    : '';
-            }
-
-            if ($this->request->query->has('campaign')) {
-                $chartFilterValues['campaign'] = $this->request->query->get('campaign');
-            }
-
-            if (!isset($chartFilterValues['campaign'])) {
-                $chartFilterValues['campaign'] = null;
             }
 
             $session->set('mautic.media.'.$item->getId().'.chartfilter', $chartFilterValues);
-            $session->set('mautic.media.'.$item->getId().'.transactions.search', $search);
-            $session->set('mautic.media.'.$item->getId().'.transactions.orderby', $order[0]);
-            $session->set('mautic.media.'.$item->getId().'.transactions.orderbydir', $order[1]);
 
             //Setup for the chart and stats datatable
             /** @var \MauticPlugin\MauticMediaBundle\Model\MediaAccountModel $model */
@@ -213,7 +192,6 @@ class MediaAccountController extends FormController
             );
 
             $auditLog = $this->getAuditlogs($item);
-            $files    = $this->getFiles($item);
             if (in_array($chartFilterValues['type'], [''])) {
                 $stats = $model->getStats(
                     $item,
@@ -232,7 +210,6 @@ class MediaAccountController extends FormController
                     $chartFilterValues['campaign']
                 );
             }
-            $transactions = $this->getEngagements($item);
 
             $chartFilterForm = $this->get('form.factory')->create(
                 'chartfilter',
@@ -249,13 +226,10 @@ class MediaAccountController extends FormController
             );
 
             $args['viewParameters']['auditlog']        = $auditLog;
-            $args['viewParameters']['files']           = $files;
             $args['viewParameters']['stats']           = $stats;
-            $args['viewParameters']['transactions']    = $transactions;
             $args['viewParameters']['chartFilterForm'] = $chartFilterForm->createView();
             // depracated datatable section
-            $args['viewParameters']['search'] = $search;
-            $args['viewParameters']['order']  = $order;
+            $args['viewParameters']['order'] = $order;
 
             unset($chartFilterValues['campaign']);
             $session->set('mautic.media.'.$item->getId().'.chartfilter', $chartFilterValues);

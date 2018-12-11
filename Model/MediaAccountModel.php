@@ -12,7 +12,6 @@
 namespace MauticPlugin\MauticMediaBundle\Model;
 
 use Doctrine\DBAL\Query\QueryBuilder;
-use Mautic\CampaignBundle\Entity\CampaignRepository;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use Mautic\CoreBundle\Helper\Chart\LineChart;
 use Mautic\CoreBundle\Helper\TemplatingHelper;
@@ -21,7 +20,7 @@ use Mautic\LeadBundle\Entity\Lead as Contact;
 use Mautic\LeadBundle\Model\LeadModel as ContactModel;
 use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
-use Symfony\Component\EventDispatcher\Event;
+use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
@@ -195,18 +194,6 @@ class MediaAccountModel extends FormModel
         $stat->setCampaignId($campaignId);
         $stat->setEventId($eventId);
         $this->getStatRepository()->saveEntity($stat);
-
-        // dispatch Stat PostSave event
-        try {
-            $event = new MediaAccountStatEvent(
-                $MediaAccount, $campaignId, $eventId, $contact, $this->em
-            );
-            $this->dispatcher->dispatch(
-                MediaAccountEvents::STAT_SAVE,
-                $event
-            );
-        } catch (\Exception $e) {
-        }
     }
 
     /**
@@ -225,48 +212,6 @@ class MediaAccountModel extends FormModel
         }
 
         return $this->em->getRepository('MauticMediaBundle:Stat');
-    }
-
-    /**
-     * Add transactional log in MediaAccount_events.
-     *
-     * @param MediaAccount|null $MediaAccount
-     * @param string            $type
-     * @param Contact|null      $contact
-     * @param null              $logs
-     * @param null              $message
-     * @param null              $integrationEntityId
-     */
-    public function addEvent(
-        MediaAccount $MediaAccount = null,
-        $type = null,
-        Contact $contact = null,
-        $logs = null,
-        $message = null,
-        $integrationEntityId = null
-    ) {
-        $event = new EventEntity();
-        $event->setDateAdded(new \DateTime());
-        if ($type) {
-            $event->setType($type);
-        }
-        if ($MediaAccount) {
-            $event->setMediaAccountId($MediaAccount->getId());
-        }
-        if ($contact) {
-            $event->setContact($contact);
-        }
-        if ($logs) {
-            $event->setLogs($logs);
-        }
-        if ($message) {
-            $event->setMessage($message);
-        }
-        if ($integrationEntityId) {
-            $event->setIntegrationEntityId($integrationEntityId);
-        }
-
-        $this->getEventRepository()->saveEntity($event);
     }
 
     /**
@@ -447,7 +392,7 @@ class MediaAccountModel extends FormModel
         $dateToAdjusted->setTime(23, 59, 59);
         $chart      = new LineChart($unit, $dateFrom, $dateToAdjusted, $dateFormat);
         $query      = new ChartQuery($this->em->getConnection(), $dateFrom, $dateToAdjusted, $unit);
-        $utmSources = $this->getStatRepository()->getSourcesByClient(
+        $utmSources = $this->getStatRepository()->getSourcesByMediaAccount(
             $MediaAccount->getId(),
             $dateFrom,
             $dateToAdjusted
@@ -556,167 +501,5 @@ class MediaAccountModel extends FormModel
         }
 
         return $chart->render();
-    }
-
-    /**
-     * @param MediaAccount $MediaAccount
-     * @param array        $filters
-     * @param array        $orderBy
-     * @param int          $page
-     * @param int          $limit
-     *
-     * @return array|\Doctrine\ORM\Internal\Hydration\IterableResult|\Doctrine\ORM\Tools\Pagination\Paginator
-     */
-    public function getFiles(
-        MediaAccount $MediaAccount,
-        array $filters = [],
-        array $orderBy = [],
-        $page = 1,
-        $limit = 25
-    ) {
-        $args          = array_merge($filters, $orderBy);
-        $args['page']  = $page;
-        $args['limit'] = $limit;
-
-        /** @var \MauticPlugin\MauticMediaBundle\Entity\FileRepository $repo */
-        $repo = $this->em->getRepository('MauticMediaBundle:File');
-
-        return $repo->getEntities($args);
-    }
-
-    /**
-     * Get timeline/engagement data.
-     *
-     * @param MediaAccount|null $MediaAccount
-     * @param array             $filters
-     * @param null              $orderBy
-     * @param int               $page
-     * @param int               $limit
-     * @param bool              $forTimeline
-     *
-     * @return array
-     */
-    public function getEngagements(
-        MediaAccount $MediaAccount,
-        $filters = [],
-        $orderBy = [],
-        $page = 1,
-        $limit = 25,
-        $forTimeline = true
-    ) {
-        /** @var \MauticPlugin\MauticMediaBundle\Event\MediaAccountTimelineEvent $event */
-        $event = $this->dispatcher->dispatch(
-            MediaAccountEvents::TIMELINE_ON_GENERATE,
-            new MediaAccountTimelineEvent(
-                $MediaAccount,
-                $filters,
-                $orderBy,
-                $page,
-                $limit,
-                $forTimeline,
-                $this->coreParametersHelper->getParameter('site_url')
-            )
-        );
-
-        return $event;
-    }
-
-    /**
-     * @return array
-     */
-    public function getEngagementTypes()
-    {
-        $event = new MediaAccountTimelineEvent();
-        $event->fetchTypesOnly();
-
-        $this->dispatcher->dispatch(MediaAccountEvents::TIMELINE_ON_GENERATE, $event);
-
-        return $event->getEventTypes();
-    }
-
-    /**
-     * Get engagement counts by time unit.
-     *
-     * @param MediaAccount    $MediaAccount
-     * @param \DateTime|null  $dateFrom
-     * @param \DateTime|null  $dateTo
-     * @param string          $unit
-     * @param ChartQuery|null $chartQuery
-     *
-     * @return array
-     */
-    public function getEngagementCount(
-        MediaAccount $MediaAccount,
-        \DateTime $dateFrom = null,
-        \DateTime $dateTo = null,
-        $unit = 'm',
-        ChartQuery $chartQuery = null
-    ) {
-        $event = new MediaAccountTimelineEvent($MediaAccount);
-        $event->setCountOnly($dateFrom, $dateTo, $unit, $chartQuery);
-
-        $this->dispatcher->dispatch(MediaAccountEvents::TIMELINE_ON_GENERATE, $event);
-
-        return $event->getEventCounter();
-    }
-
-    public function getCampaigns($MediaAccountId)
-    {
-        /** @var CampaignRepository $campaignRepo */
-        $campaignRepo = $this->em->getRepository('MauticCampaignBundle:Campaign');
-
-        return $campaignRepo->getEntities(
-            [
-                'filter' => [
-                    'column' => 'canvasSettings',
-                    'expr'   => 'like',
-                    'value'  => "%'MediaAccount': $MediaAccountId,%",
-                ],
-            ]
-        );
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @return bool|MediaAccountEvent
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException
-     */
-    protected function dispatchEvent($action, &$entity, $isNew = false, Event $event = null)
-    {
-        if (!$entity instanceof MediaAccount) {
-            throw new MethodNotAllowedHttpException(['MediaAccount']);
-        }
-
-        switch ($action) {
-            case 'pre_save':
-                $name = MediaAccountEvents::PRE_SAVE;
-                break;
-            case 'post_save':
-                $name = MediaAccountEvents::POST_SAVE;
-                break;
-            case 'pre_delete':
-                $name = MediaAccountEvents::PRE_DELETE;
-                break;
-            case 'post_delete':
-                $name = MediaAccountEvents::POST_DELETE;
-                break;
-            default:
-                return null;
-        }
-
-        if ($this->dispatcher->hasListeners($name)) {
-            if (empty($event)) {
-                $event = new MediaAccountEvent($entity, $isNew);
-                $event->setEntityManager($this->em);
-            }
-
-            $this->dispatcher->dispatch($name, $event);
-
-            return $event;
-        } else {
-            return null;
-        }
     }
 }

@@ -113,7 +113,6 @@ class MediaAccount extends FormEntity
         $builder->addNamedField('refreshToken', 'string', 'refresh_token', true);
 
         $builder->addNamedField('campaignMap', 'string', 'campaign_map', true);
-
     }
 
     /**
@@ -208,7 +207,6 @@ class MediaAccount extends FormEntity
         return $this;
     }
 
-
     /**
      * @return string
      */
@@ -275,7 +273,6 @@ class MediaAccount extends FormEntity
         return $this;
     }
 
-
     /**
      * @return int
      */
@@ -295,7 +292,7 @@ class MediaAccount extends FormEntity
     /**
      * @param string $description
      *
-     * @return Account
+     * @return MediaAccount
      */
     public function setDescription($description)
     {
@@ -317,7 +314,7 @@ class MediaAccount extends FormEntity
     /**
      * @param mixed $name
      *
-     * @return Account
+     * @return MediaAccount
      */
     public function setName($name)
     {
@@ -339,7 +336,7 @@ class MediaAccount extends FormEntity
     /**
      * @param mixed $category
      *
-     * @return Account
+     * @return MediaAccount
      */
     public function setCategory($category)
     {
@@ -361,7 +358,7 @@ class MediaAccount extends FormEntity
     /**
      * @param mixed $publishUp
      *
-     * @return Account
+     * @return MediaAccount
      */
     public function setPublishUp($publishUp)
     {
@@ -383,7 +380,7 @@ class MediaAccount extends FormEntity
     /**
      * @param mixed $publishDown
      *
-     * @return Account
+     * @return MediaAccount
      */
     public function setPublishDown($publishDown)
     {

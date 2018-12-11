@@ -11,19 +11,14 @@
 
 namespace MauticPlugin\MauticMediaBundle\Controller;
 
-use Mautic\CoreBundle\Helper\Chart\ChartQuery;
-use Mautic\CoreBundle\Helper\Chart\LineChart;
-use Mautic\CoreBundle\Helper\InputHelper;
 use Mautic\CoreBundle\Model\AuditLogModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
-use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 
 /**
  * Trait MediaAccountDetailsTrait.
  */
 trait MediaAccountDetailsTrait
 {
-
     /**
      * @param MediaAccount $mediaAccount
      * @param array|null   $filters
