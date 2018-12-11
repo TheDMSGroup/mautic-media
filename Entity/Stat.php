@@ -16,8 +16,6 @@ use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 
 /**
  * Class Stat.
- *
- * Entity is used to track statistics around Contact Clients.
  */
 class Stat
 {
@@ -118,8 +116,8 @@ class Stat
     /** @var int $id */
     private $id;
 
-    /** @var int contactClientId */
-    private $contactClientId = 0;
+    /** @var int mediaAccountId */
+    private $mediaAccountId = 0;
 
     /** @var string $type */
     private $type = '';
@@ -150,55 +148,55 @@ class Stat
         $builder = new ClassMetadataBuilder($metadata);
 
         $builder->setTable('media_account_stats')
-            ->setCustomRepositoryClass('MauticPlugin\MauticContactClientBundle\Entity\StatRepository');
+            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\StatRepository');
 
         $builder->addId();
 
-        $builder->addNamedField('contactClientId', 'integer', 'contactclient_id', true);
+        $builder->addNamedField('mediaAccountId', 'integer', 'media_account_id', true);
 
         $builder->addField('type', 'string');
 
         $builder->addDateAdded();
 
-        $builder->createField('attribution', 'decimal')
-            ->precision(19)
-            ->scale(4)
-            ->nullable()
-            ->build();
+        // $builder->createField('attribution', 'decimal')
+        //     ->precision(19)
+        //     ->scale(4)
+        //     ->nullable()
+        //     ->build();
 
         $builder->addNamedField('contactId', 'integer', 'contact_id', true);
         $builder->addNamedField('utmSource', 'string', 'utm_source', true);
         $builder->addNamedField('campaignId', 'integer', 'campaign_id', false);
         $builder->addNamedField('eventId', 'integer', 'event_id', false);
 
-        $builder->addIndex(
-            ['contactclient_id', 'type', 'date_added'],
-            'contactclient_type_date_added'
-        );
+        // $builder->addIndex(
+        //     ['contactclient_id', 'type', 'date_added'],
+        //     'contactclient_type_date_added'
+        // );
 
-        $builder->addIndex(
-            ['contactclient_id', 'type', 'utm_source', 'date_added'],
-            'contactclient_type_utm_source_date_added'
-        );
+        // $builder->addIndex(
+        //     ['contactclient_id', 'type', 'utm_source', 'date_added'],
+        //     'contactclient_type_utm_source_date_added'
+        // );
 
-        $builder->addIndex(
-            ['contactclient_id', 'utm_source'],
-            'contactclient_utm_source'
-        );
-        $builder->addIndex(
-            ['contact_id'],
-            'contact_id'
-        );
+        // $builder->addIndex(
+        //     ['contactclient_id', 'utm_source'],
+        //     'contactclient_utm_source'
+        // );
+        // $builder->addIndex(
+        //     ['contact_id'],
+        //     'contact_id'
+        // );
 
-        $builder->addIndex(
-            ['contact_id', 'contactclient_id'],
-            'contact_id_contactclient_id'
-        );
+        // $builder->addIndex(
+        //     ['contact_id', 'contactclient_id'],
+        //     'contact_id_contactclient_id'
+        // );
 
-        $builder->addIndex(
-            ['campaign_id', 'date_added'],
-            'campaign_id_date_added'
-        );
+        // $builder->addIndex(
+        //     ['campaign_id', 'date_added'],
+        //     'campaign_id_date_added'
+        // );
     }
 
     /**
@@ -327,19 +325,19 @@ class Stat
     /**
      * @return int
      */
-    public function getContactClientId()
+    public function getMediaAccountId()
     {
-        return $this->contactClientId;
+        return $this->mediaAccountId;
     }
 
     /**
-     * @param int $contactClientId
+     * @param int $mediaAccountId
      *
      * @return $this
      */
-    public function setContactClientId($contactClientId)
+    public function setMediaAccountId($mediaAccountId)
     {
-        $this->contactClientId = $contactClientId;
+        $this->mediaAccountId = $mediaAccountId;
 
         return $this;
     }
