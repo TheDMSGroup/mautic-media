@@ -80,7 +80,7 @@ return [
                 'access'    => 'plugin:media:items:view',
                 'id'        => 'mautic_media_root',
                 'iconClass' => 'fa-money',
-                // 'priority'  => 35,
+                'priority'  => 10,
                 'checks'    => [
                     'integration' => [
                         'Media' => [
