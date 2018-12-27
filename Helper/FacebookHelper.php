@@ -13,6 +13,8 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 
 /**
  * Class FacebookHelper.
+ *
+ * https://developers.facebook.com/docs/marketing-api/sdks/#install-facebook-sdks
  */
 class FacebookHelper
 {
@@ -41,6 +43,7 @@ class FacebookHelper
         );
     }
 
-    public function pullData() {
+    public function pullData()
+    {
     }
 }
