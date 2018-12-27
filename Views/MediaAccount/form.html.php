@@ -89,7 +89,7 @@ echo $view['form']->start($form);
                                     <?php echo $view['form']->row($form['client_secret']); ?>
                                 </div>
                                 <div class="col-md-12">
-                                    <?php echo $view['form']->row($form['refresh_token']); ?>
+                                    <?php echo $view['form']->row($form['token']); ?>
                                 </div>
                             </div>
                             <hr class="mnr-md mnl-md">
