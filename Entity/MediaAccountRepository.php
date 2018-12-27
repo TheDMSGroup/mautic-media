@@ -32,7 +32,7 @@ class MediaAccountRepository extends CommonRepository
         $q = $this->_em
             ->createQueryBuilder()
             ->select($alias)
-            ->from('MauticMediaBundle:Account', $alias, $alias.'.id');
+            ->from('MauticMediaBundle:MediaAccount', $alias, $alias.'.id');
 
         if (empty($args['iterator_mode'])) {
             $q->leftJoin($alias.'.category', 'c');

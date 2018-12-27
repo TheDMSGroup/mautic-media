@@ -11,7 +11,7 @@
 
 return [
     'name'        => 'Media',
-    'description' => 'Pulls cost data from media advertising services.',
+    'description' => 'Pulls cost data from media advertising services for consumption and use by other plugins.',
     'version'     => '1.0',
     'author'      => 'Mautic',
 
@@ -19,11 +19,11 @@ return [
         'main' => [
             'mautic_media_index'  => [
                 'path'       => '/media/{page}',
-                'controller' => 'MauticMediaBundle:Media:index',
+                'controller' => 'MauticMediaBundle:MediaAccount:index',
             ],
             'mautic_media_action' => [
                 'path'         => '/media/{objectAction}/{objectId}',
-                'controller'   => 'MauticMediaBundle:Media:execute',
+                'controller'   => 'MauticMediaBundle:MediaAccount:execute',
                 'requirements' => [
                     'objectAction' => '\w+',
                     'objectId'     => '\w+',
@@ -34,17 +34,17 @@ return [
     'services' => [
         'forms'        => [
             'mautic.media.form.type.mediashow_list' => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MadiaShowType',
+                'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MediaAccountShowType',
                 'arguments' => 'router',
                 'alias'     => 'mediashow_list',
             ],
             'mautic.media.form.type.media_list'     => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MadiaListType',
+                'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MediaAccountListType',
                 'arguments' => 'mautic.media.model.media',
                 'alias'     => 'media_list',
             ],
             'mautic.media.form.type.media'          => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MadiaType',
+                'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MediaAccountType',
                 'alias'     => 'media',
                 'arguments' => 'mautic.security',
             ],

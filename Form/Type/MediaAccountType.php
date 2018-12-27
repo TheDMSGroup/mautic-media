@@ -11,11 +11,10 @@
 
 namespace MauticPlugin\MauticMediaBundle\Form\Type;
 
-// use Mautic\CoreBundle\Form\EventListener\CleanFormSubscriber;
 use Mautic\CoreBundle\Form\EventListener\FormExitSubscriber;
 use Mautic\CoreBundle\Security\Permissions\CorePermissions;
-use MauticPlugin\MauticMediaBundle\Constraints\JsonArray;
 use MauticPlugin\MauticMediaBundle\Constraints\JsonObject;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolverInterface;
@@ -72,10 +71,10 @@ class MediaAccountType extends AbstractType
         );
 
         $builder->add(
-            'account_map',
+            'campaign_map',
             'textarea',
             [
-                'label'       => 'mautic.media.form.account_map',
+                'label'       => 'mautic.media.form.campaign_map',
                 'label_attr'  => ['class' => 'control-label account-map'],
                 'attr'        => [
                     'class' => 'form-control account-map hide',
@@ -83,173 +82,6 @@ class MediaAccountType extends AbstractType
                 ],
                 'required'    => false,
                 'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'file_payload',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.file_payload',
-                'label_attr'  => ['class' => 'control-label file-payload'],
-                'attr'        => [
-                    'class' => 'form-control file-payload hide',
-                    'rows'  => 12,
-                ],
-                'required'    => false,
-                'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'website',
-            'url',
-            [
-                'label'      => 'mautic.media.form.website',
-                'label_attr' => ['class' => 'control-label'],
-                'attr'       => [
-                    'class'   => 'form-control',
-                    'tooltip' => 'mautic.media.form.website.tooltip',
-                ],
-                'required'   => false,
-            ]
-        );
-
-        $builder->add(
-            'attribution_default',
-            'number',
-            [
-                'label'      => 'mautic.media.form.attribution.default',
-                'label_attr' => ['class' => 'control-label'],
-                'attr'       => [
-                    'class'    => 'form-control',
-                    'preaddon' => 'fa fa-money',
-                    'tooltip'  => 'mautic.media.form.attribution.default.tooltip',
-                ],
-                'required'   => false,
-            ]
-        );
-
-        $builder->add(
-            'attribution_settings',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.attribution.settings',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class' => 'form-control hide',
-                    'rows'  => 12,
-                ],
-                'required'    => false,
-                'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'duplicate',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.duplicate',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class' => 'form-control hide',
-                    'rows'  => 12,
-                ],
-                'required'    => false,
-                'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'exclusive',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.exclusive',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class' => 'form-control hide',
-                    'rows'  => 12,
-                ],
-                'required'    => false,
-                'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'filter',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.filter',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class' => 'form-control hide',
-                    'rows'  => 12,
-                ],
-                'required'    => false,
-                'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'limits',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.limits',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class' => 'form-control hide',
-                    'rows'  => 12,
-                ],
-                'required'    => false,
-                'constraints' => [new JsonObject()],
-            ]
-        );
-
-        $builder->add(
-            'schedule_timezone',
-            'timezone',
-            [
-                'label'       => 'mautic.media.form.schedule_timezone',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class'   => 'form-control',
-                    'tooltip' => 'mautic.media.form.schedule_timezone.tooltip',
-                ],
-                'multiple'    => false,
-                'empty_value' => 'mautic.user.user.form.defaulttimezone',
-                'required'    => false,
-            ]
-        );
-
-        $builder->add(
-            'schedule_hours',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.schedule_hours',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class'   => 'form-control hide',
-                    'rows'    => 12,
-                    'tooltip' => 'mautic.media.form.schedule_hours.tooltip',
-                ],
-                'required'    => false,
-                'constraints' => [new JsonArray()],
-            ]
-        );
-
-        $builder->add(
-            'schedule_exclusions',
-            'textarea',
-            [
-                'label'       => 'mautic.media.form.schedule_exclusions',
-                'label_attr'  => ['class' => 'control-label'],
-                'attr'        => [
-                    'class'   => 'form-control hide',
-                    'rows'    => 12,
-                    'tooltip' => 'mautic.media.form.schedule_exclusions.tooltip',
-                ],
-                'required'    => false,
-                'constraints' => [new JsonArray()],
             ]
         );
 
@@ -315,14 +147,16 @@ class MediaAccountType extends AbstractType
         );
 
         $builder->add(
-            'type',
-            'button_group',
+            'provider',
+            'choice',
             [
-                'label'             => 'mautic.media.form.type',
-                'label_attr'        => ['class' => 'control-label media-type'],
+                'label'             => 'mautic.media.form.provider',
+                'label_attr'        => ['class' => 'control-label'],
                 'choices'           => [
-                    'mautic.media.form.type.api'  => 'api',
-                    'mautic.media.form.type.file' => 'file',
+                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_BING     => MediaAccount::PROVIDER_BING,
+                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_FACEBOOK => MediaAccount::PROVIDER_FACEBOOK,
+                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_GOOGLE   => MediaAccount::PROVIDER_GOOGLE,
+                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_SNAPCHAT => MediaAccount::PROVIDER_SNAPCHAT,
                 ],
                 'choices_as_values' => true,
                 'required'          => true,

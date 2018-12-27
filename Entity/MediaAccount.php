@@ -83,7 +83,7 @@ class MediaAccount extends FormEntity
         $metadata->addPropertyConstraint(
             'provider',
             new NotBlank(
-                ['message' => 'mautic.media.provider.required']
+                ['message' => 'mautic.media.form.provider.required']
             )
         );
     }
@@ -96,7 +96,7 @@ class MediaAccount extends FormEntity
         $builder = new ClassMetadataBuilder($metadata);
 
         $builder->setTable('media_account')
-            ->setCustomRepositoryClass('MauticPlugin\MauticAccountBundle\Entity\MediaAccountRepository');
+            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\MediaAccountRepository');
 
         $builder->addIdColumns();
 

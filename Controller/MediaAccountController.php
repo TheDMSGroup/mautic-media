@@ -198,7 +198,7 @@ class MediaAccountController extends FormController
                     $unit,
                     new \DateTime($chartFilterValues['date_from']),
                     new \DateTime($chartFilterValues['date_to']),
-                    $chartFilterValues['campaign']
+                    isset($chartFilterValues['campaign']) ? $chartFilterValues['campaign'] : null
                 );
             } else {
                 $stats = $model->getStatsBySource(
@@ -207,7 +207,7 @@ class MediaAccountController extends FormController
                     $chartFilterValues['type'],
                     new \DateTime($chartFilterValues['date_from']),
                     new \DateTime($chartFilterValues['date_to']),
-                    $chartFilterValues['campaign']
+                    isset($chartFilterValues['campaign']) ? $chartFilterValues['campaign'] : null
                 );
             }
 

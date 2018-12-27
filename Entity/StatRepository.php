@@ -21,19 +21,19 @@ class StatRepository extends CommonRepository
     /**
      * Fetch the base stat data from the database.
      *
-     * @param      $contactClientId
+     * @param      $mediaAccountId
      * @param      $type
      * @param null $fromDate
      * @param null $toDate
      *
      * @return array
      */
-    public function getStats($contactClientId, $type, $fromDate = null, $toDate = null)
+    public function getStats($mediaAccountId, $type, $fromDate = null, $toDate = null)
     {
         $q = $this->createQueryBuilder('s');
 
         $expr = $q->expr()->andX(
-            $q->expr()->eq('IDENTITY(s.mediaaccount)', (int) $contactClientId),
+            $q->expr()->eq('IDENTITY(s.media_account_id)', (int) $mediaAccountId),
             $q->expr()->eq('s.type', ':type')
         );
 
@@ -57,20 +57,20 @@ class StatRepository extends CommonRepository
     }
 
     /**
-     * @param                $contactClientId
+     * @param                $mediaAccountId
      * @param \DateTime|null $dateFrom
      * @param \DateTime|null $dateTo
      *
      * @return array
      */
-    public function getSourcesByMediaAccount($contactClientId, \DateTime $dateFrom = null, \DateTime $dateTo = null)
+    public function getSourcesByMediaAccount($mediaAccountId, \DateTime $dateFrom = null, \DateTime $dateTo = null)
     {
         $q = $this->getEntityManager()->getConnection()->createQueryBuilder();
 
         $q->select('distinct(s.utm_source)')
             ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
             ->where(
-                $q->expr()->eq('s.mediaaccount_id', (int) $contactClientId)
+                $q->expr()->eq('s.media_account_id', (int) $mediaAccountId)
             );
 
         if ($dateFrom && $dateTo) {

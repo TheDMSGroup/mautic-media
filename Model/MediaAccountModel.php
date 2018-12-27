@@ -88,7 +88,7 @@ class MediaAccountModel extends FormModel
      */
     public function getPermissionBase()
     {
-        return 'plugin:MediaAccount:items';
+        return 'plugin:media:items';
     }
 
     /**
@@ -114,7 +114,7 @@ class MediaAccountModel extends FormModel
         // Prevent clone action from complaining about extra fields.
         $options['allow_extra_fields'] = true;
 
-        return $formFactory->create('MediaAccount', $entity, $options);
+        return $formFactory->create('media', $entity, $options);
     }
 
     /**
@@ -249,7 +249,7 @@ class MediaAccountModel extends FormModel
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
         $stat  = new Stat();
 
-        $params = ['MediaAccount_id' => $MediaAccount->getId()];
+        $params = ['media_account_id' => $MediaAccount->getId()];
 
         if ($campaignId) {
             $params['campaign_id'] = $campaignId;
@@ -258,7 +258,7 @@ class MediaAccountModel extends FormModel
         foreach ($stat->getAllTypes() as $type) {
             $params['type'] = $type;
             $q              = $query->prepareTimeDataQuery(
-                'MediaAccount_stats',
+                'media_account_stats',
                 'date_added',
                 $params
             );
@@ -360,7 +360,7 @@ class MediaAccountModel extends FormModel
      */
     public function limitQueryToCreator(QueryBuilder $q)
     {
-        $q->join('t', MAUTIC_TABLE_PREFIX.'MediaAccount', 'm', 'e.id = t.MediaAccount_id')
+        $q->join('t', MAUTIC_TABLE_PREFIX.'MediaAccount', 'm', 'e.id = t.media_account_id')
             ->andWhere('m.created_by = :userId')
             ->setParameter('userId', $this->userHelper->getUser()->getId());
     }
@@ -402,7 +402,7 @@ class MediaAccountModel extends FormModel
         if (!empty($campaignId)) {
             $params['campaign_id'] = (int) $campaignId;
         }
-        $params['MediaAccount_id'] = $MediaAccount->getId();
+        $params['media_account_id'] = $MediaAccount->getId();
 
         $userTZ     = new \DateTime('now');
         $userTzName = $userTZ->getTimezone()->getName();
@@ -412,7 +412,7 @@ class MediaAccountModel extends FormModel
             foreach ($utmSources as $utmSource) {
                 $params['utm_source'] = empty($utmSource) ? ['expression' => 'isNull'] : $utmSource;
                 $q                    = $query->prepareTimeDataQuery(
-                    'MediaAccount_stats',
+                    'media_account_stats',
                     'date_added',
                     $params
                 );
@@ -466,7 +466,7 @@ class MediaAccountModel extends FormModel
             $params['type'] = Stat::TYPE_CONVERTED;
             // Add attribution to the chart.
             $q = $query->prepareTimeDataQuery(
-                'MediaAccount_stats',
+                'media_account_stats',
                 'date_added',
                 $params
             );

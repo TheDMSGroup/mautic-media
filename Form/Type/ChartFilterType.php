@@ -41,62 +41,8 @@ class ChartFilterType extends AbstractType
      */
     public function buildForm(FormBuilderInterface $builder, array $options)
     {
-        $request        = Request::createFromGlobals();
-        $mediaAccountId = $request->get('mediaaccount');
-
-        $campaigns = [];
-        /** @var Campaign $campaign */
-        foreach ($this->factory->getModel('mediaaccount')->getCampaigns($mediaAccountId) as $campaign) {
-            $campaigns[$campaign->getId()] = $campaign->getName();
-        }
-
-        $builder->add(
-            'campaign',
-            ChoiceType::class,
-            [
-                'choices'    => $campaigns,
-                'attr'       => [
-                    'class'   => 'form-control',
-                    'tooltip' => 'mautic.media.transactions.campaign_tooltip',
-                ],
-                'expanded'   => false,
-                'multiple'   => false,
-                'label'      => 'mautic.media.transactions.campaign_select',
-                'label_attr' => ['class' => 'control-label'],
-                'empty_data' => 'All Campaigns',
-                'required'   => false,
-                'disabled'   => false,
-                'data'       => $options['data']['campaign'],
-            ]
-        );
-
-        $typeChoices = [
-            // 'All Events' => 'All Events',
-            // ''           => '--- By Source ---',
-            'revenue' => 'Revenue',
-        ];
-
-        $builder->add(
-            'type',
-            'choice',
-            [
-                'choices'     => $typeChoices,
-                'attr'        => [
-                    'class'   => 'form-control',
-                    'tooltip' => 'mautic.media.transactions.event_type_tooltip',
-                ],
-                'expanded'    => false,
-                'multiple'    => false,
-                'label'       => 'mautic.media.transactions.event_type',
-                'empty_data'  => 'All Events',
-                'required'    => false,
-                'disabled'    => false,
-                'placeholder' => 'All Sources By Events',
-                'group_by'    => function ($value, $key, $index) {
-                    return 'By Source';
-                },
-            ]
-        );
+        // $request        = Request::createFromGlobals();
+        // $mediaAccountId = $request->get('mediaaccount');
 
         $humanFormat = 'M j, Y';
 
