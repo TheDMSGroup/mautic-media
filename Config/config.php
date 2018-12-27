@@ -32,6 +32,33 @@ return [
         ],
     ],
     'services' => [
+        'events'       => [
+            'mautic.media.subscriber.stat'  => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatSubscriber',
+                'arguments' => [
+                    'mautic.media.model.media',
+                ],
+            ],
+            'mautic.media.subscriber.media' => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\MediaAccountSubscriber',
+                'arguments' => [
+                    'router',
+                    'mautic.helper.ip_lookup',
+                    'mautic.core.model.auditlog',
+                    'mautic.page.model.trackable',
+                    'mautic.page.helper.token',
+                    'mautic.asset.helper.token',
+                    'mautic.form.helper.token',
+                    'mautic.media.model.media',
+                ],
+            ],
+            'mautic.media.stats.subscriber' => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatsSubscriber',
+                'arguments' => [
+                    'doctrine.orm.entity_manager',
+                ],
+            ],
+        ],
         'forms'        => [
             'mautic.media.form.type.mediashow_list' => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\MediaAccountShowType',

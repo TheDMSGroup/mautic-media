@@ -76,7 +76,7 @@ if ('index' == $tmpl) {
             </thead>
             <tbody>
             <?php foreach ($items as $item): ?>
-            <?php /** @var $item \MauticPlugin\MauticMediaBundle\Entity\MediaAccount */ ?>
+                <?php /** @var $item \MauticPlugin\MauticMediaBundle\Entity\MediaAccount */ ?>
                 <tr>
                     <td>
                         <?php
@@ -123,7 +123,7 @@ if ('index' == $tmpl) {
                     </td>
                     <td class="visible-md visible-lg">
                         <?php $category = $item->getCategory(); ?>
-                        <?php $catName  = ($category) ? $category->getTitle() : $view['translator']->trans(
+                        <?php $catName = ($category) ? $category->getTitle() : $view['translator']->trans(
                             'mautic.core.form.uncategorized'
                         ); ?>
                         <?php $color = ($category) ? '#'.$category->getColor() : 'inherit'; ?>

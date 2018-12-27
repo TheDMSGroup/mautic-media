@@ -11,12 +11,9 @@
 
 namespace MauticPlugin\MauticMediaBundle\Form\Type;
 
-use Mautic\CampaignBundle\Entity\Campaign;
 use Mautic\CoreBundle\Factory\MauticFactory;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Class FilterType.
