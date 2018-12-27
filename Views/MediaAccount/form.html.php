@@ -42,9 +42,16 @@ echo $view['form']->start($form);
                         </a>
                     </li>
                     <li>
-                        <a href="#duplicate" role="tab" data-toggle="tab" class="media-tab">
-                            <i class="fa fa-window-restore fa-lg pull-left"></i><?php echo $view['translator']->trans(
+                        <a href="#campaigns" role="tab" data-toggle="tab" class="media-tab">
+                            <i class="fa fa-clock-o fa-lg pull-left"></i><?php echo $view['translator']->trans(
                                 'mautic.media.form.group.campaigns'
+                            ); ?>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#credentials" role="tab" data-toggle="tab" class="media-tab">
+                            <i class="fa fa-key fa-lg pull-left"></i><?php echo $view['translator']->trans(
+                                'mautic.media.form.group.credentials'
                             ); ?>
                         </a>
                     </li>
@@ -56,8 +63,11 @@ echo $view['form']->start($form);
                     <div class="pa-md">
                         <div class="form-group mb-0">
                             <div class="row">
-                                <div class="col-md-5">
+                                <div class="col-md-6">
                                     <?php echo $view['form']->row($form['name']); ?>
+                                </div>
+                                <div class="col-md-6">
+                                    <?php echo $view['form']->row($form['provider']); ?>
                                 </div>
                             </div>
                             <div class="row">
@@ -65,6 +75,24 @@ echo $view['form']->start($form);
                                     <?php echo $view['form']->row($form['description']); ?>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade bdr-rds-0 bdr-w-0" id="credentials">
+                    <div class="pa-md">
+                        <div class="form-group mb-0">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <?php echo $view['form']->row($form['client_id']); ?>
+                                </div>
+                                <div class="col-md-12">
+                                    <?php echo $view['form']->row($form['client_secret']); ?>
+                                </div>
+                                <div class="col-md-12">
+                                    <?php echo $view['form']->row($form['refresh_token']); ?>
+                                </div>
+                            </div>
+                            <hr class="mnr-md mnl-md">
                         </div>
                     </div>
                 </div>

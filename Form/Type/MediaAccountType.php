@@ -162,6 +162,40 @@ class MediaAccountType extends AbstractType
             ]
         );
 
+        $builder->add(
+            'client_id',
+            'text',
+            [
+                'label'      => 'mautic.media.form.client_id',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => ['class' => 'form-control'],
+                'required'   => false,
+            ]
+        );
+
+        $builder->add(
+            'client_secret',
+            'text',
+            [
+                'label'      => 'mautic.media.form.client_secret',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => ['class' => 'form-control'],
+                'required'   => false,
+            ]
+        );
+
+        $builder->add(
+            'refresh_token',
+            'text',
+            [
+                'label'      => 'mautic.media.form.refresh_token',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => ['class' => 'form-control'],
+                'required'   => false,
+            ]
+        );
+
+
         if (!empty($options['action'])) {
             $builder->setAction($options['action']);
         }
