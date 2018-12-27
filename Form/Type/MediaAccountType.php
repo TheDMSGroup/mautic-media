@@ -185,10 +185,10 @@ class MediaAccountType extends AbstractType
         );
 
         $builder->add(
-            'refresh_token',
+            'token',
             'text',
             [
-                'label'      => 'mautic.media.form.refresh_token',
+                'label'      => 'mautic.media.form.token',
                 'label_attr' => ['class' => 'control-label'],
                 'attr'       => ['class' => 'form-control'],
                 'required'   => false,

@@ -523,9 +523,12 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
+        $clientId     = $mediaAccount->getClientId();
+        $clientSecret = $mediaAccount->getClientSecret();
+        $token        = $mediaAccount->getToken();
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
-                $helper = new FacebookHelper();
+                $helper = new FacebookHelper($clientId, $clientSecret, $token);
                 break;
 
             case MediaAccount::PROVIDER_BING:
@@ -539,7 +542,6 @@ class MediaAccountModel extends FormModel
             case MediaAccount::PROVIDER_SNAPCHAT:
                 $helper = new GoogleHelper();
                 break;
-
 
         }
     }
