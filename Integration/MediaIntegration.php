@@ -12,7 +12,6 @@
 namespace MauticPlugin\MauticMediaBundle\Integration;
 
 use Mautic\PluginBundle\Integration\AbstractIntegration;
-use MauticPlugin\MauticMediaBundle\Helper\SettingsHelper;
 
 /**
  * Class MediaIntegration.

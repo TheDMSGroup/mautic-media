@@ -19,12 +19,14 @@ use Mautic\FormBundle\Helper\TokenHelper as FormTokenHelper;
 use Mautic\PageBundle\Helper\TokenHelper as PageTokenHelper;
 use Mautic\PageBundle\Model\PageModel;
 use Mautic\PageBundle\Model\TrackableModel;
-use MauticPlugin\MauticMediaBundle\Entity\EventRepository;
-use MauticPlugin\MauticMediaBundle\Event\MediaEvent;
-use MauticPlugin\MauticMediaBundle\Event\MediaTimelineEvent;
+use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 use Symfony\Component\Routing\RouterInterface;
+
+// use MauticPlugin\MauticMediaBundle\Entity\EventRepository;
+// use MauticPlugin\MauticMediaBundle\Event\MediaEvent;
+// use MauticPlugin\MauticMediaBundle\Event\MediaTimelineEvent;
 
 /**
  * Class MediaSubscriber.
@@ -120,11 +122,11 @@ class MediaAccountSubscriber extends CommonSubscriber
     /**
      * Add an entry to the audit log.
      *
-     * @param MediaEvent $event
+     * @param MediaAccountEvent $event
      */
-    public function onMediaPostSave(MediaEvent $event)
+    public function onMediaPostSave(MediaAccountEvent $event)
     {
-        $entity = $event->getMedia();
+        $entity = $event->getMediaAccount();
         if ($details = $event->getChanges()) {
             $log = [
                 'bundle'    => 'media',
@@ -141,11 +143,11 @@ class MediaAccountSubscriber extends CommonSubscriber
     /**
      * Add a delete entry to the audit log.
      *
-     * @param MediaEvent $event
+     * @param MediaAccountEvent $event
      */
-    public function onMediaDelete(MediaEvent $event)
+    public function onMediaDelete(MediaAccountEvent $event)
     {
-        $entity = $event->getMedia();
+        $entity = $event->getMediaAccount();
         $log    = [
             'bundle'    => 'media',
             'object'    => 'media',
@@ -156,5 +158,4 @@ class MediaAccountSubscriber extends CommonSubscriber
         ];
         $this->auditLogModel->writeToLog($log);
     }
-
 }

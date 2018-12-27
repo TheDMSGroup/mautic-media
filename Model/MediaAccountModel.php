@@ -21,6 +21,9 @@ use Mautic\LeadBundle\Model\LeadModel as ContactModel;
 use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
+use MauticPlugin\MauticMediaBundle\MediaEvents;
+use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
@@ -501,5 +504,50 @@ class MediaAccountModel extends FormModel
         }
 
         return $chart->render();
+    }
+
+    /**
+     * @param            $action
+     * @param            $entity
+     * @param bool       $isNew
+     * @param Event|null $event
+     *
+     * @return MediaAccountEvent|Event|\Symfony\Component\EventDispatcher\Event|null
+     */
+    protected function dispatchEvent($action, &$entity, $isNew = false, Event $event = null)
+    {
+        if (!$entity instanceof MediaAccount) {
+            throw new MethodNotAllowedHttpException(['MediaAccount']);
+        }
+
+        switch ($action) {
+            case 'pre_save':
+                $name = MediaEvents::PRE_SAVE;
+                break;
+            case 'post_save':
+                $name = MediaEvents::POST_SAVE;
+                break;
+            case 'pre_delete':
+                $name = MediaEvents::PRE_DELETE;
+                break;
+            case 'post_delete':
+                $name = MediaEvents::POST_DELETE;
+                break;
+            default:
+                return null;
+        }
+
+        if ($this->dispatcher->hasListeners($name)) {
+            if (empty($event)) {
+                $event = new MediaAccountEvent($entity, $isNew);
+                $event->setEntityManager($this->em);
+            }
+
+            $this->dispatcher->dispatch($name, $event);
+
+            return $event;
+        } else {
+            return null;
+        }
     }
 }
