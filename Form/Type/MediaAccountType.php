@@ -195,7 +195,6 @@ class MediaAccountType extends AbstractType
             ]
         );
 
-
         if (!empty($options['action'])) {
             $builder->setAction($options['action']);
         }

@@ -9,7 +9,10 @@
   ],
   "type": "mautic-plugin",
   "require": {
-    "mautic/composer-plugin": "^1.0"
+    "mautic/composer-plugin": "^1.0",
+    "facebook/graph-sdk": "^5.7",
+    "googleads/googleads-php-lib": "^38.0",
+    "microsoft/bingads": "v0.12.0.2"
   },
   "license": "GPL-3.0-only",
   "authors": [

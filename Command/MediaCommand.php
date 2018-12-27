@@ -12,8 +12,8 @@
 namespace MauticPlugin\MauticMediaBundle\Command;
 
 use Mautic\CoreBundle\Command\ModeratedCommand;
-use MauticPlugin\MauticMediaBundle\Helper\SettingsHelper;
-use MauticPlugin\MauticMediaBundle\Model\MediaModel;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
+use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -33,12 +33,20 @@ class MediaCommand extends ModeratedCommand
         $this->setName('mautic:media:pull')
             ->setDescription('Pull media spend statistics.')
             ->addOption(
-                '--limit',
-                '-l',
+                'limit',
+                'l',
                 InputOption::VALUE_OPTIONAL,
                 'Maximum number of accounts to pull.',
                 50
+            )
+            ->addOption(
+                'media-account',
+                'i',
+                InputOption::VALUE_OPTIONAL,
+                'The ID of the media account you wish to update.',
+                null
             );
+
         parent::configure();
     }
 
@@ -54,15 +62,45 @@ class MediaCommand extends ModeratedCommand
         if (!$this->checkRunStatus($input, $output)) {
             return 0;
         }
-        $limit = $input->getOption('limit');
+        $limit          = $input->getOption('limit');
+        $mediaAccountId = $input->getOption('media-account');
 
-        /** @var SettingsHelper $settingsHelper */
-        $settingsHelper = $container->get('mautic.media.helper.settings');
-        $sharedCache    = (bool) $settingsHelper->getShareCaches();
+        /** @var MediaAccountModel $model */
+        $model = $container->get('mautic.media.model.media');
+        $repo  = $model->getRepository();
 
-        /** @var MediaModel $model */
-        $model = $container->get('mautic.media.model.warm');
-        $model->warm($limit, $sharedCache);
+        $filters = [
+            'filter' => [
+                'force' => [
+                    [
+                        'column' => 'm.isPublished',
+                        'expr'   => 'eq',
+                        'value'  => true,
+                    ],
+                ],
+            ],
+            'limit'  => $limit,
+        ];
+        if ($mediaAccountId) {
+            $filters['filter']['force'][] = [
+                'column' => 'm.id',
+                'expr'   => 'eq',
+                'value'  => (int) $mediaAccountId,
+            ];
+        }
+        $mediaAccounts = $repo->getEntities($filters);
+        foreach ($mediaAccounts as $id => $mediaAccount) {
+            /** @var $mediaAccount MediaAccount */
+            if (!$mediaAccount->getIsPublished()) {
+                $output->writeln(
+                    '<error>The Media Account '.$mediaAccount->getName(
+                    ).' is unpublished. Please publish it to pull data.</error>'
+                );
+                continue;
+            }
+            $output->writeln('<info>Pulling data for Media Account '.$mediaAccount->getName().'</info>');
+            $model->pullData($mediaAccount);
+        }
 
         $this->completeRun();
 
