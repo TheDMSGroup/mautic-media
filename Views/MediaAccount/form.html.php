@@ -9,21 +9,21 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 $view->extend('MauticCoreBundle:Default:content.html.php');
-$view['slots']->set('mauticContent', 'contactclient');
+$view['slots']->set('mauticContent', 'media');
 
 $header = ($entity->getId())
     ?
     $view['translator']->trans(
-        'mautic.contactclient.edit',
+        'mautic.media.edit',
         ['%name%' => $view['translator']->trans($entity->getName())]
     )
     :
-    $view['translator']->trans('mautic.contactclient.new');
+    $view['translator']->trans('mautic.media.new');
 $view['slots']->set('headerTitle', $header);
 
-echo $view['assets']->includeScript('plugins/MauticContactClientBundle/Assets/build/contactclient.min.js', 'contactclientOnLoad', 'contactclientOnLoad');
-echo $view['assets']->includeStylesheet('plugins/MauticContactClientBundle/Assets/build/contactclient.min.css');
-echo $view['assets']->includeStylesheet('https://fonts.googleapis.com/css?family=Roboto+Mono');
+// echo $view['assets']->includeScript('plugins/MauticMediaBundle/Assets/build/media.min.js', 'mediaOnLoad', 'mediaOnLoad');
+// echo $view['assets']->includeStylesheet('plugins/MauticMediaBundle/Assets/build/media.min.css');
+// echo $view['assets']->includeStylesheet('https://fonts.googleapis.com/css?family=Roboto+Mono');
 echo $view['form']->start($form);
 ?>
 
@@ -31,55 +31,55 @@ echo $view['form']->start($form);
     <div class="box-layout">
 
         <!-- tab container -->
-        <div class="col-md-9 bg-white height-auto bdr-l contactclient-left">
+        <div class="col-md-9 bg-white height-auto bdr-l media-left">
             <div class="">
                 <ul class="nav nav-tabs pr-md pl-md mt-10">
                     <li class="active">
-                        <a href="#details" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#details" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-cog fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.details'
+                                'mautic.media.form.group.details'
                             ); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="#duplicate" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#duplicate" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-window-restore fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.duplicate'
+                                'mautic.media.form.group.duplicate'
                             ); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="#exclusive" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#exclusive" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-user-secret fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.exclusive'
+                                'mautic.media.form.group.exclusive'
                             ); ?>
                         </a>
                     </li>
                     <li class="hide">
-                        <a href="#filter" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#filter" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-filter fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.filter'
+                                'mautic.media.form.group.filter'
                             ); ?>
                         </a>
                     </li>
                     <li id="payload-tab">
-                        <a href="#payload" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#payload" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-paper-plane fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.payload'
+                                'mautic.media.form.group.payload'
                             ); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="#attribution" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#attribution" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-calculator fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.attribution'
+                                'mautic.media.form.group.attribution'
                             ); ?>
                         </a>
                     </li>
                     <li>
-                        <a href="#schedule" role="tab" data-toggle="tab" class="contactclient-tab">
+                        <a href="#schedule" role="tab" data-toggle="tab" class="media-tab">
                             <i class="fa fa-calendar-check-o fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.group.schedule'
+                                'mautic.media.form.group.schedule'
                             ); ?>
                         </a>
                     </li>
@@ -115,7 +115,7 @@ echo $view['form']->start($form);
                             <div class="row">
                                 <div class="col-sm-6">
                                     <?php echo $view['form']->row($form['attribution_default']); ?>
-                                    <div id="contactclient_attribution_settings">
+                                    <div id="media_attribution_settings">
                                         <?php echo $view['form']->row($form['attribution_settings']); ?>
                                     </div>
                                 </div>
@@ -177,7 +177,7 @@ echo $view['form']->start($form);
                                                     data-toggle="button" aria-pressed="false" autocomplete="off">
                                                 <i class="fa fa-check-circle text-success"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.test'
+                                                    'mautic.media.form.test'
                                                 ); ?>
                                             </button>
                                         </div>
@@ -188,7 +188,7 @@ echo $view['form']->start($form);
                                                     autocomplete="off">
                                                 <i class="fa fa-low-vision"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.simple'
+                                                    'mautic.media.form.simple'
                                                 ); ?>
                                             </button>
                                             <button type="button" class="btn btn-default btn-nospin"
@@ -196,7 +196,7 @@ echo $view['form']->start($form);
                                                     autocomplete="off">
                                                 <i class="fa fa-eye"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.advanced'
+                                                    'mautic.media.form.advanced'
                                                 ); ?>
                                             </button>
                                             <button type="button" class="btn btn-default btn-nospin"
@@ -204,7 +204,7 @@ echo $view['form']->start($form);
                                                     autocomplete="off">
                                                 <i class="fa fa-code"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.code'
+                                                    'mautic.media.form.code'
                                                 ); ?>
                                             </button>
                                         </div>
@@ -215,7 +215,7 @@ echo $view['form']->start($form);
                                             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                                             <h4 class="modal-title" id="testResultsModalTitle">
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.test_results'
+                                                    'mautic.media.form.test_results'
                                                 ); ?>
                                             </h4>
                                         </div>
@@ -234,7 +234,7 @@ echo $view['form']->start($form);
                                                 <div class="col-md-10 col-md-offset-1 mt-10 mb-10">
                                                     <label>
                                                         <?php echo $view['translator']->trans(
-                                                            'mautic.contactclient.form.test_results.logs'
+                                                            'mautic.media.form.test_results.logs'
                                                         ); ?>
                                                     </label>
                                                 </div>
@@ -258,7 +258,7 @@ echo $view['form']->start($form);
                                                     data-toggle="button" aria-pressed="false" autocomplete="off">
                                                 <i class="fa fa-check-circle text-success"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.test'
+                                                    'mautic.media.form.test'
                                                 ); ?>
                                             </button>
                                         </div>
@@ -269,7 +269,7 @@ echo $view['form']->start($form);
                                                     autocomplete="off">
                                                 <i class="fa fa-low-vision"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.simple'
+                                                    'mautic.media.form.simple'
                                                 ); ?>
                                             </button>
                                             <button type="button" class="btn btn-default btn-nospin hide"
@@ -277,7 +277,7 @@ echo $view['form']->start($form);
                                                     autocomplete="off">
                                                 <i class="fa fa-eye"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.advanced'
+                                                    'mautic.media.form.advanced'
                                                 ); ?>
                                             </button>
                                             <button type="button" class="btn btn-default btn-nospin"
@@ -285,7 +285,7 @@ echo $view['form']->start($form);
                                                     autocomplete="off">
                                                 <i class="fa fa-code"></i>
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.code'
+                                                    'mautic.media.form.code'
                                                 ); ?>
                                             </button>
                                         </div>
@@ -296,7 +296,7 @@ echo $view['form']->start($form);
                                             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                                             <h4 class="modal-title" id="testResultsModalTitle">
                                                 <?php echo $view['translator']->trans(
-                                                    'mautic.contactclient.form.test_results'
+                                                    'mautic.media.form.test_results'
                                                 ); ?>
                                             </h4>
                                         </div>
@@ -315,7 +315,7 @@ echo $view['form']->start($form);
                                                 <div class="col-md-10 col-md-offset-1 mt-10 mb-10">
                                                     <label>
                                                         <?php echo $view['translator']->trans(
-                                                            'mautic.contactclient.form.test_results.logs'
+                                                            'mautic.media.form.test_results.logs'
                                                         ); ?>
                                                     </label>
                                                 </div>
@@ -340,7 +340,7 @@ echo $view['form']->start($form);
                                 <div class="col-sm-12">
                                     <?php echo $view['form']->row($form['schedule_timezone']); ?>
                                     <?php echo $view['form']->row($form['schedule_hours']); ?>
-                                    <div id="contactclient_schedule_hours_widget"></div>
+                                    <div id="media_schedule_hours_widget"></div>
                                     <?php echo $view['form']->row($form['schedule_exclusions']); ?>
                                 </div>
                             </div>
@@ -354,7 +354,7 @@ echo $view['form']->start($form);
         <!--/ tab container -->
 
         <!-- container -->
-        <div class="col-md-3 bg-white height-auto contactclient-right">
+        <div class="col-md-3 bg-white height-auto media-right">
             <div class="pr-lg pl-lg pt-md pb-md">
                 <?php
                 echo $view['form']->row($form['category']);

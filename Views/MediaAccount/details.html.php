@@ -9,11 +9,11 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 $view->extend('MauticCoreBundle:Default:content.html.php');
-$view['slots']->set('mauticContent', 'contactclient');
+$view['slots']->set('mauticContent', 'media');
 $view['slots']->set('headerTitle', $item->getName());
 
-echo $view['assets']->includeScript('plugins/MauticContactClientBundle/Assets/build/contactclient.min.js', 'contactclientOnLoad', 'contactclientOnLoad');
-echo $view['assets']->includeStylesheet('plugins/MauticContactClientBundle/Assets/build/contactclient.min.css');
+// echo $view['assets']->includeScript('plugins/MauticMediaBundle/Assets/build/media.min.js', 'mediaOnLoad', 'mediaOnLoad');
+// echo $view['assets']->includeStylesheet('plugins/MauticMediaBundle/Assets/build/media.min.css');
 
 $view['slots']->set(
     'actions',
@@ -23,25 +23,23 @@ $view['slots']->set(
             'item'            => $item,
             'templateButtons' => [
                 'edit'   => $view['security']->hasEntityAccess(
-                    $permissions['plugin:contactclient:items:editown'],
-                    $permissions['plugin:contactclient:items:editother'],
+                    $permissions['plugin:media:items:editown'],
+                    $permissions['plugin:media:items:editother'],
                     $item->getCreatedBy()
                 ),
-                'clone'  => $permissions['plugin:contactclient:items:create'],
+                'clone'  => $permissions['plugin:media:items:create'],
                 'delete' => $view['security']->hasEntityAccess(
-                    $permissions['plugin:contactclient:items:deleteown'],
-                    $permissions['plugin:contactclient:items:deleteother'],
+                    $permissions['plugin:media:items:deleteown'],
+                    $permissions['plugin:media:items:deleteother'],
                     $item->getCreatedBy()
                 ),
-                'close'  => $view['security']->isGranted('plugin:contactclient:items:view'),
+                'close'  => $view['security']->isGranted('plugin:media:items:view'),
             ],
-            'routeBase'       => 'contactclient',
-            'langVar'         => 'mautic.contactclient',
+            'routeBase'       => 'media',
+            'langVar'         => 'mautic.media',
         ]
     )
 );
-
-$website = $item->getWebsite();
 
 ?>
 <!-- start: box layout -->
@@ -66,7 +64,7 @@ $website = $item->getWebsite();
             <!--/ form detail header -->
 
             <!-- form detail collapseable -->
-            <div class="collapse" id="contactclient-details">
+            <div class="collapse" id="media-details">
                 <div class="pr-md pl-md pb-md">
                     <div class="panel shd-none mb-0">
                         <table class="table table-bordered table-striped mb-0">
@@ -88,7 +86,7 @@ $website = $item->getWebsite();
             <div class="hr-expand nm">
                 <span data-toggle="tooltip" title="<?php echo $view['translator']->trans('mautic.core.details'); ?>">
                     <a href="javascript:void(0)" class="arrow text-muted collapsed" data-toggle="collapse"
-                       data-target="#contactclient-details"><span
+                       data-target="#media-details"><span
                                 class="caret"></span> <?php echo $view['translator']->trans(
                             'mautic.core.details'
                         ); ?></a>
@@ -105,12 +103,12 @@ $website = $item->getWebsite();
                                 <div class="col-xs-4 va-m">
                                     <h5 class="text-white dark-md fw-sb mb-xs">
                                         <span class="fa fa-line-chart"></span>
-                                        <?php echo $view['translator']->trans('mautic.contactclient.graph.stats'); ?>
+                                        <?php echo $view['translator']->trans('mautic.media.graph.stats'); ?>
                                     </h5>
                                 </div>
                                 <div class="col-xs-8 va-m">
                                     <?php echo $view->render(
-                                        'MauticContactClientBundle:Helper:graph_chartfilter.html.php',
+                                        'MauticMediaBundle:Helper:graph_chartfilter.html.php',
                                         ['chartFilterForm' => $chartFilterForm, 'class' => 'pull-right']
                                     ); ?>
                                 </div>
@@ -128,59 +126,12 @@ $website = $item->getWebsite();
             <!--/ stats -->
 
             <!-- tabs controls -->
-            <ul class="nav nav-tabs pr-md pl-md mt-10">
-                <li class="active">
-                    <a href="#transactions-container" role="tab" data-toggle="tab">
-                        <span class="label label-primary mr-sm" id="TransactionsCount">
-                            <?php //echo $transactions['total'];?>
-                        </span>
-                        <?php echo $view['translator']->trans('mautic.contactclient.transactions.events'); ?>
-                    </a>
-                </li>
-                <?php if ($files['total']): ?>
-                    <li class="">
-                        <a href="#files-container" role="tab" data-toggle="tab">
-                    <span class="label label-primary mr-sm" id="FileCount">
-                        <?php echo $files['total']; ?>
-                    </span>
-                            <?php echo $view['translator']->trans('mautic.contactclient.transactions.files'); ?>
-                        </a>
-                    </li>
-                <?php endif; ?>
-
-                <?php echo $view['content']->getCustomContent('tabs', $mauticTemplateVars); ?>
+            <ul class="nav nav-tabs pr-md pl-md mt-10 hide">
             </ul>
             <!--/ tabs controls -->
 
             <!-- start: tab-content -->
-            <div class="tab-content pl-md pr-md pb-md">
-                <div class="tab-pane fade in active bdr-w-0" id="transactions-container">
-                    <?php echo $view->render(
-                        'MauticContactClientBundle:Transactions:index.html.php',
-                        [
-                            'contactClient' => $item,
-                            'tmpl'          => 'index',
-                        ]
-                    ); ?>
-                </div>
-                <?php if ($files['total']): ?>
-                    <div class="tab-pane fade in bdr-w-0" id="files-container">
-                        <?php echo $view->render(
-                            'MauticContactClientBundle:Files:list.html.php',
-                            [
-                                'contactClient' => $item,
-                                'files'         => $files,
-                                'order'         => $order,
-                                'tmpl'          => 'index',
-                            ]
-                        ); ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- custom content -->
-                <?php echo $view['content']->getCustomContent('tabs.content', $mauticTemplateVars); ?>
-                <!-- end: custom content -->
-
+            <div class="tab-content pl-md pr-md pb-md hide">
             </div>
             <!--/ end: tab-content -->
         </div>
@@ -189,23 +140,6 @@ $website = $item->getWebsite();
 
     <!-- right section -->
     <div class="col-md-3 bg-white bdr-l height-auto">
-        <!-- form HTML -->
-        <?php if ($website): ?>
-            <div class="pa-md">
-                <div class="panel bg-info bg-light-lg bdr-w-0 mb-0">
-                    <div class="panel-body">
-                        <h5 class="fw-sb mb-sm"><?php echo $view['translator']->trans(
-                                'mautic.contactclient.form.website'
-                            ); ?></h5>
-                        <p class="mb-sm"><a href="<?php echo $website; ?>" target="_blank"><?php echo $website; ?></a>
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <hr class="hr-w-2" style="width:50%">
-        <?php endif; ?>
-        <!--/ form HTML -->
 
         <div class="panel bg-transparent shd-none bdr-rds-0 bdr-w-0 mb-0">
 

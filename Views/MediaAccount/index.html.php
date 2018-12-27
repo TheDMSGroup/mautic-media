@@ -9,8 +9,8 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 $view->extend('MauticCoreBundle:Default:content.html.php');
-$view['slots']->set('mauticContent', 'contactclient');
-$view['slots']->set('headerTitle', $view['translator']->trans('mautic.contactclient'));
+$view['slots']->set('mauticContent', 'media');
+$view['slots']->set('headerTitle', $view['translator']->trans('mautic.media'));
 
 $view['slots']->set(
     'actions',
@@ -18,9 +18,9 @@ $view['slots']->set(
         'MauticCoreBundle:Helper:page_actions.html.php',
         [
             'templateButtons' => [
-                'new' => $permissions['plugin:contactclient:items:create'],
+                'new' => $permissions['plugin:media:items:create'],
             ],
-            'routeBase'       => 'contactclient',
+            'routeBase'       => 'media',
         ]
     )
 );

@@ -96,6 +96,6 @@ class ChartFilterType extends AbstractType
      */
     public function getName()
     {
-        return 'chartfilter';
+        return 'media_chart';
     }
 }

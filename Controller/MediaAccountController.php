@@ -212,7 +212,7 @@ class MediaAccountController extends FormController
             }
 
             $chartFilterForm = $this->get('form.factory')->create(
-                'chartfilter',
+                'media_chart',
                 $chartFilterValues,
                 [
                     'action' => $this->generateUrl(

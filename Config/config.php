@@ -51,7 +51,7 @@ return [
             'mautic.media.form.type.chartfilter'    => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\Form\Type\ChartFilterType',
                 'arguments' => 'mautic.factory',
-                'alias'     => 'chartfilter',
+                'alias'     => 'media_chart',
             ],
         ],
         'models'       => [

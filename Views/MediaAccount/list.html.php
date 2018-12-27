@@ -9,13 +9,13 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 if ('index' == $tmpl) {
-    $view->extend('MauticContactClientBundle:ContactClient:index.html.php');
+    $view->extend('MauticMediaBundle:MediaAccount:index.html.php');
 }
 ?>
 
 <?php if (count($items)): ?>
     <div class="table-responsive page-list">
-        <table class="table table-hover table-striped table-bordered contactclient-list" id="contactclientTable">
+        <table class="table table-hover table-striped table-bordered media-list" id="mediaTable">
             <thead>
             <tr>
                 <?php
@@ -23,10 +23,10 @@ if ('index' == $tmpl) {
                     'MauticCoreBundle:Helper:tableheader.html.php',
                     [
                         'checkall'        => 'true',
-                        'target'          => '#contactclientTable',
-                        'routeBase'       => 'contactclient',
+                        'target'          => '#mediaTable',
+                        'routeBase'       => 'media',
                         'templateButtons' => [
-                            'delete' => $permissions['plugin:contactclient:items:delete'],
+                            'delete' => $permissions['plugin:media:items:delete'],
                         ],
                     ]
                 );
@@ -34,10 +34,10 @@ if ('index' == $tmpl) {
                 echo $view->render(
                     'MauticCoreBundle:Helper:tableheader.html.php',
                     [
-                        'sessionVar' => 'contactclient',
+                        'sessionVar' => 'media',
                         'orderBy'    => 'f.name',
                         'text'       => 'mautic.core.name',
-                        'class'      => 'col-contactclient-name',
+                        'class'      => 'col-media-name',
                         'default'    => true,
                     ]
                 );
@@ -45,30 +45,30 @@ if ('index' == $tmpl) {
                 echo $view->render(
                     'MauticCoreBundle:Helper:tableheader.html.php',
                     [
-                        'sessionVar' => 'contactclient',
+                        'sessionVar' => 'media',
                         'orderBy'    => 'c.title',
                         'text'       => 'mautic.core.category',
-                        'class'      => 'visible-md visible-lg col-contactclient-category',
+                        'class'      => 'visible-md visible-lg col-media-category',
                     ]
                 );
 
                 echo $view->render(
                     'MauticCoreBundle:Helper:tableheader.html.php',
                     [
-                        'sessionVar' => 'contactclient',
+                        'sessionVar' => 'media',
                         'orderBy'    => 'f.type',
-                        'text'       => 'mautic.contactclient.thead.type',
-                        'class'      => 'visible-md visible-lg col-contactclient-type',
+                        'text'       => 'mautic.media.thead.type',
+                        'class'      => 'visible-md visible-lg col-media-type',
                     ]
                 );
 
                 echo $view->render(
                     'MauticCoreBundle:Helper:tableheader.html.php',
                     [
-                        'sessionVar' => 'contactclient',
+                        'sessionVar' => 'media',
                         'orderBy'    => 'f.id',
                         'text'       => 'mautic.core.id',
-                        'class'      => 'visible-md visible-lg col-contactclient-id',
+                        'class'      => 'visible-md visible-lg col-media-id',
                     ]
                 );
                 ?>
@@ -85,18 +85,18 @@ if ('index' == $tmpl) {
                                 'item'            => $item,
                                 'templateButtons' => [
                                     'edit'   => $view['security']->hasEntityAccess(
-                                        $permissions['plugin:contactclient:items:editown'],
-                                        $permissions['plugin:contactclient:items:editother'],
+                                        $permissions['plugin:media:items:editown'],
+                                        $permissions['plugin:media:items:editother'],
                                         $item->getCreatedBy()
                                     ),
-                                    'clone'  => $permissions['plugin:contactclient:items:create'],
+                                    'clone'  => $permissions['plugin:media:items:create'],
                                     'delete' => $view['security']->hasEntityAccess(
-                                        $permissions['plugin:contactclient:items:deleteown'],
-                                        $permissions['plugin:contactclient:items:deleteother'],
+                                        $permissions['plugin:media:items:deleteown'],
+                                        $permissions['plugin:media:items:deleteother'],
                                         $item->getCreatedBy()
                                     ),
                                 ],
-                                'routeBase'       => 'contactclient',
+                                'routeBase'       => 'media',
                             ]
                         );
                         ?>
@@ -105,10 +105,10 @@ if ('index' == $tmpl) {
                         <div>
                             <?php echo $view->render(
                                 'MauticCoreBundle:Helper:publishstatus_icon.html.php',
-                                ['item' => $item, 'model' => 'contactclient']
+                                ['item' => $item, 'model' => 'media']
                             ); ?>
                             <a data-toggle="ajax" href="<?php echo $view['router']->path(
-                                'mautic_contactclient_action',
+                                'mautic_media_action',
                                 ['objectId' => $item->getId(), 'objectAction' => 'view']
                             ); ?>">
                                 <?php echo $item->getName(); ?>
@@ -130,7 +130,7 @@ if ('index' == $tmpl) {
                                                                  style="border: 1px solid #d5d5d5; background: <?php echo $color; ?>;"> </span> <span><?php echo $catName; ?></span></span>
                     </td>
                     <td class="visible-md visible-lg"><?php echo $view['translator']->trans(
-                            'mautic.contactclient.type.'.$item->getType()
+                            'mautic.media.type.'.$item->getType()
                         ); ?></td>
                     <td class="visible-md visible-lg"><?php echo $item->getId(); ?></td>
                 </tr>
@@ -145,14 +145,14 @@ if ('index' == $tmpl) {
                 'totalItems' => count($items),
                 'page'       => $page,
                 'limits'     => $limit,
-                'baseUrl'    => $view['router']->path('mautic_contactclient_index'),
-                'sessionVar' => 'contactclient',
+                'baseUrl'    => $view['router']->path('mautic_media_index'),
+                'sessionVar' => 'media',
             ]
         ); ?>
     </div>
 <?php else: ?>
     <?php echo $view->render(
         'MauticCoreBundle:Helper:noresults.html.php',
-        ['tip' => 'mautic.contactclient.noresults.tip']
+        ['tip' => 'mautic.media.noresults.tip']
     ); ?>
 <?php endif; ?>
