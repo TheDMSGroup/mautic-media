@@ -77,7 +77,7 @@ class MediaAccountType extends AbstractType
                 'label'       => 'mautic.media.form.campaign_settings',
                 'label_attr'  => ['class' => 'control-label campaign-settings'],
                 'attr'        => [
-                    'class' => 'form-control campaign-settings hide',
+                    'class' => 'form-control campaign-settings',
                     'rows'  => 12,
                 ],
                 'required'    => false,
@@ -152,18 +152,12 @@ class MediaAccountType extends AbstractType
             [
                 'label'             => 'mautic.media.form.provider',
                 'label_attr'        => ['class' => 'control-label'],
-                'choices'           => [
-                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_BING     => MediaAccount::PROVIDER_BING,
-                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_FACEBOOK => MediaAccount::PROVIDER_FACEBOOK,
-                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_GOOGLE   => MediaAccount::PROVIDER_GOOGLE,
-                    'mautic.media.form.provider.'.MediaAccount::PROVIDER_SNAPCHAT => MediaAccount::PROVIDER_SNAPCHAT,
-                ],
+                'choices'           => MediaAccount::getAllProviders(),
                 'choices_as_values' => true,
                 'required'          => true,
                 'attr'              => [
-                    'class'    => 'form-control',
-                    'tooltip'  => 'mautic.media.form.type.tooltip',
-                    'onchange' => 'Mautic.mediaTypeChange(this);',
+                    'class'   => 'form-control',
+                    'tooltip' => 'mautic.media.form.type.tooltip',
                 ],
             ]
         );

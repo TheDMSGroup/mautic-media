@@ -154,6 +154,23 @@ class MediaAccount extends FormEntity
     }
 
     /**
+     * @return array
+     */
+    public static function getAllProviders()
+    {
+        $result = [];
+        try {
+            $reflection = new \ReflectionClass(__CLASS__);
+            foreach ($reflection->getConstants() as $var) {
+                $result['mautic.media.form.provider.'.$var] = $var;
+            }
+        } catch (\ReflectionException $e) {
+        }
+
+        return $result;
+    }
+
+    /**
      * Allow these entities to be cloned like core entities.
      */
     public function __clone()
