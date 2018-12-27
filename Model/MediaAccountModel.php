@@ -22,6 +22,9 @@ use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
+use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
+use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
+use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -167,6 +170,8 @@ class MediaAccountModel extends FormModel
      * @param string            $utmSource
      * @param int               $campaignId
      * @param int               $eventId
+     *
+     * @throws \Exception
      */
     public function addStat(
         MediaAccount $MediaAccount = null,
@@ -200,9 +205,9 @@ class MediaAccountModel extends FormModel
     }
 
     /**
-     * {@inheritdoc}
+     * @return \Doctrine\ORM\EntityRepository
      *
-     * @return \MauticPlugin\MauticMediaBundle\Entity\StatRepository
+     * @throws \Doctrine\ORM\ORMException
      */
     public function getStatRepository()
     {
@@ -237,6 +242,8 @@ class MediaAccountModel extends FormModel
      * @param bool           $canViewOthers
      *
      * @return array
+     *
+     * @throws \Exception
      */
     public function getStats(
         MediaAccount $MediaAccount,
@@ -379,6 +386,8 @@ class MediaAccountModel extends FormModel
      * @param bool           $canViewOthers
      *
      * @return array
+     *
+     * @throws \Doctrine\ORM\ORMException
      */
     public function getStatsBySource(
         MediaAccount $MediaAccount,
@@ -504,6 +513,35 @@ class MediaAccountModel extends FormModel
         }
 
         return $chart->render();
+    }
+
+    /**
+     * @param $mediaAccount
+     */
+    public function pullData(MediaAccount $mediaAccount = null)
+    {
+        if (!$mediaAccount) {
+            return;
+        }
+        switch ($mediaAccount->getProvider()) {
+            case MediaAccount::PROVIDER_FACEBOOK:
+                $helper = new FacebookHelper();
+                break;
+
+            case MediaAccount::PROVIDER_BING:
+                $helper = new BingHelper();
+                break;
+
+            case MediaAccount::PROVIDER_GOOGLE:
+                $helper = new GoogleHelper();
+                break;
+
+            case MediaAccount::PROVIDER_SNAPCHAT:
+                $helper = new GoogleHelper();
+                break;
+
+
+        }
     }
 
     /**
