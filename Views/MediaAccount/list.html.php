@@ -57,8 +57,8 @@ if ('index' == $tmpl) {
                     [
                         'sessionVar' => 'media',
                         'orderBy'    => 'f.type',
-                        'text'       => 'mautic.media.thead.type',
-                        'class'      => 'visible-md visible-lg col-media-type',
+                        'text'       => 'mautic.media.form.provider',
+                        'class'      => 'visible-md visible-lg col-media-provider',
                     ]
                 );
 
@@ -76,6 +76,7 @@ if ('index' == $tmpl) {
             </thead>
             <tbody>
             <?php foreach ($items as $item): ?>
+            <?php /** @var $item \MauticPlugin\MauticMediaBundle\Entity\MediaAccount */ ?>
                 <tr>
                     <td>
                         <?php
@@ -130,7 +131,7 @@ if ('index' == $tmpl) {
                                                                  style="border: 1px solid #d5d5d5; background: <?php echo $color; ?>;"> </span> <span><?php echo $catName; ?></span></span>
                     </td>
                     <td class="visible-md visible-lg"><?php echo $view['translator']->trans(
-                            'mautic.media.type.'.$item->getType()
+                            'mautic.media.form.provider.'.$item->getProvider()
                         ); ?></td>
                     <td class="visible-md visible-lg"><?php echo $item->getId(); ?></td>
                 </tr>

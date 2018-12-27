@@ -71,13 +71,13 @@ class MediaAccountType extends AbstractType
         );
 
         $builder->add(
-            'campaign_map',
+            'campaign_settings',
             'textarea',
             [
-                'label'       => 'mautic.media.form.campaign_map',
-                'label_attr'  => ['class' => 'control-label account-map'],
+                'label'       => 'mautic.media.form.campaign_settings',
+                'label_attr'  => ['class' => 'control-label campaign-settings'],
                 'attr'        => [
-                    'class' => 'form-control account-map hide',
+                    'class' => 'form-control campaign-settings hide',
                     'rows'  => 12,
                 ],
                 'required'    => false,

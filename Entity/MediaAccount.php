@@ -66,7 +66,7 @@ class MediaAccount extends FormEntity
     private $publishDown;
 
     /** @var string */
-    private $campaignMap;
+    private $campaignSettings;
 
     /**
      * @param ClassMetadata $metadata
@@ -112,7 +112,7 @@ class MediaAccount extends FormEntity
 
         $builder->addNamedField('refreshToken', 'string', 'refresh_token', true);
 
-        $builder->addNamedField('campaignMap', 'string', 'campaign_map', true);
+        $builder->addNamedField('campaignSettings', 'string', 'campaign_settings', true);
     }
 
     /**
@@ -232,21 +232,21 @@ class MediaAccount extends FormEntity
     /**
      * @return string
      */
-    public function getCampaignMap()
+    public function getCampaignSettings()
     {
-        return $this->campaignMap;
+        return $this->campaignSettings;
     }
 
     /**
-     * @param string $campaignMap
+     * @param string $campaignSettings
      *
      * @return $this
      */
-    public function setCampaignMap($campaignMap)
+    public function setCampaignSettings($campaignSettings)
     {
-        $this->isChanged('campaignMap', $campaignMap);
+        $this->isChanged('campaignSettings', $campaignSettings);
 
-        $this->campaignMap = $campaignMap;
+        $this->campaignSettings = $campaignSettings;
 
         return $this;
     }
