@@ -15,6 +15,8 @@ use FacebookAds\Api;
 use FacebookAds\Cursor;
 use FacebookAds\Object\AdAccount;
 use FacebookAds\Object\AdAccountUser;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
+use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Console\Output\OutputInterface;
 
 
@@ -41,11 +43,11 @@ class FacebookHelper
     /**
      * FacebookHelper constructor.
      *
-     * @param        $account_id
-     * @param        $client_id
-     * @param        $client_secret
-     * @param        $token
-     * @param Output $output
+     * @param                 $account_id
+     * @param                 $client_id
+     * @param                 $client_secret
+     * @param                 $token
+     * @param OutputInterface $output
      */
     public function __construct($account_id, $client_id, $client_secret, $token, OutputInterface $output)
     {
@@ -98,7 +100,7 @@ class FacebookHelper
         ];
 
         // Loop through all Ad accounts this user has access to.
-        $rows = [];
+        $stats = [];
         /** @var AdAccount $account */
         foreach ($this->user->getAdAccounts() as $account) {
             $spend       = 0;
@@ -127,30 +129,27 @@ class FacebookHelper
                     $data['date_start'].' '.$time,
                     $timezone
                 );
-                $row  = [
-                    'provider'      => 'facebook',
-                    'campaign_id'   => !empty($data['campaign_id']) ? $data['campaign_id'] : '',
-                    'campaign_name' => !empty($data['campaign_name']) ? $data['campaign_name'] : '',
-                    'account_id'    => $accountData['id'],
-                    'account_name'  => $accountData['name'],
-                    'date_added'    => $date->getTimestamp(),
-                    'spend'         => !empty($data['spend']) ? floatval($data['spend']) : 0,
-                    'cpm'           => !empty($data['cpm']) ? floatval($data['cpm']) : 0,
-                    'cpc'           => !empty($data['cpc']) ? floatval($data['cpc']) : 0,
-                ];
-                foreach ($fields as $field) {
-                    $row[$field] = !empty($data[$field]) ? $data[$field] : '';
-                }
-                $row['attribution'] = !empty($data['spend']) ? (-1 * floatval($data['spend'])) : 0;
-                $rows[]             = $row;
-                $spend              += $row['spend'];
+                $stat = new Stat();
+                $stat->setProvider(MediaAccount::PROVIDER_FACEBOOK);
+                // @todo - To be mapped later.
+                // $stat->setCampaignId(0);
+                $stat->setProviderCampaignId(!empty($data['campaign_id']) ? $data['campaign_id'] : '');
+                $stat->setProviderCampaignName(!empty($data['campaign_name']) ? $data['campaign_name'] : '');
+                $stat->setProviderAccountId($accountData['id']);
+                $stat->setproviderAccountName($accountData['name']);
+                $stat->setDateAdded($date);
+                $stat->setSpend(!empty($data['spend']) ? floatval($data['spend']) : 0);
+                $stat->setCpm(!empty($data['cpm']) ? floatval($data['cpm']) : 0);
+                $stat->setCpc(!empty($data['cpc']) ? floatval($data['cpc']) : 0);
+                $stats[] = $stat;
+                $spend   += $data['spend'];
             }
             $this->output->writeln(
                 ' ('.$accountData['currency'].' '.$spend.')'
             );
         }
 
-        return $rows;
+        return $stats;
     }
 
     /**

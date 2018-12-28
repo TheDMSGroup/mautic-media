@@ -52,6 +52,9 @@ class Stat
     /** @var string */
     private $provider = '';
 
+    /** @var string */
+    private $providerAccountName = '';
+
     /**
      * @param ORM\ClassMetadata $metadata
      */
@@ -78,6 +81,8 @@ class Stat
         $builder->addNamedField('providerCampaignName', 'string', 'provider_campaign_name', false);
 
         $builder->addNamedField('providerAccountId', 'string', 'provider_account_id', false);
+
+        $builder->addNamedField('providerAccountName', 'string', 'provider_account_name', false);
 
         $builder->createField('spend', 'decimal')
             ->precision(19)
@@ -279,6 +284,26 @@ class Stat
     public function setProviderAccountId($providerAccountId)
     {
         $this->providerAccountId = $providerAccountId;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getProviderAccountName()
+    {
+        return $this->providerAccountName;
+    }
+
+    /**
+     * @param int $providerAccountName
+     *
+     * @return Stat
+     */
+    public function setProviderAccountName($providerAccountName)
+    {
+        $this->providerAccountName = $providerAccountName;
 
         return $this;
     }
