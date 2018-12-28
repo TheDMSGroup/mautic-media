@@ -525,12 +525,13 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
+        $accountId    = $mediaAccount->getAccountId();
         $clientId     = $mediaAccount->getClientId();
         $clientSecret = $mediaAccount->getClientSecret();
         $token        = $mediaAccount->getToken();
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
-                $helper = new FacebookHelper($clientId, $clientSecret, $token);
+                $helper = new FacebookHelper($accountId, $clientId, $clientSecret, $token);
                 $helper->pullData();
                 break;
 

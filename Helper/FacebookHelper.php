@@ -11,10 +11,11 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
-use FacebookAds\Object\AdAccount;
-use FacebookAds\Object\AdsInsights;
 use FacebookAds\Api;
 use FacebookAds\Logger\CurlLogger;
+use FacebookAds\Object\AdAccount;
+use FacebookAds\Object\AdAccountUser;
+
 
 /**
  * Class FacebookHelper.
@@ -27,54 +28,83 @@ class FacebookHelper
     /** @var \Facebook\Facebook */
     private $client;
 
-    /** @var @var AdUser */
+    /** @var User */
     private $user;
 
-    public function __construct($client_id, $client_secret, $token)
+    /** @var string */
+    private $accountId;
+
+    public function __construct($account_id, $client_id, $client_secret, $token)
     {
+        $this->accountId = $account_id;
+
         Api::init($client_id, $client_secret, $token);
         $this->client = Api::instance();
         $this->client->setLogger(new CurlLogger());
     }
 
+    /**
+     * @return null
+     * @throws \Exception
+     */
     public function pullData()
     {
+
+        $this->authenticate();
+
         $fields = [
-            'spend',
-            'cost_per_result',
-            'cpp',
-            'cpm',
-            'actions:rsvp',
-            'cost_per_action_type:checkin',
-            'cost_per_action_type:receive_offer',
-            'cost_per_action_type:rsvp',
-            'cost_per_action_type:photo_view',
-            'cost_per_action_type:post',
-            'cost_per_action_type:post_reaction',
-            'cost_per_action_type:post_engagement',
-            'cost_per_action_type:comment',
-            'cost_per_action_type:like',
-            'cost_per_action_type:page_engagement',
-            'campaign_group_id',
-            'campaign_id',
-            'adgroup_id',
-            'adgroup_name',
             'account_id',
             'account_name',
-            'campaign_group_name',
+            'ad_id',
+            'ad_name',
+            'adset_id',
+            'adset_name',
+            'campaign_id',
             'campaign_name',
-            'schedule',
+            'spend',
+            'cpp',
+            'cpm',
         ];
         $params = [
             'level'      => 'ad',
             'filtering'  => [],
-            'breakdowns' => ['days_1', 'hourly_stats_aggregated_by_advertiser_time_zone', 'ad_id'],
+            'breakdowns' => ['hourly_stats_aggregated_by_advertiser_time_zone'],
             'time_range' => ['since' => '2018-12-27', 'until' => '2018-12-28'],
         ];
-        // echo json_encode((new AdAccount($ad_account_id))->getInsights(
-        //     $fields,
-        //     $params
-        // )->getResponse()->getContent(), JSON_PRETTY_PRINT);
 
+        // Retrieve all Ad accounts the current user has access to.
+        $accounts = $this->user->getAdAccounts();
+        if (!$accounts) {
+            throw new \Exception('Could not get accounts for '.$this->accountId);
+        }
+        foreach ($accounts as $account) {
+            $accountData = $account->getData();
+            if (!$accountData || !isset($accountData['id'])) {
+                throw new \Exception('Could not retrieve an adAccountId under '.$this->accountId);
+            }
+            $account  = new AdAccount($accountData['id']);
+            $insights = $account->getInsights($fields, $params);
+            foreach ($insights as $insight) {
+                $tmp = 1;
+            }
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @throws \Exception
+     */
+    private function authenticate()
+    {
+        // Authenticate and get the primary user ID.
+        $me = $this->client->call('/me')->getContent();
+        if (!$me || !isset($me['id'])) {
+            throw new \Exception(
+                'Cannot discern Facebook user for account '.$this->accountId.'. You likely need to reauthenticate.'
+            );
+        }
+        $this->user = new AdAccountUser($me['id']);
     }
 }

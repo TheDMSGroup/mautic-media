@@ -163,6 +163,17 @@ class MediaAccountType extends AbstractType
         );
 
         $builder->add(
+            'account_id',
+            'text',
+            [
+                'label'      => 'mautic.media.form.account_id',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => ['class' => 'form-control'],
+                'required'   => false,
+            ]
+        );
+
+        $builder->add(
             'client_id',
             'text',
             [
