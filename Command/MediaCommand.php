@@ -99,7 +99,7 @@ class MediaCommand extends ModeratedCommand
                 continue;
             }
             $output->writeln('<info>Pulling data for Media Account '.$mediaAccount->getName().'</info>');
-            $model->pullData($mediaAccount);
+            $model->pullData($mediaAccount, $output);
         }
 
         $this->completeRun();
