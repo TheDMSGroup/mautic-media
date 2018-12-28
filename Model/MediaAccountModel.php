@@ -26,6 +26,7 @@ use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
 use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
 use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -517,22 +518,25 @@ class MediaAccountModel extends FormModel
 
     /**
      * @param MediaAccount|null $mediaAccount
+     * @param Output            $output
      *
-     * @throws \Facebook\Exceptions\FacebookSDKException
+     * @throws \Exception
      */
-    public function pullData(MediaAccount $mediaAccount = null)
+    public function pullData(MediaAccount $mediaAccount = null, OutputInterface $output)
     {
         if (!$mediaAccount) {
             return;
         }
+        $dateFrom     = new \DateTime('-1 week');
+        $dateTo       = new \DateTime('midnight');
         $accountId    = $mediaAccount->getAccountId();
         $clientId     = $mediaAccount->getClientId();
         $clientSecret = $mediaAccount->getClientSecret();
         $token        = $mediaAccount->getToken();
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
-                $helper = new FacebookHelper($accountId, $clientId, $clientSecret, $token);
-                $helper->pullData();
+                $helper = new FacebookHelper($accountId, $clientId, $clientSecret, $token, $output);
+                $rows = $helper->pullData($dateFrom, $dateTo);
                 break;
 
             case MediaAccount::PROVIDER_BING:
@@ -546,6 +550,9 @@ class MediaAccountModel extends FormModel
             case MediaAccount::PROVIDER_SNAPCHAT:
                 $helper = new GoogleHelper();
                 break;
+
+        }
+        if ($rows) {
 
         }
     }
