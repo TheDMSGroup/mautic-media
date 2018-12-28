@@ -516,7 +516,9 @@ class MediaAccountModel extends FormModel
     }
 
     /**
-     * @param $mediaAccount
+     * @param MediaAccount|null $mediaAccount
+     *
+     * @throws \Facebook\Exceptions\FacebookSDKException
      */
     public function pullData(MediaAccount $mediaAccount = null)
     {
@@ -529,6 +531,7 @@ class MediaAccountModel extends FormModel
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
                 $helper = new FacebookHelper($clientId, $clientSecret, $token);
+                $helper->pullData();
                 break;
 
             case MediaAccount::PROVIDER_BING:

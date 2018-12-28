@@ -6,3 +6,4 @@
 !.travis.yml
 vendor
 node_modules
+composer.lock
