@@ -16,11 +16,11 @@ use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use Mautic\CoreBundle\Helper\Chart\LineChart;
 use Mautic\CoreBundle\Helper\TemplatingHelper;
 use Mautic\CoreBundle\Model\FormModel;
-use Mautic\LeadBundle\Entity\Lead as Contact;
 use Mautic\LeadBundle\Model\LeadModel as ContactModel;
 use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
 use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
@@ -159,68 +159,6 @@ class MediaAccountModel extends FormModel
     public function getRepository()
     {
         return $this->em->getRepository('MauticMediaBundle:MediaAccount');
-    }
-
-    /**
-     * Add a stat entry.
-     *
-     * @param MediaAccount|null $MediaAccount
-     * @param null              $type
-     * @param Contact|null      $contact
-     * @param int               $attribution
-     * @param string            $utmSource
-     * @param int               $campaignId
-     * @param int               $eventId
-     *
-     * @throws \Exception
-     */
-    public function addStat(
-        MediaAccount $MediaAccount = null,
-        $type = null,
-        Contact $contact = null,
-        $attribution = 0,
-        $utmSource = '',
-        $campaignId = 0,
-        $eventId = 0
-    ) {
-        $stat = new Stat();
-        $stat->setDateAdded(new \DateTime());
-        if ($type) {
-            $stat->setType($type);
-        }
-        if ($MediaAccount) {
-            $stat->setMediaAccountId($MediaAccount->getId());
-        }
-        if ($contact) {
-            $stat->setContactId($contact->getId());
-        }
-        if ($attribution) {
-            $stat->setAttribution($attribution);
-        }
-        if ($utmSource) {
-            $stat->setUtmSource($utmSource);
-        }
-        $stat->setCampaignId($campaignId);
-        $stat->setEventId($eventId);
-        $this->getStatRepository()->saveEntity($stat);
-    }
-
-    /**
-     * @return \Doctrine\ORM\EntityRepository
-     *
-     * @throws \Doctrine\ORM\ORMException
-     */
-    public function getStatRepository()
-    {
-        if (!$this->em->isOpen()) {
-            $this->em = $this->em->create(
-                $this->em->getConnection(),
-                $this->em->getConfiguration(),
-                $this->em->getEventManager()
-            );
-        }
-
-        return $this->em->getRepository('MauticMediaBundle:Stat');
     }
 
     /**
@@ -517,6 +455,24 @@ class MediaAccountModel extends FormModel
     }
 
     /**
+     * @return StatRepository
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getStatRepository()
+    {
+        if (!$this->em->isOpen()) {
+            $this->em = $this->em->create(
+                $this->em->getConnection(),
+                $this->em->getConfiguration(),
+                $this->em->getEventManager()
+            );
+        }
+
+        return $this->em->getRepository('MauticMediaBundle:Stat');
+    }
+
+    /**
      * @param MediaAccount|null $mediaAccount
      * @param OutputInterface   $output
      *
@@ -527,7 +483,7 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
-        $data         = [];
+        $stats        = [];
         $dateFrom     = new \DateTime('-1 week');
         $dateTo       = new \DateTime('midnight');
         $accountId    = $mediaAccount->getAccountId();
@@ -537,7 +493,7 @@ class MediaAccountModel extends FormModel
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
                 $helper = new FacebookHelper($accountId, $clientId, $clientSecret, $token, $output);
-                $data   = $helper->pullData($dateFrom, $dateTo);
+                $stats  = $helper->pullData($dateFrom, $dateTo);
                 break;
 
             case MediaAccount::PROVIDER_BING:
@@ -553,8 +509,9 @@ class MediaAccountModel extends FormModel
                 break;
 
         }
-        if ($data) {
+        if ($stats) {
             // @todo - Persist stat entities for each row of data.
+            $this->getStatRepository()->saveEntities($stats);
         }
     }
 

@@ -63,27 +63,59 @@ class StatRepository extends CommonRepository
      *
      * @return array
      */
-    public function getSourcesByMediaAccount($mediaAccountId, \DateTime $dateFrom = null, \DateTime $dateTo = null)
+    // public function getSourcesByMediaAccount($mediaAccountId, \DateTime $dateFrom = null, \DateTime $dateTo = null)
+    // {
+    //     $q = $this->getEntityManager()->getConnection()->createQueryBuilder();
+    //
+    //     $q->select('distinct(s.utm_source)')
+    //         ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
+    //         ->where(
+    //             $q->expr()->eq('s.media_account_id', (int) $mediaAccountId)
+    //         );
+    //
+    //     if ($dateFrom && $dateTo) {
+    //         $q->andWhere('s.date_added BETWEEN FROM_UNIXTIME(:dateFrom) AND FROM_UNIXTIME(:dateTo)')
+    //             ->setParameter('dateFrom', $dateFrom->getTimestamp(), \PDO::PARAM_INT)
+    //             ->setParameter('dateTo', $dateTo->getTimestamp(), \PDO::PARAM_INT);
+    //     }
+    //
+    //     $utmSources = [];
+    //     foreach ($q->execute()->fetchAll() as $row) {
+    //         $utmSources[] = $row['utm_source'];
+    //     }
+    //
+    //     return $utmSources;
+    // }
+
+
+    /**
+     * Insert or update batches.
+     *
+     * @param array $entities
+     *
+     * @throws \Doctrine\DBAL\DBALException
+     * @throws \Doctrine\ORM\OptimisticLockException
+     */
+    public function saveEntities($entities)
     {
-        $q = $this->getEntityManager()->getConnection()->createQueryBuilder();
-
-        $q->select('distinct(s.utm_source)')
-            ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
-            ->where(
-                $q->expr()->eq('s.media_account_id', (int) $mediaAccountId)
-            );
-
-        if ($dateFrom && $dateTo) {
-            $q->andWhere('s.date_added BETWEEN FROM_UNIXTIME(:dateFrom) AND FROM_UNIXTIME(:dateTo)')
-                ->setParameter('dateFrom', $dateFrom->getTimestamp(), \PDO::PARAM_INT)
-                ->setParameter('dateTo', $dateTo->getTimestamp(), \PDO::PARAM_INT);
+        $values = [];
+        foreach ($entities as $entity) {
+            $values[] = [
+                'FROM_UNIXTIME('.$entity->getDateAdded()->getTimestamp().')',
+            ];
         }
-
-        $utmSources = [];
-        foreach ($q->execute()->fetchAll() as $row) {
-            $utmSources[] = $row['utm_source'];
-        }
-
-        return $utmSources;
+        $sql = 'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats '.
+            '(campaign_id, event_id, date_triggered, scheduled_count, triggered_count, non_action_path_taken_count, failed_count) '.
+            'VALUES ('.implode('),(', $values).') '.
+            'ON DUPLICATE KEY UPDATE '.
+            'scheduled_count=scheduled_count+VALUES(scheduled_count), '.
+            'triggered_count=triggered_count+VALUES(triggered_count), '.
+            'non_action_path_taken_count=non_action_path_taken_count+VALUES(non_action_path_taken_count), '.
+            'failed_count=failed_count+VALUES(failed_count) ';
+        $this->getEntityManager()
+            ->getConnection()
+            ->prepare($sql)
+            ->execute();
+        $this->getEntityManager()->flush();
     }
 }
