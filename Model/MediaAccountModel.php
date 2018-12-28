@@ -518,7 +518,7 @@ class MediaAccountModel extends FormModel
 
     /**
      * @param MediaAccount|null $mediaAccount
-     * @param Output            $output
+     * @param OutputInterface   $output
      *
      * @throws \Exception
      */
@@ -527,6 +527,7 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
+        $data         = [];
         $dateFrom     = new \DateTime('-1 week');
         $dateTo       = new \DateTime('midnight');
         $accountId    = $mediaAccount->getAccountId();
@@ -536,7 +537,7 @@ class MediaAccountModel extends FormModel
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
                 $helper = new FacebookHelper($accountId, $clientId, $clientSecret, $token, $output);
-                $rows = $helper->pullData($dateFrom, $dateTo);
+                $data   = $helper->pullData($dateFrom, $dateTo);
                 break;
 
             case MediaAccount::PROVIDER_BING:
@@ -552,8 +553,8 @@ class MediaAccountModel extends FormModel
                 break;
 
         }
-        if ($rows) {
-
+        if ($data) {
+            // @todo - Persist stat entities for each row of data.
         }
     }
 
