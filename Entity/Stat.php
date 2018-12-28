@@ -29,19 +29,28 @@ class Stat
     private $dateAdded;
 
     /** @var float $spend */
-    private $spend;
+    private $spend = 0;
 
     /** @var float $cpm */
-    private $cpm;
+    private $cpm = 0;
 
     /** @var float $cpc */
-    private $cpc;
+    private $cpc = 0;
 
     /** @var int $campaignId */
     private $campaignId = 0;
 
-    /** @var int $eventId */
-    private $eventId = 0;
+    /** @var string */
+    private $providerCampaignId = '';
+
+    /** @var string */
+    private $providerCampaignName = '';
+
+    /** @var string */
+    private $providerAccountId = '';
+
+    /** @var string */
+    private $provider = '';
 
     /**
      * @param ORM\ClassMetadata $metadata
@@ -51,79 +60,39 @@ class Stat
         $builder = new ClassMetadataBuilder($metadata);
 
         $builder->setTable('media_account_stats')
-            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\StatRepository');
+            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\StatRepository')
+            ->addIndex(['campaign_id', 'date_added'], 'campaign_id_date_added'); // For getting total spend by date.
 
         $builder->addId();
 
+        $builder->addDateAdded();
+
+        $builder->addNamedField('campaignId', 'integer', 'campaign_id', false);
+
+        $builder->addNamedField('provider', 'string', 'provider', false);
+
         $builder->addNamedField('mediaAccountId', 'integer', 'media_account_id', true);
 
-        $builder->addDateAdded();
+        $builder->addNamedField('providerCampaignId', 'string', 'provider_campaign_id', false);
+
+        $builder->addNamedField('providerCampaignName', 'string', 'provider_campaign_name', false);
+
+        $builder->addNamedField('providerAccountId', 'string', 'provider_account_id', false);
 
         $builder->createField('spend', 'decimal')
             ->precision(19)
             ->scale(4)
-            ->nullable()
             ->build();
 
         $builder->createField('cpc', 'decimal')
             ->precision(19)
             ->scale(4)
-            ->nullable()
             ->build();
 
         $builder->createField('cpm', 'decimal')
             ->precision(19)
             ->scale(4)
-            ->nullable()
             ->build();
-
-        // $builder->addNamedField('utmSource', 'string', 'utm_source', true);
-        $builder->addNamedField('campaignId', 'integer', 'campaign_id', false);
-        $builder->addNamedField('eventId', 'integer', 'event_id', false);
-
-        // $builder->addIndex(
-        //     ['contactclient_id', 'type', 'date_added'],
-        //     'contactclient_type_date_added'
-        // );
-
-        // $builder->addIndex(
-        //     ['contactclient_id', 'type', 'utm_source', 'date_added'],
-        //     'contactclient_type_utm_source_date_added'
-        // );
-
-        // $builder->addIndex(
-        //     ['contactclient_id', 'utm_source'],
-        //     'contactclient_utm_source'
-        // );
-        // $builder->addIndex(
-        //     ['contact_id'],
-        //     'contact_id'
-        // );
-
-        // $builder->addIndex(
-        //     ['contact_id', 'contactclient_id'],
-        //     'contact_id_contactclient_id'
-        // );
-
-        // $builder->addIndex(
-        //     ['campaign_id', 'date_added'],
-        //     'campaign_id_date_added'
-        // );
-    }
-
-    /**
-     * @return array
-     */
-    public static function getAllTypes()
-    {
-        $result = [];
-        try {
-            $reflection = new \ReflectionClass(__CLASS__);
-            $result     = $reflection->getConstants();
-        } catch (\ReflectionException $e) {
-        }
-
-        return $result;
     }
 
     /**
@@ -143,7 +112,7 @@ class Stat
     }
 
     /**
-     * @param float $spend
+     * @param float $cpm
      *
      * @return $this
      */
@@ -173,7 +142,6 @@ class Stat
 
         return $this;
     }
-
 
     /**
      * @return float
@@ -258,19 +226,79 @@ class Stat
     /**
      * @return int
      */
-    public function getEventId()
+    public function getProviderCampaignId()
     {
-        return $this->eventId;
+        return $this->providerCampaignId;
     }
 
     /**
-     * @param int $eventId
+     * @param int $providerCampaignId
      *
      * @return Stat
      */
-    public function setEventId($eventId)
+    public function setProviderCampaignId($providerCampaignId)
     {
-        $this->eventId = $eventId;
+        $this->providerCampaignId = $providerCampaignId;
+
+        return $this;
+    }
+
+    /**
+     * @return int
+     */
+    public function getProviderCampaignName()
+    {
+        return $this->providerCampaignName;
+    }
+
+    /**
+     * @param int $providerCampaignName
+     *
+     * @return Stat
+     */
+    public function setProviderCampaignName($providerCampaignName)
+    {
+        $this->providerCampaignName = $providerCampaignName;
+
+        return $this;
+    }
+
+    /**
+     * @return int
+     */
+    public function getProviderAccountId()
+    {
+        return $this->providerAccountId;
+    }
+
+    /**
+     * @param int $providerAccountId
+     *
+     * @return Stat
+     */
+    public function setProviderAccountId($providerAccountId)
+    {
+        $this->providerAccountId = $providerAccountId;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getProvider()
+    {
+        return $this->provider;
+    }
+
+    /**
+     * @param float $provider
+     *
+     * @return $this
+     */
+    public function setProvider($provider)
+    {
+        $this->provider = $provider;
 
         return $this;
     }

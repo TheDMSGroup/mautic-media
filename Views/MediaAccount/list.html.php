@@ -123,7 +123,7 @@ if ('index' == $tmpl) {
                     </td>
                     <td class="visible-md visible-lg">
                         <?php $category = $item->getCategory(); ?>
-                        <?php $catName  = ($category) ? $category->getTitle() : $view['translator']->trans(
+                        <?php $catName = ($category) ? $category->getTitle() : $view['translator']->trans(
                             'mautic.core.form.uncategorized'
                         ); ?>
                         <?php $color = ($category) ? '#'.$category->getColor() : 'inherit'; ?>
