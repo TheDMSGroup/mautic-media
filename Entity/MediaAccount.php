@@ -68,6 +68,9 @@ class MediaAccount extends FormEntity
     /** @var string */
     private $campaignSettings;
 
+    /** @var string */
+    private $accountId;
+
     /**
      * @param ClassMetadata $metadata
      */
@@ -106,6 +109,8 @@ class MediaAccount extends FormEntity
 
         $builder->addNamedField('provider', 'string', 'provider', false);
 
+        $builder->addNamedField('accountId', 'string', 'account_id', true);
+
         $builder->addNamedField('clientId', 'string', 'client_id', true);
 
         $builder->addNamedField('clientSecret', 'string', 'client_secret', true);
@@ -133,6 +138,7 @@ class MediaAccount extends FormEntity
             ->addProperties(
                 [
                     'description',
+                    'accountId',
                     'clientId',
                     'clientSecret',
                     'token',
@@ -220,6 +226,28 @@ class MediaAccount extends FormEntity
         $this->isChanged('token', $token);
 
         $this->token = $token;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getAccountId()
+    {
+        return $this->accountId;
+    }
+
+    /**
+     * @param string $accountId
+     *
+     * @return $this
+     */
+    public function setAccountId($accountId)
+    {
+        $this->isChanged('accountId', $accountId);
+
+        $this->accountId = $accountId;
 
         return $this;
     }
