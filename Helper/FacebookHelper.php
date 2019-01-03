@@ -246,56 +246,52 @@ class FacebookHelper
         /** @var AdAccount $account */
         $this->getAdAccounts(
             function ($account) use (&$accounts, $dateTo, $dateFrom) {
-                $spend = 0;
-                $this->getSelf(
+                $spend  = 0;
+                $self   = $account->getData();
+                $fields = [
+                    'campaign_id',
+                    'campaign_name',
+                    'spend',
+                ];
+                $params = [
+                    'level'     => 'account',
+                    'filtering' => [
+                        [
+                            'field'    => 'spend',
+                            'operator' => 'GREATER_THAN',
+                            'value'    => '0',
+                        ],
+                    ],
+                ];
+                $this->output->write(
+                    MediaAccount::PROVIDER_FACEBOOK.': Checking for activity - '.
+                    $dateFrom->format('Y-m-d').' ~ '.$dateTo->format('Y-m-d').' - '.
+                    $self['name']
+                );
+                $timezone = new \DateTimeZone($self['timezone_name']);
+                $since    = clone $dateFrom;
+                $until    = clone $dateTo;
+                $since->setTimeZone($timezone);
+                $until->setTimeZone($timezone);
+                // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
+                $params['time_range'] = [
+                    'since' => $since->format('Y-m-d'),
+                    'until' => $until->format('Y-m-d'),
+                ];
+                $this->getInsights(
                     $account,
-                    function ($self) use (&$spend, $account, &$accounts, $dateFrom, $dateTo) {
-                        $fields = [
-                            'campaign_id',
-                            'campaign_name',
-                            'spend',
-                        ];
-                        $params = [
-                            'level'     => 'account',
-                            'filtering' => [
-                                [
-                                    'field'    => 'spend',
-                                    'operator' => 'GREATER_THAN',
-                                    'value'    => '0',
-                                ],
-                            ],
-                        ];
-                        $this->output->write(
-                            MediaAccount::PROVIDER_FACEBOOK.': Checking for activity - '.
-                            $dateFrom->format('Y-m-d').' ~ '.$dateTo->format('Y-m-d').' - '.
-                            $self['name']
-                        );
-                        $timezone = new \DateTimeZone($self['timezone_name']);
-                        $since    = clone $dateFrom;
-                        $until    = clone $dateTo;
-                        $since->setTimeZone($timezone);
-                        $until->setTimeZone($timezone);
-                        // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
-                        $params['time_range'] = [
-                            'since' => $since->format('Y-m-d'),
-                            'until' => $until->format('Y-m-d'),
-                        ];
-                        $this->getInsights(
-                            $account,
-                            $fields,
-                            $params,
-                            function ($data) use (&$spend, $account, &$accounts, $self) {
-                                $spend += $data['spend'];
-                                if ($spend) {
-                                    $accounts[] = $account;
+                    $fields,
+                    $params,
+                    function ($data) use (&$spend, $account, &$accounts, $self) {
+                        $spend += $data['spend'];
+                        if ($spend) {
+                            $accounts[] = $account;
 
-                                    return true;
-                                }
-                            }
-                        );
-                        $this->output->writeln('  '.$self['currency'].' '.$spend);
+                            return true;
+                        }
                     }
                 );
+                $this->output->writeln('  '.$self['currency'].' '.$spend);
             }
         );
         $this->output->writeln(
@@ -312,12 +308,29 @@ class FacebookHelper
      */
     private function getAdAccounts($callback)
     {
-        $code = null;
+        $code   = null;
+        $fields = [
+            'id',
+            'timezone_name',
+            'name',
+            'currency',
+        ];
+        // $params = [
+        //     'level'     => 'account',
+        //     'filtering' => [
+        //         [
+        //             'field'    => 'account_status',
+        //             'operator' => 'EQUALS',
+        //             'value'    => '1',
+        //         ],
+        //     ],
+        // ];
+        $params = [];
 
         do {
             try {
                 $code = null;
-                foreach ($this->user->getAdAccounts() as $account) {
+                foreach ($this->user->getAdAccounts($fields, $params) as $account) {
                     if (is_callable($callback)) {
                         if ($callback($account)) {
                             break;
@@ -342,23 +355,26 @@ class FacebookHelper
 
     /**
      * @param $account
+     * @param $fields
      * @param $params
      *
      * @return array
      * @throws \Exception
      */
-    private function getSelf($account, $callback, $params = ['id', 'timezone_name', 'name', 'currency'])
+    private function getInsights($account, $fields, $params, $callback)
     {
         $code = null;
 
         do {
             try {
                 $code = null;
-                $self = $account->getSelf($params)->getData();
-                if (is_callable($callback)) {
-                    if ($callback($self)) {
-                        break;
+                foreach ($account->getInsights($fields, $params) as $insight) {
+                    if (is_callable($callback)) {
+                        if ($callback($insight->getData())) {
+                            break;
+                        }
                     }
+                    $this->output->write('.');
                     sleep(self::$betweenOpSleep);
                 }
             } catch (AuthorizationException $e) {
@@ -399,26 +415,23 @@ class FacebookHelper
 
     /**
      * @param $account
-     * @param $fields
      * @param $params
      *
      * @return array
      * @throws \Exception
      */
-    private function getInsights($account, $fields, $params, $callback)
+    private function getSelf($account, $callback, $params = ['id', 'timezone_name', 'name', 'currency'])
     {
         $code = null;
 
         do {
             try {
                 $code = null;
-                foreach ($account->getInsights($fields, $params) as $insight) {
-                    if (is_callable($callback)) {
-                        if ($callback($insight->getData())) {
-                            break;
-                        }
+                $self = $account->getSelf($params)->getData();
+                if (is_callable($callback)) {
+                    if ($callback($self)) {
+                        break;
                     }
-                    $this->output->write('.');
                     sleep(self::$betweenOpSleep);
                 }
             } catch (AuthorizationException $e) {
