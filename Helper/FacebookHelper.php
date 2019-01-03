@@ -35,7 +35,10 @@ class FacebookHelper
     private $user;
 
     /** @var string */
-    private $accountId;
+    private $providerAccountId;
+
+    /** @var string */
+    private $mediaAccountId;
 
     /** @var Output */
     private $output;
@@ -43,18 +46,30 @@ class FacebookHelper
     /**
      * FacebookHelper constructor.
      *
-     * @param                 $account_id
-     * @param                 $client_id
-     * @param                 $client_secret
-     * @param                 $token
+     * @param                 $mediaAccountId
+     * @param                 $providerAccountId
+     * @param                 $providerClientId
+     * @param                 $providerClientSecret
+     * @param                 $providerToken
      * @param OutputInterface $output
      */
-    public function __construct($account_id, $client_id, $client_secret, $token, OutputInterface $output)
-    {
-        $this->output    = $output;
-        $this->accountId = $account_id;
+    public function __construct(
+        $mediaAccountId,
+        $providerAccountId,
+        $providerClientId,
+        $providerClientSecret,
+        $providerToken,
+        OutputInterface $output
+    ) {
+        // DO NOT COMMIT
+        $providerAccountId = '313654038840837';
+        $providerToken     = 'EAAGEgprZBDWUBAJgUA8VqW4wt7E0RHumsEqa4JOIoHCHdeRRZBUAFq6NSeDQueJBuHZAp1wh92sMB33mjzQPUxhMrxGTMuRhoBcBdYpATZBBs9gs6bturePHYbkb1zOtkNBi3DZBYFS5W2uCX3IT0sQEWi64Jqj8zPCpiefEjQQZDZD';
 
-        Api::init($client_id, $client_secret, $token);
+        $this->mediaAccountId    = $mediaAccountId;
+        $this->output            = $output;
+        $this->providerAccountId = $providerAccountId;
+
+        Api::init($providerClientId, $providerClientSecret, $providerToken);
         $this->client = Api::instance();
         // $this->client->setLogger(new CurlLogger());
         Cursor::setDefaultUseImplicitFetch(true);
@@ -106,7 +121,7 @@ class FacebookHelper
             $spend       = 0;
             $accountData = $account->getSelf(['id', 'timezone_name', 'name', 'currency'])->getData();
             $this->output->write(
-                'Pulling spend from Facebook Ad account '.$accountData['name'].' for '.$dateFrom->format(
+                'Pulling from Facebook - '.$accountData['name'].' - '.$dateFrom->format(
                     'Y-m-d'
                 ).' to '.$dateTo->format('Y-m-d')
             );
@@ -131,7 +146,7 @@ class FacebookHelper
                 );
                 $stat = new Stat();
                 $stat->setProvider(MediaAccount::PROVIDER_FACEBOOK);
-                // @todo - To be mapped later.
+                // @todo - To be mapped based on settings of the Media Account.
                 // $stat->setCampaignId(0);
                 $stat->setProviderCampaignId(!empty($data['campaign_id']) ? $data['campaign_id'] : '');
                 $stat->setProviderCampaignName(!empty($data['campaign_name']) ? $data['campaign_name'] : '');
@@ -144,9 +159,7 @@ class FacebookHelper
                 $stats[] = $stat;
                 $spend   += $data['spend'];
             }
-            $this->output->writeln(
-                ' ('.$accountData['currency'].' '.$spend.')'
-            );
+            $this->output->writeln(' - '.$accountData['currency'].' '.$spend);
         }
 
         return $stats;
@@ -161,7 +174,7 @@ class FacebookHelper
         $me = $this->client->call('/me')->getContent();
         if (!$me || !isset($me['id'])) {
             throw new \Exception(
-                'Cannot discern Facebook user for account '.$this->accountId.'. You likely need to reauthenticate.'
+                'Cannot discern Facebook user for account '.$this->providerproviderAccountId.'. You likely need to reauthenticate.'
             );
         }
         $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));

@@ -483,16 +483,24 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
-        $stats        = [];
-        $dateFrom     = new \DateTime('-1 week');
-        $dateTo       = new \DateTime('midnight');
-        $accountId    = $mediaAccount->getAccountId();
-        $clientId     = $mediaAccount->getClientId();
-        $clientSecret = $mediaAccount->getClientSecret();
-        $token        = $mediaAccount->getToken();
+        $stats                = [];
+        $dateFrom             = new \DateTime('-1 week');
+        $dateTo               = new \DateTime('midnight');
+        $mediaAccountId       = $mediaAccount->getId();
+        $providerAccountId    = $mediaAccount->getAccountId();
+        $providerClientId     = $mediaAccount->getClientId();
+        $providerClientSecret = $mediaAccount->getClientSecret();
+        $providerToken        = $mediaAccount->getToken();
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
-                $helper = new FacebookHelper($accountId, $clientId, $clientSecret, $token, $output);
+                $helper = new FacebookHelper(
+                    $mediaAccountId,
+                    $providerAccountId,
+                    $providerClientId,
+                    $providerClientSecret,
+                    $providerToken,
+                    $output
+                );
                 $stats  = $helper->pullData($dateFrom, $dateTo);
                 break;
 
