@@ -484,8 +484,8 @@ class MediaAccountModel extends FormModel
             return;
         }
         $stats                = [];
-        $dateFrom             = new \DateTime('-1 week');
-        $dateTo               = new \DateTime('midnight');
+        $dateFrom             = new \DateTime('-30 days');
+        $dateTo               = new \DateTime();
         $mediaAccountId       = $mediaAccount->getId();
         $providerAccountId    = $mediaAccount->getAccountId();
         $providerClientId     = $mediaAccount->getClientId();
