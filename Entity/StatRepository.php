@@ -11,6 +11,7 @@
 
 namespace MauticPlugin\MauticMediaBundle\Entity;
 
+use Doctrine\DBAL\Types\Type;
 use Mautic\CoreBundle\Entity\CommonRepository;
 
 /**
@@ -98,24 +99,42 @@ class StatRepository extends CommonRepository
      */
     public function saveEntities($entities)
     {
-        $values = [];
-        foreach ($entities as $entity) {
-            $values[] = [
-                'FROM_UNIXTIME('.$entity->getDateAdded()->getTimestamp().')',
-            ];
-        }
-        $sql = 'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats '.
-            '(campaign_id, event_id, date_triggered, scheduled_count, triggered_count, non_action_path_taken_count, failed_count) '.
-            'VALUES ('.implode('),(', $values).') '.
-            'ON DUPLICATE KEY UPDATE '.
-            'scheduled_count=scheduled_count+VALUES(scheduled_count), '.
-            'triggered_count=triggered_count+VALUES(triggered_count), '.
-            'non_action_path_taken_count=non_action_path_taken_count+VALUES(non_action_path_taken_count), '.
-            'failed_count=failed_count+VALUES(failed_count) ';
-        $this->getEntityManager()
+        $q = $this->getEntityManager()
             ->getConnection()
-            ->prepare($sql)
-            ->execute();
-        $this->getEntityManager()->flush();
+            ->prepare(
+                'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats '.
+                '(date_added, campaign_id, provider, media_account_id, provider_campaign_id, provider_campaign_name, provider_account_id, provider_account_name, spend, cpc, cpm) '.
+                'VALUES ('.implode(
+                    '),(',
+                    array_fill(
+                        0,
+                        count($entities),
+                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?'
+                    )
+                ).') '.
+                'ON DUPLICATE KEY UPDATE '.
+                'campaign_id = VALUES(campaign_id), '.
+                'spend = VALUES(spend), '.
+                'cpc = VALUES(cpc), '.
+                'cpm = VALUES(cpm)'
+            );
+
+        $count = 0;
+        foreach ($entities as $entity) {
+            /** @var Stat $entity */
+            $q->bindValue(++$count, $entity->getDateAdded()->getTimestamp(), Type::INTEGER);
+            $q->bindValue(++$count, $entity->getCampaignId(), Type::INTEGER);
+            $q->bindValue(++$count, $entity->getProvider(), Type::STRING);
+            $q->bindValue(++$count, $entity->getMediaAccountId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderCampaignId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderCampaignName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAccountId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAccountName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getSpend(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getCpc(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getCpm(), Type::FLOAT);
+        }
+
+        $q->execute();
     }
 }

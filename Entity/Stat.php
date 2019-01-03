@@ -98,6 +98,11 @@ class Stat
             ->precision(19)
             ->scale(4)
             ->build();
+
+        $builder->addUniqueConstraint(
+            ['date_added', 'provider', 'media_account_id', 'provider_campaign_id'],
+            'date_added_provider_account_campaign'
+        );
     }
 
     /**
