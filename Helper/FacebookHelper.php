@@ -33,13 +33,13 @@ class FacebookHelper
 {
 
     /** @var int Number of rate limit errors after which we abort. */
-    static $rateLimitMaxErrors = 20;
+    static $rateLimitMaxErrors = 60;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    static $betweenOpSleep = 1;
+    static $betweenOpSleep = .5;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    static $rateLimitSleep = 300;
+    static $rateLimitSleep = 60;
 
     /** @var \Facebook\Facebook */
     private $client;
@@ -95,7 +95,7 @@ class FacebookHelper
 
         Api::init($providerClientId, $providerClientSecret, $providerToken);
         $this->client = Api::instance();
-        // $this->client->setLogger(new CurlLogger());
+        // $this->client->setLogger(new \FacebookAds\Logger\CurlLogger());
         Cursor::setDefaultUseImplicitFetch(true);
     }
 
@@ -201,7 +201,7 @@ class FacebookHelper
                                     $spend += $data['spend'];
                                 }
                             );
-                            $this->output->writeln("\t\t\t\t".$self['currency'].' '.$spend);
+                            $this->output->writeln('  '.$self['currency'].' '.$spend);
                         }
                     );
                 }
@@ -293,7 +293,7 @@ class FacebookHelper
                                 }
                             }
                         );
-                        $this->output->writeln("\t\t\t\t".$self['currency'].' '.$spend);
+                        $this->output->writeln('  '.$self['currency'].' '.$spend);
                     }
                 );
             }
