@@ -13,8 +13,11 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use FacebookAds\Api;
 use FacebookAds\Cursor;
+use FacebookAds\Http\Exception\AuthorizationException;
 use FacebookAds\Object\AdAccount;
 use FacebookAds\Object\AdAccountUser;
+use FacebookAds\Object\User;
+use FacebookAds\Object\Values\ReachFrequencyPredictionStatuses;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -27,6 +30,15 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class FacebookHelper
 {
+
+    /** @var int Number of rate limit errors after which we abort. */
+    static $rateLimitMaxErrors = 10;
+
+    /** @var int Number of seconds to sleep between looping API operations. */
+    static $betweenOpSleep = .5;
+
+    /** @var int Number of seconds to sleep when we hit API rate limits. */
+    static $rateLimitSleep = 60;
 
     /** @var \Facebook\Facebook */
     private $client;
@@ -42,6 +54,10 @@ class FacebookHelper
 
     /** @var Output */
     private $output;
+
+    /** @var array */
+    private $errors = [];
+
 
     /**
      * FacebookHelper constructor.
@@ -76,90 +92,111 @@ class FacebookHelper
     }
 
     /**
-     * @return null
+     * @param \DateTime $dateFrom
+     * @param \DateTime $dateTo
+     *
+     * @return array
      * @throws \Exception
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        $this->authenticate();
-
-        // Fields to retrieve and what we want to call them internally
-        $fields = [
-            // 'ad_id',
-            // 'ad_name',
-            // 'adset_id',
-            // 'adset_name',
-            'campaign_id',
-            'campaign_name',
-            'spend',
-            'cpp',
-            'cpm',
-            // 'clicks'
-        ];
-        $params = [
-            // We can go down to Ad level if needed...
-            'level'      => 'campaign',
-            // Filter out any data without costs associated.
-            'filtering'  => [
-                [
-                    'field'    => 'spend',
-                    'operator' => 'GREATER_THAN',
-                    'value'    => '0',
-                ],
-            ],
-            // Hourly breakdown is the most granular available.
-            'breakdowns' => [
-                'hourly_stats_aggregated_by_advertiser_time_zone',
-            ],
-            // We'll set time_range later when we know the appropriate timezone.
-        ];
-
-        // Loop through all Ad accounts this user has access to.
         $stats = [];
-        /** @var AdAccount $account */
-        foreach ($this->user->getAdAccounts() as $account) {
-            $spend       = 0;
-            $accountData = $account->getSelf(['id', 'timezone_name', 'name', 'currency'])->getData();
-            $this->output->write(
-                'Pulling from Facebook - '.$accountData['name'].' - '.$dateFrom->format(
-                    'Y-m-d'
-                ).' to '.$dateTo->format('Y-m-d')
-            );
-            $timezone = new \DateTimeZone($accountData['timezone_name']);
-            $since    = clone $dateFrom;
-            $until    = clone $dateTo;
-            $since->setTimeZone($timezone);
-            $until->setTimeZone($timezone);
-            // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
-            $params['time_range'] = [
-                'since' => $since->format('Y-m-d'),
-                'until' => $until->format('Y-m-d'),
-            ];
-            foreach ($account->getInsights($fields, $params) as $insight) {
-                $data = $insight->getData();
-                // Convert the date to our standard.
-                $time = substr($data['hourly_stats_aggregated_by_advertiser_time_zone'], 0, 8);
-                $date = \DateTime::createFromFormat(
-                    'Y-m-d H:i:s',
-                    $data['date_start'].' '.$time,
-                    $timezone
-                );
-                $stat = new Stat();
-                $stat->setProvider(MediaAccount::PROVIDER_FACEBOOK);
-                // @todo - To be mapped based on settings of the Media Account.
-                // $stat->setCampaignId(0);
-                $stat->setProviderCampaignId(!empty($data['campaign_id']) ? $data['campaign_id'] : '');
-                $stat->setProviderCampaignName(!empty($data['campaign_name']) ? $data['campaign_name'] : '');
-                $stat->setProviderAccountId($accountData['id']);
-                $stat->setproviderAccountName($accountData['name']);
-                $stat->setDateAdded($date);
-                $stat->setSpend(!empty($data['spend']) ? floatval($data['spend']) : 0);
-                $stat->setCpm(!empty($data['cpm']) ? floatval($data['cpm']) : 0);
-                $stat->setCpc(!empty($data['cpc']) ? floatval($data['cpc']) : 0);
-                $stats[] = $stat;
-                $spend   += $data['spend'];
+
+        try {
+            $this->authenticate();
+            $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
+            if (!$accounts) {
+                return $stats;
             }
-            $this->output->writeln(' - '.$accountData['currency'].' '.$spend);
+
+            // Using the active accounts, go backwards through time one day at a time to pull hourly data.
+            $date   = clone $dateTo;
+            $oneDay = new \DateInterval('P1D');
+            while ($date >= $dateFrom) {
+                /** @var AdAccount $account */
+                foreach ($accounts as $account) {
+                    $spend = 0;
+                    $this->getSelf(
+                        $account,
+                        function ($self) use (&$spend, $date, $oneDay, $account) {
+                            $timezone = new \DateTimeZone($self['timezone_name']);
+                            $since    = clone $date;
+                            $until    = clone $date;
+                            $this->output->write(
+                                MediaAccount::PROVIDER_FACEBOOK.': Pulling hourly data - '.
+                                $since->format('Y-m-d').' - '.
+                                $self['name']
+                            );
+                            $since->setTimeZone($timezone);
+                            $until->setTimeZone($timezone)->add($oneDay);
+
+                            // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
+                            $fields = [
+                                'campaign_id',
+                                'campaign_name',
+                                'spend',
+                                'cpp',
+                                'cpm',
+                                // 'clicks'
+                            ];
+                            $params = [
+                                'level'      => 'campaign',
+                                'filtering'  => [
+                                    [
+                                        'field'    => 'spend',
+                                        'operator' => 'GREATER_THAN',
+                                        'value'    => '0',
+                                    ],
+                                ],
+                                'breakdowns' => [
+                                    'hourly_stats_aggregated_by_advertiser_time_zone',
+                                ],
+                                'time_range' => [
+                                    'since' => $since->format('Y-m-d'),
+                                    'until' => $until->format('Y-m-d'),
+                                ],
+                            ];
+                            $this->getInsights(
+                                $account,
+                                $fields,
+                                $params,
+                                function ($data) use (&$spend, $timezone, $self) {
+                                    // Convert the date to our standard.
+                                    $time = substr($data['hourly_stats_aggregated_by_advertiser_time_zone'], 0, 8);
+                                    $date = \DateTime::createFromFormat(
+                                        'Y-m-d H:i:s',
+                                        $data['date_start'].' '.$time,
+                                        $timezone
+                                    );
+                                    $stat = new Stat();
+                                    $stat->setMediaAccountId($this->mediaAccountId);
+                                    $stat->setProvider(MediaAccount::PROVIDER_FACEBOOK);
+                                    // @todo - To be mapped based on settings of the Media Account.
+                                    // $stat->setCampaignId(0);
+                                    $stat->setProviderCampaignId(
+                                        !empty($data['campaign_id']) ? $data['campaign_id'] : ''
+                                    );
+                                    $stat->setProviderCampaignName(
+                                        !empty($data['campaign_name']) ? $data['campaign_name'] : ''
+                                    );
+                                    $stat->setProviderAccountId($self['id']);
+                                    $stat->setproviderAccountName($self['name']);
+                                    $stat->setDateAdded($date);
+                                    $stat->setSpend(!empty($data['spend']) ? floatval($data['spend']) : 0);
+                                    $stat->setCpm(!empty($data['cpm']) ? floatval($data['cpm']) : 0);
+                                    $stat->setCpc(!empty($data['cpc']) ? floatval($data['cpc']) : 0);
+                                    $stats[] = $stat;
+                                    $spend   += $data['spend'];
+                                }
+                            );
+                            $this->output->writeln(' - '.$self['currency'].' '.$spend);
+                        }
+                    );
+                }
+                $date->sub($oneDay);
+            }
+        } catch (\Exception $e) {
+            $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.': '.$e->getMessage().'</error>');
         }
 
         return $stats;
@@ -180,4 +217,186 @@ class FacebookHelper
         $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
         $this->user = new AdAccountUser($me['id']);
     }
+
+    /**
+     * @param \DateTime $dateFrom
+     * @param \DateTime $dateTo
+     *
+     * @return array
+     * @throws \Exception
+     */
+    private function getActiveAccounts(\DateTime $dateFrom, \DateTime $dateTo)
+    {
+        // Find Ad accounts this user has access to with activity in this date range to reduce overall API call count.
+
+        $accounts = [];
+        /** @var AdAccount $account */
+        $this->getAdAccounts(
+            function ($account) use (&$accounts, $dateTo, $dateFrom) {
+                $spend = 0;
+                $this->getSelf(
+                    $account,
+                    function ($self) use (&$spend, $account, &$accounts, $dateFrom, $dateTo) {
+                        $fields = [
+                            'campaign_id',
+                            'campaign_name',
+                            'spend',
+                        ];
+                        $params = [
+                            'level'     => 'account',
+                            'filtering' => [
+                                [
+                                    'field'    => 'spend',
+                                    'operator' => 'GREATER_THAN',
+                                    'value'    => '0',
+                                ],
+                            ],
+                        ];
+                        $this->output->write(
+                            MediaAccount::PROVIDER_FACEBOOK.': Checking for activity - '.
+                            $dateFrom->format('Y-m-d').' ~ '.$dateTo->format('Y-m-d').' - '.
+                            $self['name']
+                        );
+                        $timezone = new \DateTimeZone($self['timezone_name']);
+                        $since    = clone $dateFrom;
+                        $until    = clone $dateTo;
+                        $since->setTimeZone($timezone);
+                        $until->setTimeZone($timezone);
+                        // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
+                        $params['time_range'] = [
+                            'since' => $since->format('Y-m-d'),
+                            'until' => $until->format('Y-m-d'),
+                        ];
+                        $this->getInsights(
+                            $account,
+                            $fields,
+                            $params,
+                            function ($data) use (&$spend, $account, &$accounts, $self) {
+                                $spend += $data['spend'];
+                                if ($spend) {
+                                    $accounts[] = $account;
+
+                                    return true;
+                                }
+                            }
+                        );
+                        $this->output->writeln(' - '.$self['currency'].' '.$spend);
+                    }
+                );
+            }
+        );
+        $this->output->writeln(
+            MediaAccount::PROVIDER_FACEBOOK.': Found '.count($accounts).' accounts active during this time frame.'
+        );
+
+        return $accounts;
+    }
+
+    /**
+     * @param $callback
+     *
+     * @throws \Exception
+     */
+    private function getAdAccounts($callback)
+    {
+        $code = null;
+
+        do {
+            try {
+                $code = null;
+                foreach ($this->user->getAdAccounts() as $account) {
+                    if (is_callable($callback)) {
+                        if ($callback($account)) {
+                            break;
+                        }
+                    }
+                    sleep(self::$betweenOpSleep);
+                };
+            } catch (AuthorizationException $e) {
+                $this->errors[] = $e->getMessage();
+                $code           = $e->getCode();
+                if (count($this->errors) > self::$rateLimitMaxErrors) {
+                    throw new \Exception('Too many request errors.');
+                }
+                if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep);
+                }
+            }
+        } while ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE);
+
+    }
+
+    /**
+     * @param $account
+     * @param $params
+     *
+     * @return array
+     * @throws \Exception
+     */
+    private function getSelf($account, $callback, $params = ['id', 'timezone_name', 'name', 'currency'])
+    {
+        $code = null;
+
+        do {
+            try {
+                $code = null;
+                $self = $account->getSelf($params)->getData();
+                if (is_callable($callback)) {
+                    if ($callback($self)) {
+                        break;
+                    }
+                    sleep(self::$betweenOpSleep);
+                }
+            } catch (AuthorizationException $e) {
+                $this->errors[] = $e->getMessage();
+                $code           = $e->getCode();
+                if (count($this->errors) > self::$rateLimitMaxErrors) {
+                    throw new \Exception('Too many request errors.');
+                }
+                if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep);
+                }
+            }
+        } while ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE);
+    }
+
+    /**
+     * @param $account
+     * @param $fields
+     * @param $params
+     *
+     * @return array
+     * @throws \Exception
+     */
+    private function getInsights($account, $fields, $params, $callback)
+    {
+        $code = null;
+
+        do {
+            try {
+                $code = null;
+                foreach ($account->getInsights($fields, $params) as $insight) {
+                    if (is_callable($callback)) {
+                        if ($callback($insight->getData())) {
+                            break;
+                        }
+                    }
+                    sleep(self::$betweenOpSleep);
+                }
+            } catch (AuthorizationException $e) {
+                $this->errors[] = $e->getMessage();
+                $code           = $e->getCode();
+                if (count($this->errors) > self::$rateLimitMaxErrors) {
+                    throw new \Exception('Too many request errors.');
+                }
+                if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep);
+                }
+            }
+        } while ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE);
+    }
 }
+
