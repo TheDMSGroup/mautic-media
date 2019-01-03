@@ -499,9 +499,10 @@ class MediaAccountModel extends FormModel
                     $providerClientId,
                     $providerClientSecret,
                     $providerToken,
-                    $output
+                    $output,
+                    $this->em
                 );
-                $stats  = $helper->pullData($dateFrom, $dateTo);
+                $helper->pullData($dateFrom, $dateTo);
                 break;
 
             case MediaAccount::PROVIDER_BING:
@@ -517,10 +518,10 @@ class MediaAccountModel extends FormModel
                 break;
 
         }
-        if ($stats) {
-            // @todo - Persist stat entities for each row of data.
-            $this->getStatRepository()->saveEntities($stats);
-        }
+        // if ($stats) {
+        //     // these are to be persisted by the Helpers now
+        //     $this->getStatRepository()->saveEntities($stats);
+        // }
     }
 
     /**

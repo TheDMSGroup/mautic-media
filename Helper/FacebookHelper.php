@@ -11,6 +11,7 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use Doctrine\ORM\EntityManager;
 use FacebookAds\Api;
 use FacebookAds\Cursor;
 use FacebookAds\Http\Exception\AuthorizationException;
@@ -32,13 +33,13 @@ class FacebookHelper
 {
 
     /** @var int Number of rate limit errors after which we abort. */
-    static $rateLimitMaxErrors = 10;
+    static $rateLimitMaxErrors = 20;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    static $betweenOpSleep = .5;
+    static $betweenOpSleep = 1;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    static $rateLimitSleep = 60;
+    static $rateLimitSleep = 300;
 
     /** @var \Facebook\Facebook */
     private $client;
@@ -58,6 +59,11 @@ class FacebookHelper
     /** @var array */
     private $errors = [];
 
+    /** @var EntityManager */
+    private $em;
+
+    /** @var array */
+    private $stats = [];
 
     /**
      * FacebookHelper constructor.
@@ -75,7 +81,8 @@ class FacebookHelper
         $providerClientId,
         $providerClientSecret,
         $providerToken,
-        OutputInterface $output
+        OutputInterface $output,
+        EntityManager $em
     ) {
         // DO NOT COMMIT
         $providerAccountId = '313654038840837';
@@ -84,6 +91,7 @@ class FacebookHelper
         $this->mediaAccountId    = $mediaAccountId;
         $this->output            = $output;
         $this->providerAccountId = $providerAccountId;
+        $this->em                = $em;
 
         Api::init($providerClientId, $providerClientSecret, $providerToken);
         $this->client = Api::instance();
@@ -100,13 +108,11 @@ class FacebookHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        $stats = [];
-
         try {
             $this->authenticate();
             $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
             if (!$accounts) {
-                return $stats;
+                return $this->stats;
             }
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
@@ -170,23 +176,29 @@ class FacebookHelper
                                     );
                                     $stat = new Stat();
                                     $stat->setMediaAccountId($this->mediaAccountId);
-                                    $stat->setProvider(MediaAccount::PROVIDER_FACEBOOK);
+                                    $provider = MediaAccount::PROVIDER_FACEBOOK;
+                                    $stat->setProvider($provider);
                                     // @todo - To be mapped based on settings of the Media Account.
                                     // $stat->setCampaignId(0);
-                                    $stat->setProviderCampaignId(
-                                        !empty($data['campaign_id']) ? $data['campaign_id'] : ''
-                                    );
-                                    $stat->setProviderCampaignName(
-                                        !empty($data['campaign_name']) ? $data['campaign_name'] : ''
-                                    );
+                                    $providerCampaignId = !empty($data['campaign_id']) ? $data['campaign_id'] : '';
+                                    $stat->setProviderCampaignId($providerCampaignId);
+                                    $providerCampaignName = !empty($data['campaign_name']) ? $data['campaign_name'] : '';
+                                    $stat->setProviderCampaignName($providerCampaignName);
                                     $stat->setProviderAccountId($self['id']);
                                     $stat->setproviderAccountName($self['name']);
                                     $stat->setDateAdded($date);
                                     $stat->setSpend(!empty($data['spend']) ? floatval($data['spend']) : 0);
                                     $stat->setCpm(!empty($data['cpm']) ? floatval($data['cpm']) : 0);
                                     $stat->setCpc(!empty($data['cpc']) ? floatval($data['cpc']) : 0);
-                                    $stats[] = $stat;
-                                    $spend   += $data['spend'];
+                                    $key               = implode(
+                                        '|',
+                                        [$date->getTimestamp(), $provider, $this->mediaAccountId, $providerCampaignId]
+                                    );
+                                    $this->stats[$key] = $stat;
+                                    if (count($this->stats) % 200 === 0) {
+                                        $this->saveQueue();
+                                    }
+                                    $spend += $data['spend'];
                                 }
                             );
                             $this->output->writeln(' - '.$self['currency'].' '.$spend);
@@ -198,8 +210,9 @@ class FacebookHelper
         } catch (\Exception $e) {
             $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.': '.$e->getMessage().'</error>');
         }
+        $this->saveQueue();
 
-        return $stats;
+        return $this->stats;
     }
 
     /**
@@ -356,10 +369,32 @@ class FacebookHelper
                 }
                 if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
                     $this->output->write('.');
+                    $this->saveQueue();
                     sleep(self::$rateLimitSleep);
                 }
             }
         } while ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE);
+    }
+
+    /**
+     * Save all the stat entities in queue.
+     */
+    private function saveQueue()
+    {
+        if ($this->stats) {
+            if (!$this->em->isOpen()) {
+                $this->em = $this->em->create(
+                    $this->em->getConnection(),
+                    $this->em->getConfiguration(),
+                    $this->em->getEventManager()
+                );
+            }
+            $this->em->getRepository('MauticMediaBundle:Stat')
+                ->saveEntities($this->stats);
+
+            $this->stats = [];
+            $this->em->clear(Stat::class);
+        }
     }
 
     /**
@@ -393,6 +428,7 @@ class FacebookHelper
                 }
                 if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
                     $this->output->write('.');
+                    $this->saveQueue();
                     sleep(self::$rateLimitSleep);
                 }
             }
