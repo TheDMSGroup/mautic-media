@@ -201,7 +201,7 @@ class FacebookHelper
                                     $spend += $data['spend'];
                                 }
                             );
-                            $this->output->writeln(' - '.$self['currency'].' '.$spend);
+                            $this->output->writeln("\t\t\t\t".$self['currency'].' '.$spend);
                         }
                     );
                 }
@@ -293,7 +293,7 @@ class FacebookHelper
                                 }
                             }
                         );
-                        $this->output->writeln(' - '.$self['currency'].' '.$spend);
+                        $this->output->writeln("\t\t\t\t".$self['currency'].' '.$spend);
                     }
                 );
             }
@@ -332,7 +332,7 @@ class FacebookHelper
                     throw new \Exception('Too many request errors.');
                 }
                 if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
-                    $this->output->write('.');
+                    $this->output->write('⌛');
                     sleep(self::$rateLimitSleep);
                 }
             }
@@ -368,7 +368,7 @@ class FacebookHelper
                     throw new \Exception('Too many request errors.');
                 }
                 if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
-                    $this->output->write('.');
+                    $this->output->write('⌛');
                     $this->saveQueue();
                     sleep(self::$rateLimitSleep);
                 }
@@ -418,6 +418,7 @@ class FacebookHelper
                             break;
                         }
                     }
+                    $this->output->write('.');
                     sleep(self::$betweenOpSleep);
                 }
             } catch (AuthorizationException $e) {
@@ -427,7 +428,7 @@ class FacebookHelper
                     throw new \Exception('Too many request errors.');
                 }
                 if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
-                    $this->output->write('.');
+                    $this->output->write('⌛');
                     $this->saveQueue();
                     sleep(self::$rateLimitSleep);
                 }

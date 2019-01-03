@@ -518,10 +518,6 @@ class MediaAccountModel extends FormModel
                 break;
 
         }
-        // if ($stats) {
-        //     // these are to be persisted by the Helpers now
-        //     $this->getStatRepository()->saveEntities($stats);
-        // }
     }
 
     /**
