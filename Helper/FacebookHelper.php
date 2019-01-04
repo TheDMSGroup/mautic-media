@@ -264,6 +264,7 @@ class FacebookHelper
         }
         $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
         $this->user = new AdAccountUser($me['id']);
+        return $this->user;
     }
 
     /**

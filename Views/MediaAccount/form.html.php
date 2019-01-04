@@ -21,9 +21,9 @@ $header = ($entity->getId())
     $view['translator']->trans('mautic.media.new');
 $view['slots']->set('headerTitle', $header);
 
-// echo $view['assets']->includeScript('plugins/MauticMediaBundle/Assets/build/media.min.js', 'mediaOnLoad', 'mediaOnLoad');
-// echo $view['assets']->includeStylesheet('plugins/MauticMediaBundle/Assets/build/media.min.css');
-// echo $view['assets']->includeStylesheet('https://fonts.googleapis.com/css?family=Roboto+Mono');
+echo $view['assets']->includeScript('plugins/MauticMediaBundle/Assets/build/media.min.js', 'mediaOnLoad', 'mediaOnLoad');
+echo $view['assets']->includeStylesheet('plugins/MauticMediaBundle/Assets/build/media.min.css');
+
 echo $view['form']->start($form);
 ?>
 

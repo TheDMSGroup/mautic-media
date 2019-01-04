@@ -1,0 +1,32 @@
+{
+    "name": "MauticMediaBundle",
+    "description": "Pulls cost data from media advertising services.",
+    "license": "GPL-3.0",
+    "authors": [
+        {
+            "name": "Heath Dutton",
+            "email": "heathdutton@gmail.com"
+        }
+    ],
+    "repository": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/thedmsgroup/mautic-media"
+        }
+    ],
+    "devDependencies": {
+        "grunt": "^1.0.3",
+        "grunt-autoprefixer": "^1.0.1",
+        "grunt-beep": "^1.0.1",
+        "grunt-contrib-copy": "^0.5.0",
+        "grunt-contrib-cssmin": "^0.10.0",
+        "grunt-contrib-uglify": "^3.3.0",
+        "grunt-contrib-watch": "^1.1.0",
+        "grunt-remove": "^0.1.0",
+        "load-grunt-tasks": "^4.0.0",
+        "time-grunt": "^1.0.0"
+    },
+    "dependencies": {
+        "grunt-cli": "^1.2.0"
+    }
+}
