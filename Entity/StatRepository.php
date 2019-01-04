@@ -102,6 +102,7 @@ class StatRepository extends CommonRepository
         $q = $this->getEntityManager()
             ->getConnection()
             ->prepare(
+<<<<<<< HEAD
                 'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats ('.
                 'date_added,'.
                 'campaign_id,'.
@@ -124,23 +125,36 @@ class StatRepository extends CommonRepository
                 'clicks,'.
                 'reach'.
                 ') VALUES ('.implode(
+=======
+                'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats '.
+                '(date_added, campaign_id, provider, media_account_id, provider_campaign_id, provider_campaign_name, provider_account_id, provider_account_name, spend, cpc, cpm) '.
+                'VALUES ('.implode(
+>>>>>>> origin/master
                     '),(',
                     array_fill(
                         0,
                         count($entities),
+<<<<<<< HEAD
                         'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
+=======
+                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?'
+>>>>>>> origin/master
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
                 'campaign_id = VALUES(campaign_id), '.
                 'spend = VALUES(spend), '.
                 'cpc = VALUES(cpc), '.
+<<<<<<< HEAD
                 'cpm = VALUES(cpm), '.
                 'cpp = VALUES(cpp), '.
                 'ctr = VALUES(ctr), '.
                 'impressions = VALUES(impressions), '.
                 'clicks = VALUES(clicks), '.
                 'reach = VALUES(reach)'
+=======
+                'cpm = VALUES(cpm)'
+>>>>>>> origin/master
             );
 
         $count = 0;
@@ -150,6 +164,7 @@ class StatRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getCampaignId(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getProvider(), Type::STRING);
             $q->bindValue(++$count, $entity->getMediaAccountId(), Type::STRING);
+<<<<<<< HEAD
             $q->bindValue(++$count, $entity->getProviderAccountId(), Type::STRING);
             $q->bindValue(++$count, $entity->getProviderAccountName(), Type::STRING);
             $q->bindValue(++$count, $entity->getProviderCampaignId(), Type::STRING);
@@ -166,6 +181,15 @@ class StatRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getImpressions(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getClicks(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getReach(), Type::INTEGER);
+=======
+            $q->bindValue(++$count, $entity->getProviderCampaignId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderCampaignName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAccountId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAccountName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getSpend(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getCpc(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getCpm(), Type::FLOAT);
+>>>>>>> origin/master
         }
 
         $q->execute();

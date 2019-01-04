@@ -474,17 +474,30 @@ class MediaAccountModel extends FormModel
 
     /**
      * @param MediaAccount|null $mediaAccount
+<<<<<<< HEAD
      * @param \DateTime         $dateFrom
      * @param \DateTime         $dateTo
+=======
+>>>>>>> origin/master
      * @param OutputInterface   $output
      *
      * @throws \Exception
      */
+<<<<<<< HEAD
     public function pullData(MediaAccount $mediaAccount = null, \DateTime $dateFrom, \DateTime $dateTo, OutputInterface $output)
+=======
+    public function pullData(MediaAccount $mediaAccount = null, OutputInterface $output)
+>>>>>>> origin/master
     {
         if (!$mediaAccount) {
             return;
         }
+<<<<<<< HEAD
+=======
+        $stats                = [];
+        $dateFrom             = new \DateTime('-30 days');
+        $dateTo               = new \DateTime();
+>>>>>>> origin/master
         $mediaAccountId       = $mediaAccount->getId();
         $providerAccountId    = $mediaAccount->getAccountId();
         $providerClientId     = $mediaAccount->getClientId();
