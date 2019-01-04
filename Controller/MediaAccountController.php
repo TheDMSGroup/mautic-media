@@ -192,24 +192,13 @@ class MediaAccountController extends FormController
             );
 
             $auditLog = $this->getAuditlogs($item);
-            if (in_array($chartFilterValues['type'], [''])) {
-                $stats = $model->getStats(
-                    $item,
-                    $unit,
-                    new \DateTime($chartFilterValues['date_from']),
-                    new \DateTime($chartFilterValues['date_to']),
-                    isset($chartFilterValues['campaign']) ? $chartFilterValues['campaign'] : null
-                );
-            } else {
-                $stats = $model->getStatsBySource(
-                    $item,
-                    $unit,
-                    $chartFilterValues['type'],
-                    new \DateTime($chartFilterValues['date_from']),
-                    new \DateTime($chartFilterValues['date_to']),
-                    isset($chartFilterValues['campaign']) ? $chartFilterValues['campaign'] : null
-                );
-            }
+            $stats = $model->getStats(
+                $item,
+                $unit,
+                new \DateTime($chartFilterValues['date_from']),
+                new \DateTime($chartFilterValues['date_to']),
+                isset($chartFilterValues['campaign']) ? $chartFilterValues['campaign'] : null
+            );
 
             $chartFilterForm = $this->get('form.factory')->create(
                 'media_chart',

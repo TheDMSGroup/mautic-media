@@ -200,7 +200,9 @@ class MediaAccountModel extends FormModel
             $q              = $query->prepareTimeDataQuery(
                 'media_account_stats',
                 'date_added',
-                $params
+                $params,
+                'spend',
+                'sum'
             );
 
             if (!in_array($unit, ['H', 'i', 's'])) {
@@ -303,89 +305,6 @@ class MediaAccountModel extends FormModel
         $q->join('t', MAUTIC_TABLE_PREFIX.'MediaAccount', 'm', 'e.id = t.media_account_id')
             ->andWhere('m.created_by = :userId')
             ->setParameter('userId', $this->userHelper->getUser()->getId());
-    }
-
-    /**
-     * @param MediaAccount   $MediaAccount
-     * @param                $unit
-     * @param                $type
-     * @param \DateTime|null $dateFrom
-     * @param \DateTime|null $dateTo
-     * @param null           $campaignId
-     * @param null           $dateFormat
-     * @param bool           $canViewOthers
-     *
-     * @return array
-     *
-     * @throws \Doctrine\ORM\ORMException
-     */
-    public function getStatsBySource(
-        MediaAccount $MediaAccount,
-        $unit,
-        $type,
-        \DateTime $dateFrom = null,
-        \DateTime $dateTo = null,
-        $campaignId = null,
-        $dateFormat = null,
-        $canViewOthers = true
-    ) {
-        $unit           = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
-        $dateToAdjusted = clone $dateTo;
-        $dateToAdjusted->setTime(23, 59, 59);
-        $chart = new LineChart($unit, $dateFrom, $dateToAdjusted, $dateFormat);
-        $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateToAdjusted, $unit);
-        // $utmSources = $this->getStatRepository()->getSourcesByMediaAccount(
-        //     $MediaAccount->getId(),
-        //     $dateFrom,
-        //     $dateToAdjusted
-        // );
-
-        //if (isset($campaignId)) {
-        if (!empty($campaignId)) {
-            $params['campaign_id'] = (int) $campaignId;
-        }
-        $params['media_account_id'] = $MediaAccount->getId();
-
-        $userTZ     = new \DateTime('now');
-        $userTzName = $userTZ->getTimezone()->getName();
-
-        // $params['type'] = Stat::TYPE_CONVERTED;
-        // Add attribution to the chart.
-        $q = $query->prepareTimeDataQuery(
-            'media_account_stats',
-            'date_added',
-            $params
-        );
-
-        if (!$canViewOthers) {
-            $this->limitQueryToCreator($q);
-        }
-        $dbUnit        = $query->getTimeUnitFromDateRange($dateFrom, $dateTo);
-        $dbUnit        = $query->translateTimeUnit($dbUnit);
-        $dateConstruct = "DATE_FORMAT(CONVERT_TZ(t.date_added, @@global.time_zone, '$userTzName'), '$dbUnit.')";
-        // foreach ($utmSources as $utmSource) {
-        $q->select($dateConstruct.' AS date, ROUND(SUM(t.attribution), 2) AS count')
-            ->groupBy($dateConstruct);
-        // if (empty($utmSource)) { // utmSource can be a NULL value
-        //     $q->andWhere('utm_source IS NULL');
-        // } else {
-        //     $q->andWhere('utm_source = :utmSource')
-        //         ->setParameter('utmSource', $utmSource);
-        // }
-
-        $data = $query->loadAndBuildTimeData($q);
-        foreach ($data as $val) {
-            if (0 !== $val) {
-                if (empty($utmSource)) {
-                    $utmSource = 'No Source';
-                }
-                $chart->setDataset($utmSource, $data);
-                break;
-            }
-        }
-        // }
-
-        return $chart->render();
     }
 
     /**
