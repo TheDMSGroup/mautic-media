@@ -188,7 +188,6 @@ class MediaAccountModel extends FormModel
         $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $unit);
         $unit  = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
-        $stat  = new Stat();
 
         $params = ['media_account_id' => $MediaAccount->getId()];
 
@@ -196,8 +195,8 @@ class MediaAccountModel extends FormModel
             $params['campaign_id'] = $campaignId;
         }
 
-        foreach ($stat->getAllTypes() as $type) {
-            $params['type'] = $type;
+        foreach ($MediaAccount::getAllProviders() as $provider) {
+            $params['provider'] = $provider;
             $q              = $query->prepareTimeDataQuery(
                 'media_account_stats',
                 'date_added',
@@ -245,7 +244,7 @@ class MediaAccountModel extends FormModel
             $data = $query->loadAndBuildTimeData($q);
             foreach ($data as $val) {
                 if (0 !== $val) {
-                    $chart->setDataset($this->translator->trans('mautic.MediaAccount.graph.'.$type), $data);
+                    $chart->setDataset($this->translator->trans('mautic.media.form.provider.'.$provider), $data);
                     break;
                 }
             }
