@@ -21,10 +21,4 @@ Mautic.mediaOnLoad = function () {
             }
         }
     });
-
-    Mautic.mediaTimelineTable();
-
-    if (mQuery('#budgets-widget').length) {
-        Mautic.mediaLoadCampaignBudgetsWidget();
-    }
 };
