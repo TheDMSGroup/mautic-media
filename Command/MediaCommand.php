@@ -69,6 +69,7 @@ class MediaCommand extends ModeratedCommand
      * @param OutputInterface $output
      *
      * @return int|null
+     *
      * @throws \Exception
      */
     protected function execute(InputInterface $input, OutputInterface $output)

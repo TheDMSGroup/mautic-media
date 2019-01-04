@@ -138,7 +138,7 @@ class MediaAccountTimelineEvent extends Event
      * @param array             $filters
      * @param array|null        $orderBy
      * @param int               $page
-     * @param int               $limit Limit per type
+     * @param int               $limit        Limit per type
      * @param bool              $forTimeline
      * @param string|null       $siteDomain
      */

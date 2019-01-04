@@ -58,38 +58,6 @@ class StatRepository extends CommonRepository
     }
 
     /**
-     * @param                $mediaAccountId
-     * @param \DateTime|null $dateFrom
-     * @param \DateTime|null $dateTo
-     *
-     * @return array
-     */
-    // public function getSourcesByMediaAccount($mediaAccountId, \DateTime $dateFrom = null, \DateTime $dateTo = null)
-    // {
-    //     $q = $this->getEntityManager()->getConnection()->createQueryBuilder();
-    //
-    //     $q->select('distinct(s.utm_source)')
-    //         ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
-    //         ->where(
-    //             $q->expr()->eq('s.media_account_id', (int) $mediaAccountId)
-    //         );
-    //
-    //     if ($dateFrom && $dateTo) {
-    //         $q->andWhere('s.date_added BETWEEN FROM_UNIXTIME(:dateFrom) AND FROM_UNIXTIME(:dateTo)')
-    //             ->setParameter('dateFrom', $dateFrom->getTimestamp(), \PDO::PARAM_INT)
-    //             ->setParameter('dateTo', $dateTo->getTimestamp(), \PDO::PARAM_INT);
-    //     }
-    //
-    //     $utmSources = [];
-    //     foreach ($q->execute()->fetchAll() as $row) {
-    //         $utmSources[] = $row['utm_source'];
-    //     }
-    //
-    //     return $utmSources;
-    // }
-
-
-    /**
      * Insert or update batches.
      *
      * @param array $entities
@@ -115,6 +83,7 @@ class StatRepository extends CommonRepository
                 'provider_adset_name,'.
                 'provider_ad_id,'.
                 'provider_ad_name,'.
+                'currency,'.
                 'spend,'.
                 'cpc,'.
                 'cpm,'.
@@ -128,7 +97,7 @@ class StatRepository extends CommonRepository
                     array_fill(
                         0,
                         count($entities),
-                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
+                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
@@ -145,7 +114,7 @@ class StatRepository extends CommonRepository
 
         $count = 0;
         foreach ($entities as $entity) {
-            /** @var Stat $entity */
+            /* @var Stat $entity */
             $q->bindValue(++$count, $entity->getDateAdded()->getTimestamp(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getCampaignId(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getProvider(), Type::STRING);
@@ -158,6 +127,7 @@ class StatRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getProviderAdsetName(), Type::STRING);
             $q->bindValue(++$count, $entity->getProviderAdId(), Type::STRING);
             $q->bindValue(++$count, $entity->getProviderAdName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getCurrency(), Type::STRING);
             $q->bindValue(++$count, $entity->getSpend(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpc(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpm(), Type::FLOAT);

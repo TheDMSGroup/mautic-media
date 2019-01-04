@@ -472,8 +472,12 @@ class MediaAccountModel extends FormModel
      *
      * @throws \Exception
      */
-    public function pullData(MediaAccount $mediaAccount = null, \DateTime $dateFrom, \DateTime $dateTo, OutputInterface $output)
-    {
+    public function pullData(
+        MediaAccount $mediaAccount = null,
+        \DateTime $dateFrom,
+        \DateTime $dateTo,
+        OutputInterface $output
+    ) {
         if (!$mediaAccount) {
             return;
         }
@@ -507,7 +511,6 @@ class MediaAccountModel extends FormModel
             case MediaAccount::PROVIDER_SNAPCHAT:
                 $helper = new GoogleHelper();
                 break;
-
         }
     }
 

@@ -82,6 +82,9 @@ class Stat
     /** @var string */
     private $providerAdsetId = '';
 
+    /** @var string */
+    private $currency = 'USD';
+
     /**
      * @param ORM\ClassMetadata $metadata
      */
@@ -118,6 +121,8 @@ class Stat
         $builder->addNamedField('providerAdId', 'string', 'provider_ad_id', false);
 
         $builder->addNamedField('providerAdName', 'string', 'provider_ad_name', false);
+
+        $builder->addNamedField('currency', 'string', 'currency', false);
 
         $builder->createField('spend', 'decimal')
             ->precision(19)
@@ -570,5 +575,23 @@ class Stat
         return $this;
     }
 
+    /**
+     * @return string
+     */
+    public function getCurrency()
+    {
+        return $this->currency;
+    }
 
+    /**
+     * @param string $currency
+     *
+     * @return $this
+     */
+    public function setCurrency($currency)
+    {
+        $this->currency = $currency;
+
+        return $this;
+    }
 }

@@ -23,7 +23,6 @@ use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Console\Output\OutputInterface;
 
-
 /**
  * Class FacebookHelper.
  *
@@ -31,15 +30,14 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class FacebookHelper
 {
-
     /** @var int Number of rate limit errors after which we abort. */
-    static $rateLimitMaxErrors = 60;
+    public static $rateLimitMaxErrors = 60;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    static $betweenOpSleep = .5;
+    public static $betweenOpSleep = .2;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    static $rateLimitSleep = 60;
+    public static $rateLimitSleep = 60;
 
     /** @var \Facebook\Facebook */
     private $client;
@@ -101,6 +99,7 @@ class FacebookHelper
      * @param \DateTime $dateTo
      *
      * @return array
+     *
      * @throws \Exception
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
@@ -170,7 +169,6 @@ class FacebookHelper
                         $fields,
                         $params,
                         function ($data) use (&$spend, $timezone, $self) {
-
                             // Convert the date to our standard.
                             $time = substr($data['hourly_stats_aggregated_by_advertiser_time_zone'], 0, 8);
                             $date = \DateTime::createFromFormat(
@@ -201,6 +199,7 @@ class FacebookHelper
                             $stat->setProviderAdId($data['ad_id']);
                             $stat->setproviderAdName($data['ad_name']);
 
+                            $stat->setCurrency($self['currency']);
                             $stat->setSpend(floatval($data['spend']));
                             $stat->setCpm(floatval($data['cpm']));
                             $stat->setCpc(floatval($data['cpc']));
@@ -221,27 +220,25 @@ class FacebookHelper
                                 || $stat->getClicks()
                                 || $stat->getReach()
                             ) {
+                                // Uniqueness to match the unique_by_ad constraint.
                                 $key               = implode(
                                     '|',
                                     [
                                         $date->getTimestamp(),
                                         $provider,
                                         $this->mediaAccountId,
-                                        $self['id'],
-                                        $data['campaign_id'],
-                                        $data['adset_id'],
                                         $data['ad_id'],
                                     ]
                                 );
                                 $this->stats[$key] = $stat;
-                                if (count($this->stats) % 100 === 0) {
+                                if (0 === count($this->stats) % 100) {
                                     $this->saveQueue();
                                 }
                                 $spend += $data['spend'];
                             }
                         }
                     );
-                    $this->output->writeln('  '.$self['currency'].' '.$spend);
+                    $this->output->writeln(' - '.$self['currency'].' '.$spend);
                 }
                 $date->sub($oneDay);
             }
@@ -274,6 +271,7 @@ class FacebookHelper
      * @param \DateTime $dateTo
      *
      * @return array
+     *
      * @throws \Exception
      */
     private function getActiveAccounts(\DateTime $dateFrom, \DateTime $dateTo)
@@ -281,7 +279,7 @@ class FacebookHelper
         // Find Ad accounts this user has access to with activity in this date range to reduce overall API call count.
 
         $accounts = [];
-        /** @var AdAccount $account */
+        /* @var AdAccount $account */
         $this->getAdAccounts(
             function ($account) use (&$accounts, $dateTo, $dateFrom) {
                 $spend  = 0;
@@ -329,7 +327,7 @@ class FacebookHelper
                         }
                     }
                 );
-                $this->output->writeln('  '.$self['currency'].' '.$spend);
+                $this->output->writeln(' - '.$self['currency'].' '.$spend);
             }
         );
         $this->output->writeln(
@@ -375,20 +373,19 @@ class FacebookHelper
                         }
                     }
                     sleep(self::$betweenOpSleep);
-                };
+                }
             } catch (AuthorizationException $e) {
                 $this->errors[] = $e->getMessage();
                 $code           = $e->getCode();
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
                     throw new \Exception('Too many request errors.');
                 }
-                if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
+                if (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code) {
                     $this->output->write('⌛');
                     sleep(self::$rateLimitSleep);
                 }
             }
-        } while ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE);
-
+        } while (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code);
     }
 
     /**
@@ -397,6 +394,7 @@ class FacebookHelper
      * @param $params
      *
      * @return array
+     *
      * @throws \Exception
      */
     private function getInsights(AdAccount $account, $fields, $params, $callback)
@@ -414,12 +412,13 @@ class FacebookHelper
 
                 // Iterate through insights in reverse order so that we always prioritize new data above old.
                 while ($cursor->valid()) {
+                    $data = $cursor->current()->getData();
                     if (is_callable($callback)) {
-                        if ($callback($cursor->current()->getData())) {
+                        if ($callback($data)) {
                             break;
                         }
                     }
-                    $this->output->write('.');
+                    // $this->output->write('.');
                     sleep(self::$betweenOpSleep);
                     $cursor->prev();
                 }
@@ -429,13 +428,13 @@ class FacebookHelper
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
                     throw new \Exception('Too many request errors.');
                 }
-                if ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE) {
+                if (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code) {
                     $this->output->write('⌛');
                     $this->saveQueue();
                     sleep(self::$rateLimitSleep);
                 }
             }
-        } while ($code === ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE);
+        } while (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code);
     }
 
     /**
@@ -459,4 +458,3 @@ class FacebookHelper
         }
     }
 }
-
