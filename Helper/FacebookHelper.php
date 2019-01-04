@@ -429,7 +429,7 @@ class FacebookHelper
                     throw new \Exception('Too many request errors.');
                 }
                 if (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code) {
-                    $this->output->write('⌛');
+                    $this->output->write('.');
                     $this->saveQueue();
                     sleep(self::$rateLimitSleep);
                 }
