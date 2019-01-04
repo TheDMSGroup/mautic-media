@@ -40,7 +40,6 @@ class MediaCommand extends ModeratedCommand
                 50
             )
             ->addOption(
-<<<<<<< HEAD
                 'date-from',
                 '',
                 InputOption::VALUE_OPTIONAL,
@@ -55,8 +54,6 @@ class MediaCommand extends ModeratedCommand
                 'now'
             )
             ->addOption(
-=======
->>>>>>> origin/master
                 'media-account',
                 'i',
                 InputOption::VALUE_OPTIONAL,
@@ -82,11 +79,8 @@ class MediaCommand extends ModeratedCommand
         }
         $limit          = $input->getOption('limit');
         $mediaAccountId = $input->getOption('media-account');
-<<<<<<< HEAD
         $dateFrom       = new \DateTime($input->getOption('date-from'));
         $dateTo         = new \DateTime($input->getOption('date-to'));
-=======
->>>>>>> origin/master
 
         /** @var MediaAccountModel $model */
         $model = $container->get('mautic.media.model.media');
@@ -122,11 +116,7 @@ class MediaCommand extends ModeratedCommand
                 continue;
             }
             $output->writeln('<info>Pulling data for Media Account '.$mediaAccount->getName().'</info>');
-<<<<<<< HEAD
             $model->pullData($mediaAccount, $dateFrom, $dateTo, $output);
-=======
-            $model->pullData($mediaAccount, $output);
->>>>>>> origin/master
         }
 
         $this->completeRun();

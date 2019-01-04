@@ -31,14 +31,6 @@ use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
-// use MauticPlugin\MauticMediaBundle\MediaAccountEvents;
-// use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
-// use MauticPlugin\MauticMediaBundle\Entity\Event as EventEntity;
-// use MauticPlugin\MauticMediaBundle\Entity\Stat;
-// use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
-// use MauticPlugin\MauticMediaBundle\Event\MediaAccountStatEvent;
-// use MauticPlugin\MauticMediaBundle\Event\MediaAccountTimelineEvent;
-
 /**
  * Class MediaAccountModel.
  */
@@ -474,30 +466,17 @@ class MediaAccountModel extends FormModel
 
     /**
      * @param MediaAccount|null $mediaAccount
-<<<<<<< HEAD
      * @param \DateTime         $dateFrom
      * @param \DateTime         $dateTo
-=======
->>>>>>> origin/master
      * @param OutputInterface   $output
      *
      * @throws \Exception
      */
-<<<<<<< HEAD
     public function pullData(MediaAccount $mediaAccount = null, \DateTime $dateFrom, \DateTime $dateTo, OutputInterface $output)
-=======
-    public function pullData(MediaAccount $mediaAccount = null, OutputInterface $output)
->>>>>>> origin/master
     {
         if (!$mediaAccount) {
             return;
         }
-<<<<<<< HEAD
-=======
-        $stats                = [];
-        $dateFrom             = new \DateTime('-30 days');
-        $dateTo               = new \DateTime();
->>>>>>> origin/master
         $mediaAccountId       = $mediaAccount->getId();
         $providerAccountId    = $mediaAccount->getAccountId();
         $providerClientId     = $mediaAccount->getClientId();

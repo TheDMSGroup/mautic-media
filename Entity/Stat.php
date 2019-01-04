@@ -24,7 +24,6 @@ class Stat
 
     /** @var int mediaAccountId */
     private $mediaAccountId = 0;
-<<<<<<< HEAD
 
     /** @var \DateTime $dateAdded */
     private $dateAdded;
@@ -298,20 +297,6 @@ class Stat
     {
         return $this->clicks;
     }
-=======
-
-    /** @var \DateTime $dateAdded */
-    private $dateAdded;
-
-    /** @var float $spend */
-    private $spend = 0;
-
-    /** @var float $cpm */
-    private $cpm = 0;
-
-    /** @var float $cpc */
-    private $cpc = 0;
->>>>>>> origin/master
 
     /**
      * @param int $clicks
@@ -322,41 +307,16 @@ class Stat
     {
         $this->clicks = $clicks;
 
-<<<<<<< HEAD
         return $this;
     }
-=======
-    /** @var string */
-    private $providerCampaignId = '';
-
-    /** @var string */
-    private $providerCampaignName = '';
-
-    /** @var string */
-    private $providerAccountId = '';
-
-    /** @var string */
-    private $provider = '';
-
-    /** @var string */
-    private $providerAccountName = '';
->>>>>>> origin/master
 
     /**
      * @return int
      */
     public function getImpressions()
     {
-<<<<<<< HEAD
         return $this->impressions;
     }
-=======
-        $builder = new ClassMetadataBuilder($metadata);
-
-        $builder->setTable('media_account_stats')
-            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\StatRepository')
-            ->addIndex(['campaign_id', 'date_added'], 'campaign_id_date_added'); // For getting total spend by date.
->>>>>>> origin/master
 
     /**
      * @param int $impressions
@@ -367,7 +327,6 @@ class Stat
     {
         $this->impressions = $impressions;
 
-<<<<<<< HEAD
         return $this;
     }
 
@@ -447,75 +406,11 @@ class Stat
     public function setProviderAccountId($providerAccountId)
     {
         $this->providerAccountId = $providerAccountId;
-=======
-        $builder->addDateAdded();
-
-        $builder->addNamedField('campaignId', 'integer', 'campaign_id', false);
-
-        $builder->addNamedField('provider', 'string', 'provider', false);
-
-        $builder->addNamedField('mediaAccountId', 'integer', 'media_account_id', true);
-
-        $builder->addNamedField('providerCampaignId', 'string', 'provider_campaign_id', false);
-
-        $builder->addNamedField('providerCampaignName', 'string', 'provider_campaign_name', false);
-
-        $builder->addNamedField('providerAccountId', 'string', 'provider_account_id', false);
-
-        $builder->addNamedField('providerAccountName', 'string', 'provider_account_name', false);
-
-        $builder->createField('spend', 'decimal')
-            ->precision(19)
-            ->scale(4)
-            ->build();
-
-        $builder->createField('cpc', 'decimal')
-            ->precision(19)
-            ->scale(4)
-            ->build();
-
-        $builder->createField('cpm', 'decimal')
-            ->precision(19)
-            ->scale(4)
-            ->build();
-
-        $builder->addUniqueConstraint(
-            ['date_added', 'provider', 'media_account_id', 'provider_campaign_id'],
-            'date_added_provider_account_campaign'
-        );
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getId()
-    {
-        return $this->id;
-    }
-
-    /**
-     * @return float
-     */
-    public function getCpm()
-    {
-        return $this->cpm;
-    }
-
-    /**
-     * @param float $cpm
-     *
-     * @return $this
-     */
-    public function setCpm($cpm)
-    {
-        $this->cpm = $cpm;
->>>>>>> origin/master
 
         return $this;
     }
 
     /**
-<<<<<<< HEAD
      * @return string
      */
     public function getProviderAccountName()
@@ -525,29 +420,12 @@ class Stat
 
     /**
      * @param int $providerAccountName
-=======
-     * @return float
-     */
-    public function getCpc()
-    {
-        return $this->cpc;
-    }
-
-    /**
-     * @param float $cpc
->>>>>>> origin/master
      *
      * @return $this
      */
-<<<<<<< HEAD
     public function setProviderAccountName($providerAccountName)
     {
         $this->providerAccountName = $providerAccountName;
-=======
-    public function setCpc($cpc)
-    {
-        $this->cpc = $cpc;
->>>>>>> origin/master
 
         return $this;
     }
@@ -555,7 +433,6 @@ class Stat
     /**
      * @return string
      */
-<<<<<<< HEAD
     public function getProvider()
     {
         return $this->provider;
@@ -569,21 +446,6 @@ class Stat
     public function setProvider($provider)
     {
         $this->provider = $provider;
-=======
-    public function getSpend()
-    {
-        return $this->spend;
-    }
-
-    /**
-     * @param float $spend
-     *
-     * @return $this
-     */
-    public function setSpend($spend)
-    {
-        $this->spend = $spend;
->>>>>>> origin/master
 
         return $this;
     }
@@ -611,7 +473,6 @@ class Stat
     /**
      * @return float
      */
-<<<<<<< HEAD
     public function getCtr()
     {
         return $this->ctr;
@@ -625,27 +486,11 @@ class Stat
     public function setCtr($ctr)
     {
         $this->ctr = $ctr;
-=======
-    public function getMediaAccountId()
-    {
-        return $this->mediaAccountId;
-    }
-
-    /**
-     * @param int $mediaAccountId
-     *
-     * @return $this
-     */
-    public function setMediaAccountId($mediaAccountId)
-    {
-        $this->mediaAccountId = $mediaAccountId;
->>>>>>> origin/master
 
         return $this;
     }
 
     /**
-<<<<<<< HEAD
      * @return float
      */
     public function getProviderAdId()
@@ -655,29 +500,12 @@ class Stat
 
     /**
      * @param string $providerAdId
-=======
-     * @return int
-     */
-    public function getCampaignId()
-    {
-        return $this->campaignId;
-    }
-
-    /**
-     * @param int $campaignId
->>>>>>> origin/master
      *
      * @return $this
      */
-<<<<<<< HEAD
     public function setProviderAdId($providerAdId)
     {
         $this->providerAdId = $providerAdId;
-=======
-    public function setCampaignId($campaignId)
-    {
-        $this->campaignId = $campaignId;
->>>>>>> origin/master
 
         return $this;
     }
@@ -685,7 +513,6 @@ class Stat
     /**
      * @return float
      */
-<<<<<<< HEAD
     public function getProviderAdName()
     {
         return $this->providerAdName;
@@ -693,27 +520,12 @@ class Stat
 
     /**
      * @param string $providerAdName
-=======
-    public function getProviderCampaignId()
-    {
-        return $this->providerCampaignId;
-    }
-
-    /**
-     * @param int $providerCampaignId
->>>>>>> origin/master
      *
      * @return Stat
      */
-<<<<<<< HEAD
     public function setProviderAdName($providerAdName)
     {
         $this->providerAdName = $providerAdName;
-=======
-    public function setProviderCampaignId($providerCampaignId)
-    {
-        $this->providerCampaignId = $providerCampaignId;
->>>>>>> origin/master
 
         return $this;
     }
@@ -721,7 +533,6 @@ class Stat
     /**
      * @return float
      */
-<<<<<<< HEAD
     public function getProviderAdsetName()
     {
         return $this->providerAdsetName;
@@ -729,27 +540,12 @@ class Stat
 
     /**
      * @param string $providerAdsetName
-=======
-    public function getProviderCampaignName()
-    {
-        return $this->providerCampaignName;
-    }
-
-    /**
-     * @param int $providerCampaignName
->>>>>>> origin/master
      *
      * @return $this
      */
-<<<<<<< HEAD
     public function setProviderAdsetName($providerAdsetName)
     {
         $this->providerAdsetName = $providerAdsetName;
-=======
-    public function setProviderCampaignName($providerCampaignName)
-    {
-        $this->providerCampaignName = $providerCampaignName;
->>>>>>> origin/master
 
         return $this;
     }
@@ -757,7 +553,6 @@ class Stat
     /**
      * @return float
      */
-<<<<<<< HEAD
     public function getProviderAdsetId()
     {
         return $this->providerAdsetId;
@@ -765,67 +560,12 @@ class Stat
 
     /**
      * @param string $providerAdsetId
-=======
-    public function getProviderAccountId()
-    {
-        return $this->providerAccountId;
-    }
-
-    /**
-     * @param int $providerAccountId
->>>>>>> origin/master
      *
      * @return $this
      */
-<<<<<<< HEAD
     public function setProviderAdsetId($providerAdsetId)
     {
         $this->providerAdsetId = $providerAdsetId;
-=======
-    public function setProviderAccountId($providerAccountId)
-    {
-        $this->providerAccountId = $providerAccountId;
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getProviderAccountName()
-    {
-        return $this->providerAccountName;
-    }
-
-    /**
-     * @param int $providerAccountName
-     *
-     * @return Stat
-     */
-    public function setProviderAccountName($providerAccountName)
-    {
-        $this->providerAccountName = $providerAccountName;
-
-        return $this;
-    }
-
-    /**
-     * @return string
-     */
-    public function getProvider()
-    {
-        return $this->provider;
-    }
-
-    /**
-     * @param float $provider
-     *
-     * @return $this
-     */
-    public function setProvider($provider)
-    {
-        $this->provider = $provider;
->>>>>>> origin/master
 
         return $this;
     }
