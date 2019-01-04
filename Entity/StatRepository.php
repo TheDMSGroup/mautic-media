@@ -102,21 +102,45 @@ class StatRepository extends CommonRepository
         $q = $this->getEntityManager()
             ->getConnection()
             ->prepare(
-                'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats '.
-                '(date_added, campaign_id, provider, media_account_id, provider_campaign_id, provider_campaign_name, provider_account_id, provider_account_name, spend, cpc, cpm) '.
-                'VALUES ('.implode(
+                'INSERT INTO '.MAUTIC_TABLE_PREFIX.'media_account_stats ('.
+                'date_added,'.
+                'campaign_id,'.
+                'provider,'.
+                'media_account_id,'.
+                'provider_account_id,'.
+                'provider_account_name,'.
+                'provider_campaign_id,'.
+                'provider_campaign_name,'.
+                'provider_adset_id,'.
+                'provider_adset_name,'.
+                'provider_ad_id,'.
+                'provider_ad_name,'.
+                'spend,'.
+                'cpc,'.
+                'cpm,'.
+                'cpp,'.
+                'ctr,'.
+                'impressions,'.
+                'clicks,'.
+                'reach'.
+                ') VALUES ('.implode(
                     '),(',
                     array_fill(
                         0,
                         count($entities),
-                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?'
+                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
                 'campaign_id = VALUES(campaign_id), '.
                 'spend = VALUES(spend), '.
                 'cpc = VALUES(cpc), '.
-                'cpm = VALUES(cpm)'
+                'cpm = VALUES(cpm), '.
+                'cpp = VALUES(cpp), '.
+                'ctr = VALUES(ctr), '.
+                'impressions = VALUES(impressions), '.
+                'clicks = VALUES(clicks), '.
+                'reach = VALUES(reach)'
             );
 
         $count = 0;
@@ -126,13 +150,22 @@ class StatRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getCampaignId(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getProvider(), Type::STRING);
             $q->bindValue(++$count, $entity->getMediaAccountId(), Type::STRING);
-            $q->bindValue(++$count, $entity->getProviderCampaignId(), Type::STRING);
-            $q->bindValue(++$count, $entity->getProviderCampaignName(), Type::STRING);
             $q->bindValue(++$count, $entity->getProviderAccountId(), Type::STRING);
             $q->bindValue(++$count, $entity->getProviderAccountName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderCampaignId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderCampaignName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAdsetId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAdsetName(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAdId(), Type::STRING);
+            $q->bindValue(++$count, $entity->getProviderAdName(), Type::STRING);
             $q->bindValue(++$count, $entity->getSpend(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpc(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpm(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getCpp(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getCtr(), Type::FLOAT);
+            $q->bindValue(++$count, $entity->getImpressions(), Type::INTEGER);
+            $q->bindValue(++$count, $entity->getClicks(), Type::INTEGER);
+            $q->bindValue(++$count, $entity->getReach(), Type::INTEGER);
         }
 
         $q->execute();

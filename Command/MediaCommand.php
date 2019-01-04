@@ -40,6 +40,20 @@ class MediaCommand extends ModeratedCommand
                 50
             )
             ->addOption(
+                'date-from',
+                '',
+                InputOption::VALUE_OPTIONAL,
+                'Oldest date to pull spend data for. Leave blank for yesterday.',
+                'midnight yesterday'
+            )
+            ->addOption(
+                'date-to',
+                '',
+                InputOption::VALUE_OPTIONAL,
+                'Newest date to pull spend data for. Leave blank for current date.',
+                'now'
+            )
+            ->addOption(
                 'media-account',
                 'i',
                 InputOption::VALUE_OPTIONAL,
@@ -65,6 +79,8 @@ class MediaCommand extends ModeratedCommand
         }
         $limit          = $input->getOption('limit');
         $mediaAccountId = $input->getOption('media-account');
+        $dateFrom       = new \DateTime($input->getOption('date-from'));
+        $dateTo         = new \DateTime($input->getOption('date-to'));
 
         /** @var MediaAccountModel $model */
         $model = $container->get('mautic.media.model.media');
@@ -100,7 +116,7 @@ class MediaCommand extends ModeratedCommand
                 continue;
             }
             $output->writeln('<info>Pulling data for Media Account '.$mediaAccount->getName().'</info>');
-            $model->pullData($mediaAccount, $output);
+            $model->pullData($mediaAccount, $dateFrom, $dateTo, $output);
         }
 
         $this->completeRun();
