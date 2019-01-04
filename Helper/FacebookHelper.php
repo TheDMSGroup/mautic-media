@@ -85,12 +85,13 @@ class FacebookHelper
         EntityManager $em
     ) {
         $this->mediaAccountId    = $mediaAccountId;
-        $this->output            = $output;
         $this->providerAccountId = $providerAccountId;
+        $this->output            = $output;
         $this->em                = $em;
 
         Api::init($providerClientId, $providerClientSecret, $providerToken);
         $this->client = Api::instance();
+
         // $this->client->setLogger(new \FacebookAds\Logger\CurlLogger());
         Cursor::setDefaultUseImplicitFetch(true);
     }
