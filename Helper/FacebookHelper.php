@@ -39,7 +39,7 @@ class FacebookHelper
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 60;
 
-    /** @var \Facebook\Facebook */
+    /** @var Api */
     private $client;
 
     /** @var User */
@@ -51,7 +51,7 @@ class FacebookHelper
     /** @var string */
     private $mediaAccountId;
 
-    /** @var Output */
+    /** @var OutputInterface */
     private $output;
 
     /** @var array */
@@ -123,7 +123,7 @@ class FacebookHelper
                     $since    = clone $date;
                     $until    = clone $date;
                     $this->output->write(
-                        MediaAccount::PROVIDER_FACEBOOK.': Pulling hourly data - '.
+                        MediaAccount::PROVIDER_FACEBOOK.' - Pulling hourly data - '.
                         $since->format('Y-m-d').' - '.
                         $self['name']
                     );
@@ -243,7 +243,7 @@ class FacebookHelper
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
-            $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.': '.$e->getMessage().'</error>');
+            $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.' - '.$e->getMessage().'</error>');
         }
         $this->saveQueue();
 
@@ -259,7 +259,7 @@ class FacebookHelper
         $me = $this->client->call('/me')->getContent();
         if (!$me || !isset($me['id'])) {
             throw new \Exception(
-                'Cannot discern Facebook user for account '.$this->providerproviderAccountId.'. You likely need to reauthenticate.'
+                'Cannot discern Facebook user for account '.$this->providerAccountId.'. You likely need to reauthenticate.'
             );
         }
         $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
@@ -300,7 +300,7 @@ class FacebookHelper
                     ],
                 ];
                 $this->output->write(
-                    MediaAccount::PROVIDER_FACEBOOK.': Checking for activity - '.
+                    MediaAccount::PROVIDER_FACEBOOK.' - Checking for activity - '.
                     $dateFrom->format('Y-m-d').' ~ '.$dateTo->format('Y-m-d').' - '.
                     $self['name']
                 );
@@ -318,7 +318,7 @@ class FacebookHelper
                     $account,
                     $fields,
                     $params,
-                    function ($data) use (&$spend, $account, &$accounts, $self) {
+                    function ($data) use (&$spend, $account, &$accounts) {
                         $spend += $data['spend'];
                         if ($spend) {
                             $accounts[] = $account;
@@ -331,7 +331,7 @@ class FacebookHelper
             }
         );
         $this->output->writeln(
-            MediaAccount::PROVIDER_FACEBOOK.': Found '.count($accounts).' accounts active during this time frame.'
+            MediaAccount::PROVIDER_FACEBOOK.' - Found '.count($accounts).' accounts active during this time frame.'
         );
 
         return $accounts;
@@ -351,16 +351,6 @@ class FacebookHelper
             'name',
             'currency',
         ];
-        // $params = [
-        //     'level'     => 'account',
-        //     'filtering' => [
-        //         [
-        //             'field'    => 'account_status',
-        //             'operator' => 'EQUALS',
-        //             'value'    => '1',
-        //         ],
-        //     ],
-        // ];
         $params = [];
 
         do {

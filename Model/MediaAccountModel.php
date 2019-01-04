@@ -333,13 +333,13 @@ class MediaAccountModel extends FormModel
         $unit           = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $dateToAdjusted = clone $dateTo;
         $dateToAdjusted->setTime(23, 59, 59);
-        $chart      = new LineChart($unit, $dateFrom, $dateToAdjusted, $dateFormat);
-        $query      = new ChartQuery($this->em->getConnection(), $dateFrom, $dateToAdjusted, $unit);
-        $utmSources = $this->getStatRepository()->getSourcesByMediaAccount(
-            $MediaAccount->getId(),
-            $dateFrom,
-            $dateToAdjusted
-        );
+        $chart = new LineChart($unit, $dateFrom, $dateToAdjusted, $dateFormat);
+        $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateToAdjusted, $unit);
+        // $utmSources = $this->getStatRepository()->getSourcesByMediaAccount(
+        //     $MediaAccount->getId(),
+        //     $dateFrom,
+        //     $dateToAdjusted
+        // );
 
         //if (isset($campaignId)) {
         if (!empty($campaignId)) {
@@ -350,98 +350,41 @@ class MediaAccountModel extends FormModel
         $userTZ     = new \DateTime('now');
         $userTzName = $userTZ->getTimezone()->getName();
 
-        if ('revenue' != $type) {
-            $params['type'] = $type;
-            foreach ($utmSources as $utmSource) {
-                $params['utm_source'] = empty($utmSource) ? ['expression' => 'isNull'] : $utmSource;
-                $q                    = $query->prepareTimeDataQuery(
-                    'media_account_stats',
-                    'date_added',
-                    $params
-                );
+        // $params['type'] = Stat::TYPE_CONVERTED;
+        // Add attribution to the chart.
+        $q = $query->prepareTimeDataQuery(
+            'media_account_stats',
+            'date_added',
+            $params
+        );
 
-                if (!in_array($unit, ['H', 'i', 's'])) {
-                    // For some reason, Mautic only sets UTC in Query Date builder
-                    // if its an intra-day date range ¯\_(ツ)_/¯
-                    // so we have to do it here.
-                    $paramDateTo   = $q->getParameter('dateTo');
-                    $paramDateFrom = $q->getParameter('dateFrom');
-                    $paramDateTo   = new \DateTime($paramDateTo);
-                    $paramDateTo->setTimeZone(new \DateTimeZone('UTC'));
-                    $q->setParameter('dateTo', $paramDateTo->format('Y-m-d H:i:s'));
-                    $paramDateFrom = new \DateTime($paramDateFrom);
-                    $paramDateFrom->setTimeZone(new \DateTimeZone('UTC'));
-                    $q->setParameter('dateFrom', $paramDateFrom->format('Y-m-d H:i:s'));
-                    $select    = $q->getQueryPart('select')[0];
-                    $newSelect = str_replace(
-                        't.date_added,',
-                        "CONVERT_TZ(t.date_added, @@global.time_zone, '$userTzName'),",
-                        $select
-                    );
-                    $q->resetQueryPart('select');
-                    $q->select($newSelect);
+        if (!$canViewOthers) {
+            $this->limitQueryToCreator($q);
+        }
+        $dbUnit        = $query->getTimeUnitFromDateRange($dateFrom, $dateTo);
+        $dbUnit        = $query->translateTimeUnit($dbUnit);
+        $dateConstruct = "DATE_FORMAT(CONVERT_TZ(t.date_added, @@global.time_zone, '$userTzName'), '$dbUnit.')";
+        // foreach ($utmSources as $utmSource) {
+        $q->select($dateConstruct.' AS date, ROUND(SUM(t.attribution), 2) AS count')
+            ->groupBy($dateConstruct);
+        // if (empty($utmSource)) { // utmSource can be a NULL value
+        //     $q->andWhere('utm_source IS NULL');
+        // } else {
+        //     $q->andWhere('utm_source = :utmSource')
+        //         ->setParameter('utmSource', $utmSource);
+        // }
 
-                    // AND adjust the group By, since its using db timezone Date values
-                    $groupBy    = $q->getQueryPart('groupBy')[0];
-                    $newGroupBy = str_replace(
-                        't.date_added,',
-                        "CONVERT_TZ(t.date_added, @@global.time_zone, '$userTzName'),",
-                        $groupBy
-                    );
-                    $q->resetQueryPart('groupBy');
-                    $q->groupBy($newGroupBy);
+        $data = $query->loadAndBuildTimeData($q);
+        foreach ($data as $val) {
+            if (0 !== $val) {
+                if (empty($utmSource)) {
+                    $utmSource = 'No Source';
                 }
-                if (!$canViewOthers) {
-                    $this->limitQueryToCreator($q);
-                }
-                $data = $query->loadAndBuildTimeData($q);
-                foreach ($data as $val) {
-                    if (0 !== $val) {
-                        if (empty($utmSource)) {
-                            $utmSource = 'No Source';
-                        }
-                        $chart->setDataset($utmSource, $data);
-                        break;
-                    }
-                }
-            }
-        } else {
-            $params['type'] = Stat::TYPE_CONVERTED;
-            // Add attribution to the chart.
-            $q = $query->prepareTimeDataQuery(
-                'media_account_stats',
-                'date_added',
-                $params
-            );
-
-            if (!$canViewOthers) {
-                $this->limitQueryToCreator($q);
-            }
-            $dbUnit        = $query->getTimeUnitFromDateRange($dateFrom, $dateTo);
-            $dbUnit        = $query->translateTimeUnit($dbUnit);
-            $dateConstruct = "DATE_FORMAT(CONVERT_TZ(t.date_added, @@global.time_zone, '$userTzName'), '$dbUnit.')";
-            foreach ($utmSources as $utmSource) {
-                $q->select($dateConstruct.' AS date, ROUND(SUM(t.attribution), 2) AS count')
-                    ->groupBy($dateConstruct);
-                if (empty($utmSource)) { // utmSource can be a NULL value
-                    $q->andWhere('utm_source IS NULL');
-                } else {
-                    $q->andWhere('utm_source = :utmSource')
-                        ->setParameter('utmSource', $utmSource);
-                }
-
-                $data = $query->loadAndBuildTimeData($q);
-                foreach ($data as $val) {
-                    if (0 !== $val) {
-                        if (empty($utmSource)) {
-                            $utmSource = 'No Source';
-                        }
-                        $chart->setDataset($utmSource, $data);
-                        break;
-                    }
-                }
+                $chart->setDataset($utmSource, $data);
+                break;
             }
         }
+        // }
 
         return $chart->render();
     }
