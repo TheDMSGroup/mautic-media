@@ -45,9 +45,9 @@
     content: " from Source";
 }
 
-.media_jsoneditor div[data-schematype="object"][data-schemapath^="root.campaigns."] > h3 {
-    padding-bottom: 33px;
-}
+/*.media_jsoneditor div[data-schematype="object"][data-schemapath^="root.campaigns."] > h3 {*/
+/*padding-bottom: 33px;*/
+/*}*/
 
 .media_jsoneditor .btn-group .btn-secondary {
     background: transparent;
@@ -79,8 +79,10 @@
 }
 
 .media_jsoneditor .well {
-    background: rgba(145, 145, 145, .1);
-    border: 1px solid rgba(45, 45, 45, .1);
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0;
     -webkit-box-shadow: none;
     box-shadow: none;
 }
@@ -158,4 +160,13 @@
 
 div[data-schemapath*="root.campaigns."] h3.moveRight {
     text-align: right;
+}
+
+.media_jsoneditor div[data-schemapath$=".providerCampaignId"] select {
+    border: 0;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    overflow: hidden;
+    margin-top: 4px;
 }

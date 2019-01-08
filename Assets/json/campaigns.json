@@ -37,8 +37,7 @@
           "propertyOrder": 10,
           "default": "0",
           "type": "string",
-          "format": "select",
-          "disabled": true,
+          "readOnly": true,
           "options": {
             "grid_columns": 1,
             "infoText": "Campaign from the third-party media provider."

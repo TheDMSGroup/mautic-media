@@ -104,7 +104,7 @@ class AjaxController extends CommonAjaxController
                 $obj                     = new \stdClass();
                 $obj->providerCampaignId = $providerCampaign['value'];
                 // @todo - implement guesswork magic.
-                $obj->campaignId               = 0;
+                $obj->campaignId               = '1';
                 $campaignSettings->campaigns[] = $obj;
             }
         }

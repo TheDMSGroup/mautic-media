@@ -6,6 +6,9 @@ Mautic.mediaCampaigns = function () {
         // Retrieve the list of available campaigns via Ajax
         var campaigns = {},
             providerCampaigns = {},
+            $mediaProvider = mQuery('#media_provider:first'),
+            $campaignSettings = mQuery('#media_campaign_settings:first'),
+            campaignSettings = $campaignSettings.val(),
             campaignsJSONEditor,
             $campaignsJSONEditor;
         mQuery.ajax({
@@ -14,23 +17,27 @@ Mautic.mediaCampaigns = function () {
             data: {
                 action: 'plugin:mauticMedia:getCampaignMap',
                 mediaAccountId: Mautic.getEntityId(),
-                mediaProvider: mQuery('#media_provider:first').val(),
-                campaignSettings: mQuery('#media_campaign_settings:first').val()
+                mediaProvider: $mediaProvider.val(),
+                campaignSettings: campaignSettings
             },
             dataType: 'json',
             cache: true,
             success: function (response) {
                 if (typeof response.campaigns !== 'undefined') {
-                    schema.definitions.campaign.properties.campaignId.enumSource[0].source = campaigns;
+                    campaigns = response.campaigns;
                 }
                 if (typeof response.providerCampaigns !== 'undefined') {
-                    schema.definitions.campaign.properties.providerCampaignId.enumSource[0].source = providerCampaigns;
+                    providerCampaigns = response.providerCampaigns;
+                }
+                if (typeof response.campaignSettings !== 'undefined') {
+                    var raw = JSON.stringify(response.campaignSettings, null, '  ');
+                    $campaignSettings.val(raw);
                 }
             },
             error: function (request, textStatus, errorThrown) {
                 Mautic.processAjaxError(request, textStatus, errorThrown);
             },
-            complete: function () {
+            complete: function (response) {
 
                 // Grab the JSON Schema to begin rendering the form with
                 // JSONEditor.
@@ -42,6 +49,11 @@ Mautic.mediaCampaigns = function () {
                         var schema = data;
 
                         if (campaigns.length) {
+                            schema.definitions.campaign.properties.campaignId.enumSource[0].source = campaigns;
+                        }
+
+                        if (providerCampaigns.length) {
+                            schema.definitions.campaign.properties.providerCampaignId.enumSource[0].source = providerCampaigns;
                         }
 
                         // Create our widget container for the JSON Editor.
@@ -54,7 +66,8 @@ Mautic.mediaCampaigns = function () {
                             schema: schema,
                             disable_collapse: true,
                             disable_array_add: true,
-                            disable_array_reorder: true
+                            disable_array_reorder: true,
+                            disable_array_delete: true
                         });
 
                         $campaigns.change(function () {
@@ -95,6 +108,15 @@ Mautic.mediaCampaigns = function () {
                                     mQuery(this).html('<a href="' + mauticBasePath + '/s/campaigns/edit/' + campaignForLabel + '" target="_blank">' + label + '</a>');
                                 }
 
+                            });
+                            var mediaProvider = $mediaProvider.val();
+                            $campaignsJSONEditor.find('div[data-schematype="string"][data-schemapath*=".providerCampaignId"] .control-label').each(function () {
+                                var campaignForLabel = mQuery(this).parent().find('select:first').val();
+                                switch (mediaProvider) {
+                                    case 'facebook':
+                                        mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/campaigns?act=' + campaignForLabel.replace('act_', '') + '" target="_blank">' + $(this).text() + '</a>');
+                                        break;
+                                }
                             });
                         });
 
