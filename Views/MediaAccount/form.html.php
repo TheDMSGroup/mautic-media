@@ -132,3 +132,4 @@ echo $view['form']->start($form);
     <!--/ box layout -->
 
 <?php echo $view['form']->end($form); ?>
+<input type="hidden" name="entityId" id="entityId" value="<?php echo $entity->getId(); ?>"/>

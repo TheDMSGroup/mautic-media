@@ -11,6 +11,9 @@
 
 namespace MauticPlugin\MauticMediaBundle\Entity;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Connections\MasterSlaveConnection;
+use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Types\Type;
 use Mautic\CoreBundle\Entity\CommonRepository;
 
@@ -55,6 +58,63 @@ class StatRepository extends CommonRepository
             ->setParameter('type', $type);
 
         return $q->getQuery()->getArrayResult();
+    }
+
+    /**
+     * @param $mediaAccountId
+     * @param $provider
+     *
+     * @return array
+     * @throws \Exception
+     */
+    public function getProviderAccounts($mediaAccountId, $provider)
+    {
+        $alias = 's';
+        $query = $this->slaveQueryBuilder();
+        $query->select($alias.'.provider_account_id, '.$alias.'.provider_account_name');
+        $query->from(MAUTIC_TABLE_PREFIX.$this->getTableName(), $alias);
+
+        // Only provide accounts with recent activity.
+        $fromDate = new \DateTime('-30 days');
+
+        // Query structured to use the unique_by_ad unique index.
+        $query->add(
+            'where',
+            $query->expr()->andX(
+                $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
+                $query->expr()->eq($alias.'.provider', ':provider'),
+                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
+                $query->expr()->isNotNull($alias.'.provider_ad_id')
+            )
+        );
+        $query->setParameter('provider', $provider);
+        $query->setParameter('fromDate', $fromDate->getTimestamp());
+
+        $query->groupBy($alias.'.provider_account_id');
+
+        $campaigns = [];
+        foreach ($query->execute()->fetchAll() as $campaign) {
+            $campaigns[$campaign['provider_account_id']] = $campaign['provider_account_name'];
+        }
+
+        return $campaigns;
+    }
+
+    /**
+     * Create a DBAL QueryBuilder preferring a slave connection if available.
+     *
+     * @return QueryBuilder
+     */
+    private function slaveQueryBuilder()
+    {
+        /** @var Connection $connection */
+        $connection = $this->getEntityManager()->getConnection();
+        if ($connection instanceof MasterSlaveConnection) {
+            // Prefer a slave connection if available.
+            $connection->connect('slave');
+        }
+
+        return new QueryBuilder($connection);
     }
 
     /**
@@ -140,4 +200,5 @@ class StatRepository extends CommonRepository
 
         $q->execute();
     }
+
 }

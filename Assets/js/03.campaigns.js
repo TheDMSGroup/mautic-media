@@ -2,20 +2,29 @@
 Mautic.mediaCampaigns = function () {
     var $campaigns = mQuery('#media_campaign_settings:first:not(.campaigns-checked)');
     if ($campaigns.length) {
+        $campaigns.addClass('campaigns-checked');
         // Retrieve the list of available campaigns via Ajax
         var campaigns = {},
+            providerCampaigns = {},
             campaignsJSONEditor,
             $campaignsJSONEditor;
         mQuery.ajax({
             url: mauticAjaxUrl,
             type: 'POST',
             data: {
-                action: 'plugin:mauticMedia:getCampaignList'
+                action: 'plugin:mauticMedia:getCampaignMap',
+                mediaAccountId: Mautic.getEntityId(),
+                mediaProvider: mQuery('#media_provider:first').val(),
+                campaignSettings: mQuery('#media_campaign_settings:first').val()
             },
             dataType: 'json',
+            cache: true,
             success: function (response) {
-                if (typeof response.array !== 'undefined') {
-                    campaigns = response.array;
+                if (typeof response.campaigns !== 'undefined') {
+                    schema.definitions.campaign.properties.campaignId.enumSource[0].source = campaigns;
+                }
+                if (typeof response.providerCampaigns !== 'undefined') {
+                    schema.definitions.campaign.properties.providerCampaignId.enumSource[0].source = providerCampaigns;
                 }
             },
             error: function (request, textStatus, errorThrown) {
@@ -28,25 +37,24 @@ Mautic.mediaCampaigns = function () {
                 mQuery.ajax({
                     dataType: 'json',
                     cache: true,
-                    url: mauticBasePath + '/' + mauticAssetPrefix + 'plugins/MauticContactSourceBundle/Assets/json/campaigns.json',
+                    url: mauticBasePath + '/' + mauticAssetPrefix + 'plugins/MauticMediaBundle/Assets/json/campaigns.json',
                     success: function (data) {
                         var schema = data;
 
-                        window.tmpa = schema.definitions.campaign.properties.campaignId.enumSource[0].source;
-                        window.tmpb = campaigns;
                         if (campaigns.length) {
-                            schema.definitions.campaign.properties.campaignId.enumSource[0].source = campaigns;
                         }
 
                         // Create our widget container for the JSON Editor.
-                        var $campaignsJSONEditor = mQuery('<div>', {
+                        $campaignsJSONEditor = mQuery('<div>', {
                             class: 'media_jsoneditor'
                         }).insertBefore($campaigns);
 
                         // Instantiate the JSON Editor based on our schema.
                         campaignsJSONEditor = new JSONEditor($campaignsJSONEditor[0], {
                             schema: schema,
-                            disable_collapse: true
+                            disable_collapse: true,
+                            disable_array_add: true,
+                            disable_array_reorder: true
                         });
 
                         $campaigns.change(function () {
@@ -74,16 +82,6 @@ Mautic.mediaCampaigns = function () {
                                 if (raw.length) {
                                     // Set the textarea.
                                     $campaigns.val(raw);
-
-                                    // Hide the Value when the scope is global.
-                                    mQuery('select[name$="[scope]"]:not(.scope-checked)').off('change').on('change', function () {
-                                        var $value = mQuery(this).parent().parent().parent().find('input[name$="[value]"]');
-                                        if (parseInt(mQuery(this).val()) === 1) {
-                                            $value.addClass('hide');
-                                        } else {
-                                            $value.removeClass('hide');
-                                        }
-                                    }).addClass('scope-checked').trigger('change');
                                 }
                             }
                             // Clickable Campaign headers.
@@ -100,7 +98,6 @@ Mautic.mediaCampaigns = function () {
                             });
                         });
 
-                        $campaigns.addClass('campaigns-checked');
                         $campaignsJSONEditor.show();
                     }
                 });
