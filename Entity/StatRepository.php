@@ -65,6 +65,7 @@ class StatRepository extends CommonRepository
      * @param $provider
      *
      * @return array
+     *
      * @throws \Exception
      */
     public function getProviderAccounts($mediaAccountId, $provider)
@@ -91,13 +92,14 @@ class StatRepository extends CommonRepository
         $query->setParameter('fromDate', $fromDate->getTimestamp());
 
         $query->groupBy($alias.'.provider_account_id');
+        $query->orderBy($alias.'.provider_account_name');
 
-        $campaigns = [];
-        foreach ($query->execute()->fetchAll() as $campaign) {
-            $campaigns[$campaign['provider_account_id']] = $campaign['provider_account_name'];
+        $accounts = [];
+        foreach ($query->execute()->fetchAll() as $account) {
+            $accounts[$account['provider_account_id']] = $account['provider_account_name'];
         }
 
-        return $campaigns;
+        return $accounts;
     }
 
     /**
@@ -115,6 +117,60 @@ class StatRepository extends CommonRepository
         }
 
         return new QueryBuilder($connection);
+    }
+
+    /**
+     * @param $mediaAccountId
+     * @param $provider
+     *
+     * @return array
+     *
+     * @throws \Exception
+     */
+    public function getProviderAccountsWithCampaigns($mediaAccountId, $provider)
+    {
+        $alias = 's';
+        $query = $this->slaveQueryBuilder();
+        $query->select(
+            $alias.'.provider_account_id, '.$alias.'.provider_account_name, '.$alias.'.provider_campaign_id, '.$alias.'.provider_campaign_name'
+        );
+        $query->from(MAUTIC_TABLE_PREFIX.$this->getTableName(), $alias);
+
+        // Only provide accounts with recent activity.
+        $fromDate = new \DateTime('-30 days');
+
+        // Query structured to use the unique_by_ad unique index.
+        $query->add(
+            'where',
+            $query->expr()->andX(
+                $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
+                $query->expr()->eq($alias.'.provider', ':provider'),
+                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
+                $query->expr()->isNotNull($alias.'.provider_ad_id')
+            )
+        );
+        $query->setParameter('provider', $provider);
+        $query->setParameter('fromDate', $fromDate->getTimestamp());
+
+        $query->groupBy($alias.'.provider_account_id, '.$alias.'.provider_campaign_id');
+        $query->orderBy($alias.'.provider_account_name, '.$alias.'.provider_campaign_name');
+
+        $accounts  = [];
+        $campaigns = [];
+        $hierarchy = [];
+        foreach ($query->execute()->fetchAll() as $row) {
+            if (!isset($accounts[$row['provider_account_id']])) {
+                $accounts[$row['provider_account_id']]  = $row['provider_account_name'];
+                $hierarchy[$row['provider_account_id']] = [];
+            }
+
+            if (!isset($campaigns[$row['provider_campaign_id']])) {
+                $campaigns[$row['provider_campaign_id']]  = $row['provider_campaign_name'];
+                $hierarchy[$row['provider_account_id']][] = $row['provider_campaign_id'];
+            }
+        }
+
+        return ['accounts' => $accounts, 'campaigns' => $campaigns, 'map' => $hierarchy];
     }
 
     /**
@@ -200,5 +256,4 @@ class StatRepository extends CommonRepository
 
         $q->execute();
     }
-
 }

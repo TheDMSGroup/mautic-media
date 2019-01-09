@@ -6,6 +6,7 @@ Mautic.mediaCampaigns = function () {
         // Retrieve the list of available campaigns via Ajax
         var campaigns = {},
             providerCampaigns = {},
+            providerAccounts = {},
             $mediaProvider = mQuery('#media_provider:first'),
             $campaignSettings = mQuery('#media_campaign_settings:first'),
             campaignSettings = $campaignSettings.val(),
@@ -23,11 +24,15 @@ Mautic.mediaCampaigns = function () {
             dataType: 'json',
             cache: true,
             success: function (response) {
+                console.log(response);
                 if (typeof response.campaigns !== 'undefined') {
                     campaigns = response.campaigns;
                 }
                 if (typeof response.providerCampaigns !== 'undefined') {
                     providerCampaigns = response.providerCampaigns;
+                }
+                if (typeof response.providerAccounts !== 'undefined') {
+                    providerAccounts = response.providerAccounts;
                 }
                 if (typeof response.campaignSettings !== 'undefined') {
                     var raw = JSON.stringify(response.campaignSettings, null, '  ');
@@ -44,16 +49,20 @@ Mautic.mediaCampaigns = function () {
                 mQuery.ajax({
                     dataType: 'json',
                     cache: true,
-                    url: mauticBasePath + '/' + mauticAssetPrefix + 'plugins/MauticMediaBundle/Assets/json/campaigns.json',
+                    url: mauticBasePath + '/' + mauticAssetPrefix + 'plugins/MauticMediaBundle/Assets/json/accountscampaigns.json',
                     success: function (data) {
                         var schema = data;
 
                         if (campaigns.length) {
-                            schema.definitions.campaign.properties.campaignId.enumSource[0].source = campaigns;
+                            schema.definitions.campaignId.enumSource[0].source = campaigns;
                         }
 
                         if (providerCampaigns.length) {
-                            schema.definitions.campaign.properties.providerCampaignId.enumSource[0].source = providerCampaigns;
+                            schema.definitions.providerCampaignId.enumSource[0].source = providerCampaigns;
+                        }
+
+                        if (providerAccounts.length) {
+                            schema.definitions.providerAccountId.enumSource[0].source = providerAccounts;
                         }
 
                         // Create our widget container for the JSON Editor.

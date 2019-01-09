@@ -197,7 +197,7 @@ class MediaAccountModel extends FormModel
 
         foreach ($MediaAccount::getAllProviders() as $provider) {
             $params['provider'] = $provider;
-            $q              = $query->prepareTimeDataQuery(
+            $q                  = $query->prepareTimeDataQuery(
                 'media_account_stats',
                 'date_added',
                 $params,

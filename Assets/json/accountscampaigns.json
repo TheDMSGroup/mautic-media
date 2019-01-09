@@ -1,0 +1,168 @@
+{
+  "title": "Accounts & Campaigns",
+  "$schema": "accountscampaigns.json",
+  "type": "object",
+  "format": "grid",
+  "options": {
+    "disable_collapse": true
+  },
+  "properties": {
+    "accounts": {
+      "title": "Accounts",
+      "type": "array",
+      "format": "grid",
+      "uniqueItems": true,
+      "options": {
+        "disable_collapse": true
+      },
+      "items": {
+        "headerTemplate": " ",
+        "type": "object",
+        "format": "grid",
+        "options": {
+          "collapsed": false,
+          "disable_collapse": true
+        },
+        "properties": {
+          "providerAccountId": {
+            "title": "Account",
+            "$ref": "#/definitions/providerAccountId"
+          },
+          "mapping": {
+            "title": "Map this provider account to",
+            "oneOf": [
+              {
+                "title": "multiple campaigns",
+                "type": "object",
+                "format": "grid",
+                "options": {
+                  "collapsed": false,
+                  "disable_collapse": true,
+                  "grid_columns": 12
+                },
+                "properties": {
+                  "campaigns": {
+                    "title": "Campaigns",
+                    "type": "array",
+                    "format": "grid",
+                    "uniqueItems": true,
+                    "options": {
+                      "disable_collapse": true
+                    },
+                    "items": {
+                      "title": "Campaign",
+                      "$ref": "#/definitions/campaigns"
+                    }
+                  }
+                }
+              },
+              {
+                "title": "a single campaign",
+                "type": "object",
+                "options": {
+                  "collapsed": false,
+                  "disable_collapse": true,
+                  "grid_columns": 12
+                },
+                "properties": {
+                  "campaign": {
+                    "title": "Campaign",
+                    "$ref": "#/definitions/campaignId"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "campaigns": {
+      "headerTemplate": " ",
+      "type": "object",
+      "format": "grid",
+      "options": {
+        "collapsed": false,
+        "disable_collapse": true
+      },
+      "properties": {
+        "providerCampaignId": {
+          "$ref": "#/definitions/providerCampaignId"
+        },
+        "campaignId": {
+          "$ref": "#/definitions/campaignId"
+        }
+      }
+    },
+    "providerAccountId": {
+      "headerTemplate": "Provider Account {{self}}",
+      "title": "Provider Account",
+      "propertyOrder": 10,
+      "default": "0",
+      "readOnly": true,
+      "options": {
+        "grid_columns": 1,
+        "infoText": "Account from the third-party media provider."
+      },
+      "enumSource": [
+        {
+          "source": [
+            {
+              "value": 0,
+              "title": "-- Please create an Account --"
+            }
+          ],
+          "title": "{{item.title}}",
+          "value": "{{item.value}}"
+        }
+      ]
+    },
+    "providerCampaignId": {
+      "headerTemplate": "Provider Campaign {{self}}",
+      "title": "Provider Campaign",
+      "propertyOrder": 10,
+      "default": "0",
+      "readOnly": true,
+      "options": {
+        "grid_columns": 1,
+        "infoText": "Campaign from the third-party media provider."
+      },
+      "enumSource": [
+        {
+          "source": [
+            {
+              "value": 0,
+              "title": "-- Please create a Campaign --"
+            }
+          ],
+          "title": "{{item.title}}",
+          "value": "{{item.value}}"
+        }
+      ]
+    },
+    "campaignId": {
+      "headerTemplate": "Campaign {{self}}",
+      "title": "Campaign",
+      "propertyOrder": 20,
+      "default": "0",
+      "format": "select",
+      "options": {
+        "grid_columns": 1,
+        "infoText": "Select a campaign to attribute this Provider account to."
+      },
+      "enumSource": [
+        {
+          "source": [
+            {
+              "value": 0,
+              "title": "-- Please create a Campaign --"
+            }
+          ],
+          "title": "{{item.title}}",
+          "value": "{{item.value}}"
+        }
+      ]
+    }
+  }
+}
