@@ -39,6 +39,12 @@ return [
                     'mautic.media.model.media',
                 ],
             ],
+            'mautic.media.subscriber.chart_data'  => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\ChartDataSubscriber',
+                'arguments' => [
+                    'mautic.media.model.media',
+                ],
+            ],
             'mautic.media.subscriber.media' => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\MediaAccountSubscriber',
                 'arguments' => [

@@ -25,7 +25,7 @@ class StatSubscriber extends CommonSubscriber
     protected $model;
 
     /**
-     * FormSubscriber constructor.
+     * StatSubscriber constructor.
      *
      * @param MediaAccountModel $model
      */
