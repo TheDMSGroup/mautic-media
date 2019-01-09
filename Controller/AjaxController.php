@@ -66,7 +66,7 @@ class AjaxController extends CommonAjaxController
                 'category'  => $category,
                 'published' => $published,
                 'name'      => $name,
-                'title'     => $name.($category ? '  ('.$category.')' : '').(!$published ? '  (unpublished)' : ''),
+                'title'     => htmlspecialchars_decode($name.($category ? '  ('.$category.')' : '').(!$published ? '  (unpublished)' : '')),
                 'value'     => $id,
             ];
         }
@@ -83,7 +83,7 @@ class AjaxController extends CommonAjaxController
         ];
         foreach ($data['accounts'] as $value => $title) {
             $providerAccountField[] = [
-                'title' => $title,
+                'title' => htmlspecialchars_decode($title),
                 'value' => $value,
             ];
         }
@@ -95,7 +95,7 @@ class AjaxController extends CommonAjaxController
         ];
         foreach ($data['campaigns'] as $value => $title) {
             $providerCampaignField[] = [
-                'title' => $title,
+                'title' => htmlspecialchars_decode($title),
                 'value' => $value,
             ];
         }
