@@ -55,7 +55,7 @@ class AjaxController extends CommonAjaxController
         $campaignsField     = [
             [
                 'value' => 0,
-                'title' => count($campaigns) ? '-- No Campaign Assigned --' : '-- Please create a Campaign --',
+                'title' => count($campaigns) ? '-- No Campaign Mapped --' : '-- Please create a Campaign --',
             ],
         ];
         $campaignNames      = [];

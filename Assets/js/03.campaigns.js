@@ -134,7 +134,7 @@ Mautic.mediaCampaigns = function () {
                                         mQuery(this).html('<a href="' + mauticBasePath + '/s/campaigns/edit/' + campaign + '" target="_blank">Internal Campaign ' + campaign + '</a>');
                                     }
                                     else {
-                                        mQuery(this).text('Internal Campaign');
+                                        mQuery(this).html('<span class="unmapped">Internal Campaign</span>');
                                     }
                                 });
                                 if ($pppp.find('input[type="checkbox"][name$="[multiple]"]:first').is(':checked')) {

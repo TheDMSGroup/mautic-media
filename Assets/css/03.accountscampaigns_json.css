@@ -186,3 +186,6 @@ div[data-schemapath*="root.campaigns."] h3.moveRight {
 .media_jsoneditor div[data-schematype="array"] div[data-schemapath*=".campaigns"].col-md-12 {
     padding-top: 20px;
 }
+.media_jsoneditor .unmapped {
+    color: #cb4641;
+}

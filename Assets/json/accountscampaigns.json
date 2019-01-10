@@ -127,8 +127,8 @@
       ]
     },
     "campaignId": {
-      "headerTemplate": "Campaign {{self}}",
-      "title": "Campaign",
+      "headerTemplate": "Internal Campaign {{self}}",
+      "title": "Internal Campaign",
       "propertyOrder": 20,
       "default": "0",
       "format": "select",
