@@ -63,15 +63,20 @@ class FacebookHelper
     /** @var array */
     private $stats = [];
 
+    /** @var CampaignSettingsHelper */
+    private $campaignSettingsHelper;
+
     /**
      * FacebookHelper constructor.
      *
-     * @param                 $mediaAccountId
-     * @param                 $providerAccountId
-     * @param                 $providerClientId
-     * @param                 $providerClientSecret
-     * @param                 $providerToken
-     * @param OutputInterface $output
+     * @param                        $mediaAccountId
+     * @param                        $providerAccountId
+     * @param                        $providerClientId
+     * @param                        $providerClientSecret
+     * @param                        $providerToken
+     * @param OutputInterface        $output
+     * @param EntityManager          $em
+     * @param CampaignSettingsHelper $campaignSettingsHelper
      */
     public function __construct(
         $mediaAccountId,
@@ -80,12 +85,14 @@ class FacebookHelper
         $providerClientSecret,
         $providerToken,
         OutputInterface $output,
-        EntityManager $em
+        EntityManager $em,
+        CampaignSettingsHelper $campaignSettingsHelper
     ) {
-        $this->mediaAccountId    = $mediaAccountId;
-        $this->providerAccountId = $providerAccountId;
-        $this->output            = $output;
-        $this->em                = $em;
+        $this->mediaAccountId         = $mediaAccountId;
+        $this->providerAccountId      = $providerAccountId;
+        $this->output                 = $output;
+        $this->em                     = $em;
+        $this->campaignSettingsHelper = $campaignSettingsHelper;
 
         Api::init($providerClientId, $providerClientSecret, $providerToken);
         $this->client = Api::instance();
@@ -181,8 +188,13 @@ class FacebookHelper
 
                             $stat->setDateAdded($date);
 
-                            // @todo - To be mapped based on settings of the Media Account.
-                            // $stat->setCampaignId(0);
+                            $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                                $self['id'],
+                                $data['campaign_id']
+                            );
+                            if (is_int($campaignId)) {
+                                $stat->setCampaignId($campaignId);
+                            }
 
                             $provider = MediaAccount::PROVIDER_FACEBOOK;
                             $stat->setProvider($provider);
@@ -264,6 +276,7 @@ class FacebookHelper
         }
         $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
         $this->user = new AdAccountUser($me['id']);
+
         return $this->user;
     }
 

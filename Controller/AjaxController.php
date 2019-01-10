@@ -16,6 +16,7 @@ use Mautic\CoreBundle\Controller\AjaxController as CommonAjaxController;
 use Mautic\CoreBundle\Controller\AjaxLookupControllerTrait;
 use Mautic\CoreBundle\Helper\InputHelper;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
+use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\JSONHelper;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -35,85 +36,84 @@ class AjaxController extends CommonAjaxController
      */
     protected function getCampaignMapAction(Request $request)
     {
-        $jsonHelper       = new JSONHelper();
-        $mediaAccountId   = (int) InputHelper::clean($request->request->get('mediaAccountId'));
-        $mediaProvider    = InputHelper::clean($request->request->get('mediaProvider'));
-        $campaignSettings = $jsonHelper->decodeObject(
+        $jsonHelper            = new JSONHelper();
+        $mediaAccountId        = (int) InputHelper::clean($request->request->get('mediaAccountId'));
+        $mediaProvider         = InputHelper::clean($request->request->get('mediaProvider'));
+        $campaignSettingsField = $jsonHelper->decodeObject(
             InputHelper::clean($request->request->get('campaignSettings')),
             'CampaignSettings'
         );
 
         // Get all our Mautic internal campaigns.
-        $campaigns = [];
         /** @var CampaignRepository */
         $campaignRepository = $this->get('mautic.campaign.model.campaign')->getRepository();
-        foreach ($campaignRepository->getEntities() as $campaign) {
-            $id                                     = $campaign->getId();
-            $published                              = $campaign->isPublished();
-            $name                                   = $campaign->getName();
-            $category                               = $campaign->getCategory();
-            $category                               = $category ? $category->getName() : '';
-            $campaigns[$name.'_'.$category.'_'.$id] = [
-                'category'  => $category,
-                'published' => $published,
-                'name'      => $name,
-                'title'     => $name.($category ? '  ('.$category.')' : '').(!$published ? '  (unpublished)' : ''),
-                'value'     => $id,
-            ];
-        }
-        $campaigns['   '] = [
-            'value' => 0,
-            'title' => count($campaigns) ? '-- Select a Campaign --' : '-- Please create a Campaign --',
+        $args               = [
+            'orderBy'    => 'c.name',
+            'orderByDir' => 'ASC',
         ];
-        ksort($campaigns);
-        $campaigns = array_values($campaigns);
-
-        // Get all the third-party provider campaigns.
-        $providerCampaigns = [];
-        /** @var StatRepository $statRepository */
-        $statRepository = $this->get('mautic.media.model.media')->getStatRepository();
-        foreach ($statRepository->getProviderAccounts($mediaAccountId, $mediaProvider) as $id => $name) {
-            $providerCampaigns[$name.'_'.$id] = [
+        $campaigns          = $campaignRepository->getEntities($args);
+        $campaignsField     = [
+            [
+                'value' => 0,
+                'title' => count($campaigns) ? '-- No Campaign Mapped --' : '-- Please create a Campaign --',
+            ],
+        ];
+        $campaignNames      = [];
+        foreach ($campaigns as $campaign) {
+            $id               = $campaign->getId();
+            $published        = $campaign->isPublished();
+            $name             = $campaign->getName();
+            $category         = $campaign->getCategory();
+            $category         = $category ? $category->getName() : '';
+            $campaignsField[] = [
                 'name'  => $name,
-                'title' => $name,
+                'title' => htmlspecialchars_decode(
+                    $name.($category ? '  ('.$category.')' : '').(!$published ? '  (unpublished)' : '')
+                ),
                 'value' => $id,
             ];
+            // Adding periods to the end such that an unpublished campaign will be less likely to match against
+            // a published campaign of the same name.
+            $campaignNames[$id] = htmlspecialchars_decode($name).(!$published ? '.' : '');
         }
-        ksort($providerCampaigns);
-        $providerCampaigns = array_values($providerCampaigns);
 
-        // Up
-        foreach ($providerCampaigns as $providerCampaign) {
-            $foundProviderCampaign = false;
-            if (isset($campaignSettings->campaigns) && is_array($campaignSettings->campaigns)) {
-                foreach ($campaignSettings->campaigns as $row) {
-                    if (
-                        isset($row->providerCampaignId)
-                        && $row->providerCampaignId == $providerCampaign['value']
-                    ) {
-                        // This provider campaign is already in the map.
-                        $foundProviderCampaign = true;
-                        break;
-                    }
-                }
-            }
-            if (!$foundProviderCampaign) {
-                if (!isset($campaignSettings->campaigns) || !is_array($campaignSettings->campaigns)) {
-                    $campaignSettings->campaigns = [];
-                }
-                $obj                     = new \stdClass();
-                $obj->providerCampaignId = $providerCampaign['value'];
-                // @todo - implement guesswork magic.
-                $obj->campaignId               = '1';
-                $campaignSettings->campaigns[] = $obj;
-            }
+        // Get all recent and active campaigns and accounts from the provider.
+        /** @var StatRepository $statRepository */
+        $statRepository       = $this->get('mautic.media.model.media')->getStatRepository();
+        $data                 = $statRepository->getProviderAccountsWithCampaigns($mediaAccountId, $mediaProvider);
+        $providerAccountField = [
+            [
+                'value' => 0,
+                'title' => count($data['accounts']) ? '-- Select an Account --' : '-- Please create an Account --',
+            ],
+        ];
+        foreach ($data['accounts'] as $value => $title) {
+            $providerAccountField[] = [
+                'title' => htmlspecialchars_decode($title),
+                'value' => $value,
+            ];
         }
+        $providerCampaignField = [
+            [
+                'value' => 0,
+                'title' => count($data['campaigns']) ? '-- Select a Campaign --' : '-- Please create a Campaign --',
+            ],
+        ];
+        foreach ($data['campaigns'] as $value => $title) {
+            $providerCampaignField[] = [
+                'title' => htmlspecialchars_decode($title),
+                'value' => $value,
+            ];
+        }
+
+        $campaignSettingsHelper = new CampaignSettingsHelper($campaignNames, $campaignSettingsField, $data);
 
         return $this->sendJsonResponse(
             [
-                'campaigns'         => $campaigns,
-                'providerCampaigns' => $providerCampaigns,
-                'campaignSettings'  => $campaignSettings,
+                'campaigns'         => $campaignsField,
+                'providerAccounts'  => $providerAccountField,
+                'providerCampaigns' => $providerCampaignField,
+                'campaignSettings'  => $campaignSettingsHelper->getAutoUpdatedCampaignSettings(),
             ]
         );
     }

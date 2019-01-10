@@ -35,19 +35,9 @@
     border-radius: 3px;
 }
 
-/* Move delete buttons to the right */
-.media_jsoneditor div[data-schematype="object"][data-schemapath^="root.campaigns."] > h3 > div.btn-group.btn-right {
-    position: absolute;
-    right: 0;
+.media_jsoneditor div[data-schematype="object"][data-schemapath^="root.accounts."] {
+    margin-bottom: 30px;
 }
-
-.media_jsoneditor div[data-schematype="object"][data-schemapath^="root.campaigns."] > h3 > div.btn-group.btn-right > .delete:after {
-    content: " from Source";
-}
-
-/*.media_jsoneditor div[data-schematype="object"][data-schemapath^="root.campaigns."] > h3 {*/
-/*padding-bottom: 33px;*/
-/*}*/
 
 .media_jsoneditor .btn-group .btn-secondary {
     background: transparent;
@@ -63,7 +53,7 @@
 }
 
 /* Hide the root definition as it'd be a duplicate label in this case. */
-.media_jsoneditor > div > h3 {
+.media_jsoneditor h3 {
     display: none;
 }
 
@@ -85,6 +75,10 @@
     margin: 0;
     -webkit-box-shadow: none;
     box-shadow: none;
+}
+
+.media_jsoneditor .well .well .well .well {
+    padding: 0 0 0 30px;
 }
 
 /* Prevent faulty glyphicon load */
@@ -111,9 +105,9 @@
     margin-left: 5px;
 }
 
-.media_jsoneditor div[data-schemapath$=".campaignId"] label.control-label {
-    font-size: 16px;
-}
+/*.media_jsoneditor div[data-schemapath$=".campaignId"] label.control-label {*/
+/*font-size: 16px;*/
+/*}*/
 
 .media_jsoneditor .glyphicon-info-sign:before {
     content: "\f059";
@@ -162,11 +156,36 @@ div[data-schemapath*="root.campaigns."] h3.moveRight {
     text-align: right;
 }
 
+.media_jsoneditor div[data-schemapath$=".providerAccountId"] select,
 .media_jsoneditor div[data-schemapath$=".providerCampaignId"] select {
     border: 0;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
     overflow: hidden;
+    font-weight: bold;
+}
+
+.media_jsoneditor div[data-schemapath$=".providerCampaignId"] select {
     margin-top: 4px;
+}
+
+.media_jsoneditor .single div[data-schemapath*=".campaigns"],
+.media_jsoneditor .multiple div[data-schemapath*=".campaignId"] {
+    display: none;
+}
+
+.media_jsoneditor .multiple div[data-schemapath*=".campaigns"] div[data-schemapath*=".campaignId"] {
+    display: block;
+}
+
+.media_jsoneditor div[data-schematype="boolean"] {
+    padding-top: 28px;
+}
+
+.media_jsoneditor div[data-schematype="array"] div[data-schemapath*=".campaigns"].col-md-12 {
+    padding-top: 20px;
+}
+.media_jsoneditor .unmapped {
+    color: #cb4641;
 }

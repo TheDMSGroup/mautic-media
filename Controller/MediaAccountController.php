@@ -192,7 +192,7 @@ class MediaAccountController extends FormController
             );
 
             $auditLog = $this->getAuditlogs($item);
-            $stats = $model->getStats(
+            $stats    = $model->getStats(
                 $item,
                 $unit,
                 new \DateTime($chartFilterValues['date_from']),
