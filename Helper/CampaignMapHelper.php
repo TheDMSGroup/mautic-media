@@ -44,7 +44,9 @@ class CampaignMapHelper
             $this->simplify($campaignName);
         }
         $this->campaignNames        = $campaignNames;
-        $this->campaignNamesFlipped = array_flip($campaignNames);
+        if ($campaignNames) {
+            $this->campaignNamesFlipped = array_flip($campaignNames);
+        }
     }
 
     /**

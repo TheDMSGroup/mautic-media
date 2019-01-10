@@ -90,6 +90,7 @@ return [
                     'mautic.helper.templating',
                     'event_dispatcher',
                     'mautic.lead.model.lead',
+                    'mautic.campaign.model.campaign',
                 ],
             ],
         ],

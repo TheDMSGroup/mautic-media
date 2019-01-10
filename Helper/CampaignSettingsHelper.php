@@ -11,8 +11,6 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
-use Doctrine\ORM\EntityManager;
-
 /**
  * Class CampaignSettingsHelper.
  */
@@ -33,28 +31,22 @@ class CampaignSettingsHelper
     /** @var array */
     private $accountCampaignMap = [];
 
-    /** @var EntityManager */
-    private $em;
-
     /**
      * CampaignSettingsHelper constructor.
      *
-     * @param array              $campaignNames
-     * @param                    $campaignSettingsField
-     * @param array              $providerAccountsWithCampaigns
-     * @param EntityManager|null $em
+     * @param array $campaignNames
+     * @param       $campaignSettingsField
+     * @param array $providerAccountsWithCampaigns
      */
     public function __construct(
         $campaignNames = [],
         $campaignSettingsField,
-        $providerAccountsWithCampaigns = [],
-        $em = null
+        $providerAccountsWithCampaigns = []
     ) {
         $this->campaignNames                 = $campaignNames;
         $this->campaignMapHelper             = new CampaignMapHelper();
         $this->campaignSettingsField         = $campaignSettingsField;
         $this->providerAccountsWithCampaigns = $providerAccountsWithCampaigns;
-        $this->em                            = $em;
     }
 
     /**
@@ -124,9 +116,6 @@ class CampaignSettingsHelper
                             // Single mode
                             if (!empty($account->campaignId)) {
                                 if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
-                                    $this->accountCampaignMap[$account->providerAccountId] = [];
-                                }
-                                if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
                                     $this->accountCampaignMap[$account->providerAccountId] = $account->campaignId;
                                 }
                             }
@@ -164,7 +153,7 @@ class CampaignSettingsHelper
     public function getAutoUpdatedCampaignSettings()
     {
         // Update the campaign mapper with the latest list of campaign names.
-        $this->campaignMapHelper->setCampaignNames($this->getCampaignNames());
+        $this->campaignMapHelper->setCampaignNames($this->campaignNames);
 
         foreach ($this->providerAccountsWithCampaigns['hierarchy'] as $providerAccountId => $providerCampaigns) {
             // Make sure this account is included.
@@ -228,31 +217,5 @@ class CampaignSettingsHelper
         }
 
         return $this->campaignSettingsField;
-    }
-
-    /**
-     * @return array
-     */
-    private function getCampaignNames()
-    {
-        if (!$this->campaignNames && $this->em) {
-            /** @var CampaignRepository */
-            $campaignRepository = $this->em->get('mautic.campaign.model.campaign')->getRepository();
-            $args               = [
-                'orderBy'    => 'c.name',
-                'orderByDir' => 'ASC',
-            ];
-            $campaigns          = $campaignRepository->getEntities($args);
-            foreach ($campaigns as $campaign) {
-                $id        = $campaign->getId();
-                $published = $campaign->isPublished();
-                $name      = $campaign->getName();
-                // Adding periods to the end such that an unpublished campaign will be less likely to match against
-                // a published campaign of the same name.
-                $this->campaignNames[$id] = htmlspecialchars_decode($name).(!$published ? '.' : '');
-            }
-        }
-
-        return $this->campaignNames;
     }
 }

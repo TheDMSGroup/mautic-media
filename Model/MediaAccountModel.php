@@ -12,6 +12,7 @@
 namespace MauticPlugin\MauticMediaBundle\Model;
 
 use Doctrine\DBAL\Query\QueryBuilder;
+use Mautic\CampaignBundle\Model\CampaignModel;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use Mautic\CoreBundle\Helper\Chart\LineChart;
 use Mautic\CoreBundle\Helper\TemplatingHelper;
@@ -51,6 +52,12 @@ class MediaAccountModel extends FormModel
     /** @var ContactModel */
     protected $contactModel;
 
+    /** @var array */
+    protected $campaignNames;
+
+    /** @var CampaignModel */
+    protected $campaignModel;
+
     /**
      * MediaAccountModel constructor.
      *
@@ -65,13 +72,15 @@ class MediaAccountModel extends FormModel
         TrackableModel $trackableModel,
         TemplatingHelper $templating,
         EventDispatcherInterface $dispatcher,
-        ContactModel $contactModel
+        ContactModel $contactModel,
+        CampaignModel $campaignModel
     ) {
         $this->formModel      = $formModel;
         $this->trackableModel = $trackableModel;
         $this->templating     = $templating;
         $this->dispatcher     = $dispatcher;
         $this->contactModel   = $contactModel;
+        $this->campaignModel  = $campaignModel;
     }
 
     /**
@@ -334,8 +343,12 @@ class MediaAccountModel extends FormModel
             $mediaAccountId,
             $mediaAccount->getProvider()
         );
+        $campaignNames          = $this->getCampaignNames();
+        $campaignSettings       = $mediaAccount->getCampaignSettings();
         $campaignSettingsHelper = new CampaignSettingsHelper(
-            [], $mediaAccount->getCampaignSettings(), $data, $this->em
+            $campaignNames,
+            $campaignSettings,
+            $data
         );
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
@@ -382,6 +395,33 @@ class MediaAccountModel extends FormModel
         }
 
         return $this->em->getRepository('MauticMediaBundle:Stat');
+    }
+
+    /**
+     * Get the campaign names for correlating external provider accounts/campaigns in the cron task.
+     */
+    private function getCampaignNames()
+    {
+        if (null === $this->campaignNames) {
+            $this->campaignNames = [];
+            $campaignRepository  = $this->campaignModel->getRepository();
+            $campaigns           = $campaignRepository->getEntities(
+                [
+                    'orderBy'    => 'c.name',
+                    'orderByDir' => 'ASC',
+                ]
+            );
+            foreach ($campaigns as $campaign) {
+                $id        = $campaign->getId();
+                $published = $campaign->isPublished();
+                $name      = $campaign->getName();
+                // Adding periods to the end such that an unpublished campaign will be less likely to match against
+                // a published campaign of the same name.
+                $this->campaignNames[$id] = htmlspecialchars_decode($name).(!$published ? '.' : '');
+            }
+        }
+
+        return $this->campaignNames;
     }
 
     /**
