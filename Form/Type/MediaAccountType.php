@@ -77,7 +77,7 @@ class MediaAccountType extends AbstractType
                 'label'       => 'mautic.media.form.campaign_settings',
                 'label_attr'  => ['class' => 'control-label campaign-settings'],
                 'attr'        => [
-                    'class' => 'form-control campaign-settings',
+                    'class' => 'form-control campaign-settings hide',
                     'rows'  => 12,
                 ],
                 'required'    => false,

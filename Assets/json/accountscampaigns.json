@@ -13,7 +13,8 @@
       "format": "grid",
       "uniqueItems": false,
       "options": {
-        "disable_collapse": true
+        "disable_collapse": true,
+        "grid_columns": 12
       },
       "items": {
         "headerTemplate": " ",
@@ -21,7 +22,8 @@
         "format": "grid",
         "options": {
           "collapsed": false,
-          "disable_collapse": true
+          "disable_collapse": true,
+          "grid_columns": 12
         },
         "properties": {
           "providerAccountId": {
@@ -31,14 +33,14 @@
           "multiple": {
             "type": "boolean",
             "format": "checkbox",
-            "title": "Many to Many Campaigns",
+            "title": "Multiple",
             "options": {
-              "grid_columns": 12,
+              "grid_columns": 1,
               "infoText": "Instead of sending all data from this provider account into a single campaign, enable this to map specific provider campaigns to multiple internal campaigns."
             },
             "default": false
           },
-          "campaign": {
+          "campaignId": {
             "title": "Singular Campaign",
             "$ref": "#/definitions/campaignId"
           },
@@ -48,6 +50,7 @@
             "format": "grid",
             "uniqueItems": false,
             "options": {
+              "grid_columns": 12,
               "disable_collapse": true
             },
             "items": {

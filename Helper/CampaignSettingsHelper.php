@@ -122,12 +122,12 @@ class CampaignSettingsHelper
                             }
                         } else {
                             // Single mode
-                            if (isset($account->campaign) && !empty($account->campaign->campaignId)) {
+                            if (!empty($account->campaignId)) {
                                 if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
                                     $this->accountCampaignMap[$account->providerAccountId] = [];
                                 }
                                 if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
-                                    $this->accountCampaignMap[$account->providerAccountId] = $account->campaign->campaignId;
+                                    $this->accountCampaignMap[$account->providerAccountId] = $account->campaignId;
                                 }
                             }
                         }
@@ -186,7 +186,7 @@ class CampaignSettingsHelper
                 $accountObj->providerAccountId = (string) $providerAccountId;
                 $accountObj->campaigns         = [];
                 // Guess the primary campaign (default) based on the name of the account.
-                $accountObj->campaign = $this->campaignMapHelper->guess(
+                $accountObj->campaignId = $this->campaignMapHelper->guess(
                     $this->providerAccountsWithCampaigns['accounts'][$providerAccountId]
                 );
                 $accountObj->multiple = 0;
