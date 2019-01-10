@@ -16,6 +16,7 @@ use Mautic\CoreBundle\Controller\AjaxController as CommonAjaxController;
 use Mautic\CoreBundle\Controller\AjaxLookupControllerTrait;
 use Mautic\CoreBundle\Helper\InputHelper;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
+use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\JSONHelper;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -44,31 +45,36 @@ class AjaxController extends CommonAjaxController
         );
 
         // Get all our Mautic internal campaigns.
-        $campaigns = [];
         /** @var CampaignRepository */
         $campaignRepository = $this->get('mautic.campaign.model.campaign')->getRepository();
         $args               = [
             'orderBy'    => 'c.name',
             'orderByDir' => 'ASC',
         ];
-        $campaigns      = $campaignRepository->getEntities($args);
-        $campaignsField = [[
-            'value' => 0,
-            'title' => count($campaigns) ? '-- Select a Campaign --' : '-- Please create a Campaign --',
-        ]];
+        $campaigns          = $campaignRepository->getEntities($args);
+        $campaignsField     = [
+            [
+                'value' => 0,
+                'title' => count($campaigns) ? '-- Select a Campaign --' : '-- Please create a Campaign --',
+            ],
+        ];
+        $campaignNames      = [];
         foreach ($campaigns as $campaign) {
-            $id                                     = $campaign->getId();
-            $published                              = $campaign->isPublished();
-            $name                                   = $campaign->getName();
-            $category                               = $campaign->getCategory();
-            $category                               = $category ? $category->getName() : '';
-            $campaignsField[]                       = [
-                'category'  => $category,
-                'published' => $published,
-                'name'      => $name,
-                'title'     => htmlspecialchars_decode($name.($category ? '  ('.$category.')' : '').(!$published ? '  (unpublished)' : '')),
-                'value'     => $id,
+            $id               = $campaign->getId();
+            $published        = $campaign->isPublished();
+            $name             = $campaign->getName();
+            $category         = $campaign->getCategory();
+            $category         = $category ? $category->getName() : '';
+            $campaignsField[] = [
+                'name'  => $name,
+                'title' => htmlspecialchars_decode(
+                    $name.($category ? '  ('.$category.')' : '').(!$published ? '  (unpublished)' : '')
+                ),
+                'value' => $id,
             ];
+            // Adding periods to the end such that an unpublished campaign will be less likely to match against
+            // a published campaign of the same name.
+            $campaignNames[$id] = htmlspecialchars_decode($name).(!$published ? '.' : '');
         }
 
         // Get all recent and active campaigns and accounts from the provider.
@@ -100,68 +106,14 @@ class AjaxController extends CommonAjaxController
             ];
         }
 
-        // Update the CampaignSettings (the map between provider and internal campaigns).
-        foreach ($data['map'] as $providerAccountId => $providerCampaigns) {
-            // Make sure this account is included.
-            $accountFound = false;
-            if (!isset($campaignSettingsField->accounts)) {
-                $campaignSettingsField->accounts = [];
-            }
-            foreach ($campaignSettingsField->accounts as &$accountObj) {
-                if (
-                    isset($accountObj->providerAccountId)
-                    && $accountObj->providerAccountId == $providerAccountId
-                ) {
-                    $accountFound = true;
-                    break;
-                }
-            }
-            if (!$accountFound) {
-                $accountObj                     = new \stdClass();
-                $accountObj->providerAccountId  = (string) $providerAccountId;
-                $accountObj->mapping            = new \stdClass();
-                $accountObj->mapping->campaigns = [];
-            }
-            if (isset($accountObj)) {
-                // Make sure all campaigns are included in the account
-                foreach ($providerCampaigns as $providerCampaignId) {
-                    $campaignFound = false;
-                    foreach ($accountObj->mapping->campaigns as &$campaignObj) {
-                        if (
-                            isset($campaignObj->providerCampaignId)
-                            && $campaignObj->providerCampaignId == $providerCampaignId
-                        ) {
-                            $campaignFound = true;
-                            break;
-                        }
-                    }
-                    // Only add campaigns not already mapped
-                    if (!$campaignFound) {
-                        $campaignObj                     = new \stdClass();
-                        $campaignObj->providerCampaignId = (string) $providerCampaignId;
-                    }
-                    if (isset($campaignObj)) {
-                        // @todo - Automatic guessing goes here.
-                        if (!empty($campaignObj) && empty($campaignObj->campaignId)) {
-                            $campaignObj->campaignId = '1';
-                        }
-                        if (!$campaignFound) {
-                            $accountObj->mapping->campaigns[] = $campaignObj;
-                        }
-                    }
-                }
-                if (!$accountFound) {
-                    $campaignSettingsField->accounts[] = $accountObj;
-                }
-            }
-        }
+        $campaignSettingsHelper = new CampaignSettingsHelper($campaignNames, $campaignSettingsField, $data);
 
         return $this->sendJsonResponse(
             [
                 'campaigns'         => $campaignsField,
                 'providerAccounts'  => $providerAccountField,
                 'providerCampaigns' => $providerCampaignField,
-                'campaignSettings'  => $campaignSettingsField,
+                'campaignSettings'  => $campaignSettingsHelper->getAutoUpdatedCampaignSettings(),
             ]
         );
     }

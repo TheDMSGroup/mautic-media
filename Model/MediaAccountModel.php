@@ -19,10 +19,10 @@ use Mautic\CoreBundle\Model\FormModel;
 use Mautic\LeadBundle\Model\LeadModel as ContactModel;
 use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
-use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
+use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
 use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
@@ -308,24 +308,6 @@ class MediaAccountModel extends FormModel
     }
 
     /**
-     * @return StatRepository
-     *
-     * @throws \Doctrine\ORM\ORMException
-     */
-    public function getStatRepository()
-    {
-        if (!$this->em->isOpen()) {
-            $this->em = $this->em->create(
-                $this->em->getConnection(),
-                $this->em->getConfiguration(),
-                $this->em->getEventManager()
-            );
-        }
-
-        return $this->em->getRepository('MauticMediaBundle:Stat');
-    }
-
-    /**
      * @param MediaAccount|null $mediaAccount
      * @param \DateTime         $dateFrom
      * @param \DateTime         $dateTo
@@ -347,6 +329,14 @@ class MediaAccountModel extends FormModel
         $providerClientId     = $mediaAccount->getClientId();
         $providerClientSecret = $mediaAccount->getClientSecret();
         $providerToken        = $mediaAccount->getToken();
+
+        $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
+            $mediaAccountId,
+            $mediaAccount->getProvider()
+        );
+        $campaignSettingsHelper = new CampaignSettingsHelper(
+            [], $mediaAccount->getCampaignSettings(), $data, $this->em
+        );
         switch ($mediaAccount->getProvider()) {
             case MediaAccount::PROVIDER_FACEBOOK:
                 $helper = new FacebookHelper(
@@ -356,7 +346,8 @@ class MediaAccountModel extends FormModel
                     $providerClientSecret,
                     $providerToken,
                     $output,
-                    $this->em
+                    $this->em,
+                    $campaignSettingsHelper
                 );
                 $helper->pullData($dateFrom, $dateTo);
                 break;
@@ -373,6 +364,24 @@ class MediaAccountModel extends FormModel
                 $helper = new GoogleHelper();
                 break;
         }
+    }
+
+    /**
+     * @return StatRepository
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getStatRepository()
+    {
+        if (!$this->em->isOpen()) {
+            $this->em = $this->em->create(
+                $this->em->getConnection(),
+                $this->em->getConfiguration(),
+                $this->em->getEventManager()
+            );
+        }
+
+        return $this->em->getRepository('MauticMediaBundle:Stat');
     }
 
     /**

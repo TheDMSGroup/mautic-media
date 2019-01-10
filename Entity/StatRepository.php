@@ -170,7 +170,7 @@ class StatRepository extends CommonRepository
             }
         }
 
-        return ['accounts' => $accounts, 'campaigns' => $campaigns, 'map' => $hierarchy];
+        return ['accounts' => $accounts, 'campaigns' => $campaigns, 'hierarchy' => $hierarchy];
     }
 
     /**

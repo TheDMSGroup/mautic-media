@@ -11,7 +11,7 @@
       "title": "Accounts",
       "type": "array",
       "format": "grid",
-      "uniqueItems": true,
+      "uniqueItems": false,
       "options": {
         "disable_collapse": true
       },
@@ -28,50 +28,32 @@
             "title": "Account",
             "$ref": "#/definitions/providerAccountId"
           },
-          "mapping": {
-            "title": "Map this provider account to",
-            "oneOf": [
-              {
-                "title": "multiple campaigns",
-                "type": "object",
-                "format": "grid",
-                "options": {
-                  "collapsed": false,
-                  "disable_collapse": true,
-                  "grid_columns": 12
-                },
-                "properties": {
-                  "campaigns": {
-                    "title": "Campaigns",
-                    "type": "array",
-                    "format": "grid",
-                    "uniqueItems": true,
-                    "options": {
-                      "disable_collapse": true
-                    },
-                    "items": {
-                      "title": "Campaign",
-                      "$ref": "#/definitions/campaigns"
-                    }
-                  }
-                }
-              },
-              {
-                "title": "a single campaign",
-                "type": "object",
-                "options": {
-                  "collapsed": false,
-                  "disable_collapse": true,
-                  "grid_columns": 12
-                },
-                "properties": {
-                  "campaign": {
-                    "title": "Campaign",
-                    "$ref": "#/definitions/campaignId"
-                  }
-                }
-              }
-            ]
+          "multiple": {
+            "type": "boolean",
+            "format": "checkbox",
+            "title": "Many to Many Campaigns",
+            "options": {
+              "grid_columns": 12,
+              "infoText": "Instead of sending all data from this provider account into a single campaign, enable this to map specific provider campaigns to multiple internal campaigns."
+            },
+            "default": false
+          },
+          "campaign": {
+            "title": "Singular Campaign",
+            "$ref": "#/definitions/campaignId"
+          },
+          "campaigns": {
+            "title": " ",
+            "type": "array",
+            "format": "grid",
+            "uniqueItems": false,
+            "options": {
+              "disable_collapse": true
+            },
+            "items": {
+              "title": "Campaign",
+              "$ref": "#/definitions/campaigns"
+            }
           }
         }
       }
