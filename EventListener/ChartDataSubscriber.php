@@ -42,7 +42,7 @@ class ChartDataSubscriber extends CommonSubscriber
      */
     public static function getSubscribedEvents()
     {
-        return [MauticContactLedgerEvents::CHART_DATA_ALTER => ['onChartDataAlter', 0]];
+        return ['mautic.contactledger.chartdata.alter' => ['onChartDataAlter', 0]];
     }
 
     /**
