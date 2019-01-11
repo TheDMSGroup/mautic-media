@@ -412,7 +412,17 @@ class MediaAccountModel extends FormModel
                 break;
 
             case MediaAccount::PROVIDER_GOOGLE:
-                $helper = new GoogleHelper();
+                $helper = new GoogleHelper(
+                    $mediaAccountId,
+                    $providerAccountId,
+                    $providerClientId,
+                    $providerClientSecret,
+                    $providerToken,
+                    $output,
+                    $this->em,
+                    $campaignSettingsHelper
+                );
+                $helper->pullData($dateFrom, $dateTo);
                 break;
 
             case MediaAccount::PROVIDER_SNAPCHAT:
