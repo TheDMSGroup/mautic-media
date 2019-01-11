@@ -198,15 +198,24 @@ class MediaAccountModel extends FormModel
         $unit  = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
 
-        $params = ['media_account_id' => $MediaAccount->getId()];
+        $params = [
+            'media_account_id' => $MediaAccount->getId(),
+            'provider'         => $MediaAccount->getProvider(),
+        ];
 
         if ($campaignId) {
             $params['campaign_id'] = $campaignId;
         }
 
-        foreach ($MediaAccount::getAllProviders() as $provider) {
-            $params['provider'] = $provider;
-            $q                  = $query->prepareTimeDataQuery(
+        $providerAccounts = $this->getStatRepository()->getProviderAccounts(
+            $MediaAccount->getId(),
+            $MediaAccount->getProvider()
+        );
+
+        $totals = [];
+        foreach ($providerAccounts as $providerAccountId => $providerAccountName) {
+            $params['provider_account_id'] = $providerAccountId;
+            $q                             = $query->prepareTimeDataQuery(
                 'media_account_stats',
                 'date_added',
                 $params,
@@ -253,11 +262,26 @@ class MediaAccountModel extends FormModel
             }
 
             $data = $query->loadAndBuildTimeData($q);
-            foreach ($data as $val) {
+            if (!$totals) {
+                $totals = $data;
+            }
+            foreach ($data as $key => $val) {
+                $totals[$key] += $val;
+            }
+            foreach ($data as $key => $val) {
                 if (0 !== $val) {
-                    $chart->setDataset($this->translator->trans('mautic.media.form.provider.'.$provider), $data);
+                    $chart->setDataset($providerAccountName, $data);
                     break;
                 }
+            }
+        }
+        foreach ($totals as $val) {
+            if (0 !== $val) {
+                $chart->setDataset(
+                    $this->translator->trans('mautic.media.form.provider.total.'.$MediaAccount->getProvider()),
+                    $totals
+                );
+                break;
             }
         }
 
@@ -302,6 +326,24 @@ class MediaAccountModel extends FormModel
         }
 
         return $unit;
+    }
+
+    /**
+     * @return StatRepository
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getStatRepository()
+    {
+        if (!$this->em->isOpen()) {
+            $this->em = $this->em->create(
+                $this->em->getConnection(),
+                $this->em->getConfiguration(),
+                $this->em->getEventManager()
+            );
+        }
+
+        return $this->em->getRepository('MauticMediaBundle:Stat');
     }
 
     /**
@@ -377,24 +419,6 @@ class MediaAccountModel extends FormModel
                 $helper = new GoogleHelper();
                 break;
         }
-    }
-
-    /**
-     * @return StatRepository
-     *
-     * @throws \Doctrine\ORM\ORMException
-     */
-    public function getStatRepository()
-    {
-        if (!$this->em->isOpen()) {
-            $this->em = $this->em->create(
-                $this->em->getConnection(),
-                $this->em->getConfiguration(),
-                $this->em->getEventManager()
-            );
-        }
-
-        return $this->em->getRepository('MauticMediaBundle:Stat');
     }
 
     /**

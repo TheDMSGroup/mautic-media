@@ -32,32 +32,47 @@ class StatRepository extends CommonRepository
      *
      * @return array
      */
-    public function getStats($mediaAccountId, $type, $fromDate = null, $toDate = null)
+    public function getStats($mediaAccountId, $type = '', $fromDate = null, $toDate = null)
     {
-        $q = $this->createQueryBuilder('s');
+        // $q = $this->createQueryBuilder('s');
+        //
+        // $expr = $q->expr()->andX(
+        //     $q->expr()->eq('IDENTITY(s.media_account_id)', (int) $mediaAccountId),
+        //     $q->expr()->eq('s.type', ':type')
+        // );
 
-        $expr = $q->expr()->andX(
-            $q->expr()->eq('IDENTITY(s.media_account_id)', (int) $mediaAccountId),
-            $q->expr()->eq('s.type', ':type')
+        $alias = 's';
+        $query = $this->slaveQueryBuilder();
+        $query->select($alias.'.provider_account_id, '.$alias.'.provider_account_name');
+        $query->from(MAUTIC_TABLE_PREFIX.$this->getTableName(), $alias);
+        $query->add(
+            'where',
+            $query->expr()->andX(
+                $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
+                $query->expr()->isNotNull($alias.'.provider'),
+                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
+                $query->expr()->isNotNull($alias.'.provider_ad_id')
+            )
         );
 
-        if ($fromDate) {
-            $expr->add(
-                $q->expr()->gte('s.dateAdded', ':fromDate')
-            );
-            $q->setParameter('fromDate', $fromDate);
-        }
-        if ($toDate) {
-            $expr->add(
-                $q->expr()->lte('s.dateAdded', ':toDate')
-            );
-            $q->setParameter('toDate', $toDate);
+        return $query->getQuery()->getArrayResult();
+    }
+
+    /**
+     * Create a DBAL QueryBuilder preferring a slave connection if available.
+     *
+     * @return QueryBuilder
+     */
+    private function slaveQueryBuilder()
+    {
+        /** @var Connection $connection */
+        $connection = $this->getEntityManager()->getConnection();
+        if ($connection instanceof MasterSlaveConnection) {
+            // Prefer a slave connection if available.
+            $connection->connect('slave');
         }
 
-        $q->where($expr)
-            ->setParameter('type', $type);
-
-        return $q->getQuery()->getArrayResult();
+        return new QueryBuilder($connection);
     }
 
     /**
@@ -100,23 +115,6 @@ class StatRepository extends CommonRepository
         }
 
         return $accounts;
-    }
-
-    /**
-     * Create a DBAL QueryBuilder preferring a slave connection if available.
-     *
-     * @return QueryBuilder
-     */
-    private function slaveQueryBuilder()
-    {
-        /** @var Connection $connection */
-        $connection = $this->getEntityManager()->getConnection();
-        if ($connection instanceof MasterSlaveConnection) {
-            // Prefer a slave connection if available.
-            $connection->connect('slave');
-        }
-
-        return new QueryBuilder($connection);
     }
 
     /**
