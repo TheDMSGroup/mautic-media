@@ -1,6 +1,6 @@
 {
     "name": "MauticMediaBundle",
-    "description": "Pulls cost data from media advertising services.",
+    "description": "Pulls cost data from media advertising services for campaign correlation.",
     "license": "GPL-3.0",
     "authors": [
         {
