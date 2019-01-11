@@ -11,7 +11,7 @@
 
 return [
     'name'        => 'Media',
-    'description' => 'Pulls cost data from media advertising services for consumption and use by other plugins.',
+    'description' => 'Pulls cost data from media advertising services for campaign correlation.',
     'version'     => '1.0',
     'author'      => 'Mautic',
 
