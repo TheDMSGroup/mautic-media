@@ -13,8 +13,6 @@ namespace MauticPlugin\MauticMediaBundle\EventListener;
 
 use DateInterval;
 use Mautic\CoreBundle\EventListener\CommonSubscriber;
-use MauticPlugin\MauticContactLedgerBundle\Event\ChartDataAlterEvent;
-use MauticPlugin\MauticContactLedgerBundle\MauticContactLedgerEvents;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 
 /**
@@ -46,13 +44,15 @@ class ChartDataSubscriber extends CommonSubscriber
     }
 
     /**
-     * @param ChartDataAlterEvent $event
+     * @param $event
+     *
+     * @throws \Doctrine\ORM\ORMException
      */
-    public function onChartDataAlter(ChartDataAlterEvent $event)
+    public function onChartDataAlter($event)
     {
         switch ($event->getChartName()) {
             case 'campaign.revenue.chart':
-                $this->modifyCampaignrevenueChart($event);
+                $this->modifyCampaignRevenueChart($event);
                 break;
 
             case 'campaign.revenue.datatable':
