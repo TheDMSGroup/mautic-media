@@ -13,7 +13,6 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use Doctrine\ORM\EntityManager;
 use Google\AdsApi\AdWords\AdWordsServices;
-use Google\AdsApi\AdWords\AdWordsSession;
 use Google\AdsApi\AdWords\AdWordsSessionBuilder;
 use Google\AdsApi\AdWords\Reporting\v201809\DownloadFormat;
 use Google\AdsApi\AdWords\Reporting\v201809\ReportDefinition;
@@ -27,9 +26,13 @@ use Google\AdsApi\AdWords\v201809\cm\Predicate;
 use Google\AdsApi\AdWords\v201809\cm\PredicateOperator;
 use Google\AdsApi\AdWords\v201809\cm\ReportDefinitionReportType;
 use Google\AdsApi\AdWords\v201809\cm\Selector;
+use Google\AdsApi\AdWords\v201809\mcm\Customer;
 use Google\AdsApi\AdWords\v201809\mcm\ManagedCustomerService;
 use Google\AdsApi\Common\Configuration;
 use Google\AdsApi\Common\OAuth2TokenBuilder;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
+use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use Psr\Log\NullLogger;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -48,9 +51,6 @@ class GoogleHelper
 
     /** @var int */
     public static $pageLimit = 500;
-
-    /** @var AdWordsSession */
-    private $client;
 
     /** @var AdWordsSessionBuilder */
     private $sessionBuilder;
@@ -79,6 +79,21 @@ class GoogleHelper
     /** @var CampaignSettingsHelper */
     private $campaignSettingsHelper;
 
+    /** @var array */
+    private $configuration = [];
+
+    /** @var array */
+    private $sessions = [];
+
+    /** @var string */
+    // private $providerToken;
+
+    /** @var string */
+    // private $providerClientSecret;
+
+    /** @var string */
+    // private $providerClientId;
+
     /**
      * GoogleHelper constructor.
      *
@@ -101,20 +116,23 @@ class GoogleHelper
         EntityManager $em,
         CampaignSettingsHelper $campaignSettingsHelper
     ) {
-        $this->mediaAccountId         = $mediaAccountId;
-        $this->providerAccountId      = $providerAccountId;
+        $this->mediaAccountId    = $mediaAccountId;
+        $this->providerAccountId = $providerAccountId;
+        // $this->providerClientId       = $providerClientId;
+        // $this->providerClientSecret   = $providerClientSecret;
+        // $this->providerToken          = $providerToken;
         $this->output                 = $output;
         $this->em                     = $em;
         $this->campaignSettingsHelper = $campaignSettingsHelper;
 
 
 
-        $configuration    = new Configuration(
+        $this->configuration = new Configuration(
             [
                 'ADWORDS'           => [
-                    // 'developerToken'   => $providerDeveloperToken,
+                    'developerToken' => $providerDeveloperToken,
                     // 'clientCustomerId' => $providerCustomerId,
-                    'userAgent' => 'Mautic',
+                    'userAgent'      => 'Mautic',
                     // 'isPartialFailure'            => false,
                     // 'includeUtilitiesInUserAgent' => true,
                 ],
@@ -127,8 +145,8 @@ class GoogleHelper
                 'OAUTH2'            => [
                     'clientId'     => $providerClientId,
                     'clientSecret' => $providerClientSecret,
-                    // 'refreshToken' => $providerRefreshToken,
-                    'accessToken'  => $providerToken
+                    'refreshToken' => $providerRefreshToken,
+                    // 'accessToken'  => $providerToken
                     // 'jsonKeyFilePath'             => 'INSERT_ABSOLUTE_PATH_TO_OAUTH2_JSON_KEY_FILE_HERE',
                     // 'scopes'                      => 'https://www.googleapis.com/auth/adwords',
                     // 'impersonatedEmail'           => 'INSERT_EMAIL_OF_ACCOUNT_TO_IMPERSONATE_HERE',
@@ -150,23 +168,6 @@ class GoogleHelper
                 ],
             ]
         );
-        $oAuth2Credential = (new OAuth2TokenBuilder())->from($configuration)->build();
-        $this->sessionBuilder     = (new AdWordsSessionBuilder())->from($configuration)->withOAuth2Credential(
-            $oAuth2Credential
-        );
-
-
-        // $filePath = sprintf(
-        //     '%s.csv',
-        //     tempnam(sys_get_temp_dir(), 'criteria-report-')
-        // );
-        // self::runExample($this->client, $filePath);
-
-        // Api::init($providerClientId, $providerClientSecret, $providerToken);
-        // $this->client = Api::instance();
-
-        // $this->client->setLogger(new \FacebookAds\Logger\CurlLogger());
-        // Cursor::setDefaultUseImplicitFetch(true);
     }
 
     /**
@@ -179,269 +180,210 @@ class GoogleHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
+        $fields = [
+            'Date',
+            'HourOfDay',
+            // @todo - Drill down to ad level in a subsequent request for estimation.
+            // 'AdId',
+            // 'AdName',
+            'AdGroupId',
+            'AdGroupName',
+            'CampaignId',
+            'CampaignName',
+            'Cost', // In micros
+            'AverageCpm', // In micros
+            'AverageCpc', // In micros
+            // CPP can be estimated by AverageCpm divided by 1000
+            'Ctr',
+            'Impressions',
+            'Clicks',
+            // 'CostPerConversion', Currently excluding CpCo, since we'd need to decide a timeframe.
+            // Cannot discern reach, we should likely deprecate it.
+        ];
         try {
-
-            // Create selector.
-            $selector = new Selector();
-            // @todo - Correlate against Facebook fields, see if we have the best lineup.
-            $selector->setFields(
-                [
-                    'CampaignId',
-                    'CampaignName',
-                    'AdGroupId',
-                    'AdGroupName',
-                    'Id',
-                    'LongHeadline',
-                    'Labels',
-                    'Date',
-                    'Impressions',
-                    'Clicks',
-                    'Cost',
-                    'CostPerConversion',
-                ]
-            );
-            $dateRange = new DateRange($dateFrom->format('Ymd'), $dateTo->format('Ymd'));
-            $selector->setDateRange($dateRange);
-
-            // Create report definition.
-            $reportDefinition = new ReportDefinition();
-            $reportDefinition->setSelector($selector);
-            $reportDefinition->setReportName(
-                'Mautic auto-generated report #'.uniqid()
-            );
-            $reportDefinition->setDateRangeType(
-                ReportDefinitionDateRangeType::CUSTOM_DATE
-            );
-            $reportDefinition->setReportType(
-                ReportDefinitionReportType::ADGROUP_PERFORMANCE_REPORT
-            );
-            $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
-
-
-
-            // // Download report.
-            // $reportDownloader       = new ReportDownloader($this->client);
-            // $reportSettingsOverride = (new ReportSettingsBuilder())->includeZeroImpressions(false)->build();
-            // $reportDownloadResult   = $reportDownloader->downloadReport(
-            //     $reportDefinition,
-            //     $reportSettingsOverride
-            // );
-            // $reportString           = $reportDownloadResult->getAsString();
-            // die($reportString);
-
-
-            $customerIds = self::getAllManagedCustomerIds();
-            printf(
-                "Downloading reports for %d managed customers.\n",
-                count($customerIds)
+            $customers = $this->getAllManagedCustomers();
+            if (!$customers) {
+                throw new \Exception(
+                    'No Google Ads customer accounts accessible by media account '.$this->providerAccountId.'.'
+                );
+            }
+            $this->output->writeln(
+                MediaAccount::PROVIDER_GOOGLE.' - Found '.count(
+                    $customers
+                ).' accounts active for media account '.$this->mediaAccountId.'.'
             );
 
+            // Using the active accounts, go backwards through time one day at a time to pull hourly data.
+            $date   = clone $dateTo;
+            $oneDay = new \DateInterval('P1D');
+            while ($date >= $dateFrom) {
+                foreach ($customers as $customerId => $customer) {
+                    $spend = 0;
+                    /** @var Customer $customer */
+                    $timezone = new \DateTimeZone($customer->getDateTimeZone());
+                    $since    = clone $date;
+                    $until    = clone $date;
+                    $since->setTimeZone($timezone);
+                    $until->setTimeZone($timezone)->add($oneDay);
+                    $this->output->write(
+                        MediaAccount::PROVIDER_GOOGLE.' - Pulling hourly data - '.
+                        $since->format('Y-m-d').' - '.
+                        $customer->getName()
+                    );
 
-            $successfulReports = [];
-            $failedReports = [];
-            foreach ($customerIds as $customerId) {
-                // Construct an API session for the specified client customer ID.
-                $session = $this->sessionBuilder->withClientCustomerId($customerId)->build();
-                $reportDownloader = new ReportDownloader($session);
-                $retryCount = 0;
-                $doContinue = true;
-                do {
-                    $retryCount++;
-                    try {
-                        // Optional: If you need to adjust report settings just for this one
-                        // request, you can create and supply the settings override here.
-                        // Otherwise, default values from the configuration file
-                        // (adsapi_php.ini) are used.
-                        $reportSettingsOverride = (new ReportSettingsBuilder())->includeZeroImpressions(false)->build();
-                        $reportDownloadResult = $reportDownloader->downloadReport(
-                            $reportDefinition,
-                            $reportSettingsOverride
-                        );
-                        $reportString = $reportDownloadResult->getAsString();
-                        $successfulReports[$customerId] = $reportString;
-                        $doContinue = false;
-                    } catch (ApiException $e) {
-                        printf(
-                            "Report attempt #%d for client customer ID %d was not downloaded due to: %s\n",
-                            $retryCount,
-                            $customerId,
-                            $e->getMessage()
-                        );
-                        if ($e->getErrors() === null && $retryCount < self::$rateLimitMaxErrors) {
-                            $sleepTime = $retryCount * self::$rateLimitSleep;
-                            printf(
-                                "Sleeping %d seconds before retrying report for client customer ID %d.\n",
-                                $sleepTime,
-                                $customerId
+                    $reportDefinition = new ReportDefinition();
+                    $selector         = new Selector();
+                    $selector->setFields($fields);
+                    $selector->setDateRange((new DateRange($since->format('Ymd'), $until->format('Ymd'))));
+                    $reportDefinition->setDateRangeType(
+                        ReportDefinitionDateRangeType::CUSTOM_DATE
+                    );
+                    // Sorting is not currently supported for reports.
+                    // $selector->setOrdering(
+                    //     [
+                    //         (new OrderBy('Date', SortOrder::DESCENDING)),
+                    //         (new OrderBy('HourOfDay', SortOrder::DESCENDING)),
+                    //     ]
+                    // );
+                    $reportDefinition->setSelector($selector);
+                    $reportDefinition->setReportName(
+                        'Mautic auto-generated report #'.uniqid()
+                    );
+                    $reportDefinition->setReportType(
+                        ReportDefinitionReportType::ADGROUP_PERFORMANCE_REPORT
+                    );
+                    $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
+
+                    // Settings for minimal report wrapping, include all data.
+                    $reportSettingsOverride = (new ReportSettingsBuilder())
+                        ->includeZeroImpressions(false)
+                        ->skipReportSummary(true)
+                        ->skipReportHeader(true)
+                        ->skipColumnHeader(true)
+                        ->build();
+
+                    // Construct an API session for the specified client customer ID.
+                    $session          = $this->getSession($customerId);
+                    $reportDownloader = new ReportDownloader($session);
+                    $retryCount       = 0;
+                    $doContinue       = true;
+                    do {
+                        ++$retryCount;
+                        try {
+                            $reportDownloadResult = $reportDownloader->downloadReport(
+                                $reportDefinition,
+                                $reportSettingsOverride
                             );
-                            sleep($sleepTime);
-                        } else {
-                            printf(
-                                "Report request failed for client customer ID %d.\n",
-                                $customerId
-                            );
-                            $failedReports[$customerId] = '';
+                            $reportString         = $reportDownloadResult->getAsString();
+                            if ($reportString
+                                && DownloadFormat::GZIPPED_CSV === $reportDefinition->getDownloadFormat()
+                            ) {
+                                $reportString = gzdecode($reportString);
+                            }
+                            // Step backwards through the report.
+                            if ($reportString) {
+                                foreach (array_reverse(explode("\n", $reportString)) as $line) {
+                                    if (!$line) {
+                                        continue;
+                                    }
+                                    $data = array_combine($fields, array_slice(str_getcsv($line), 0, count($fields)));
+                                    if (!$data) {
+                                        continue;
+                                    }
+                                    $date = \DateTime::createFromFormat(
+                                        'Y-m-d H:i:s',
+                                        $data['Date'].' '.$data['HourOfDay'].':00:00',
+                                        $timezone
+                                    );
+                                    $stat = new Stat();
+                                    $stat->setMediaAccountId($this->mediaAccountId);
+
+                                    $stat->setDateAdded($date);
+
+                                    $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                                        (string) $customerId,
+                                        $data['CampaignId'],
+                                        (string) $customerId,
+                                        $data['CampaignName']
+                                    );
+                                    if (is_int($campaignId)) {
+                                        $stat->setCampaignId($campaignId);
+                                    }
+
+                                    $provider = MediaAccount::PROVIDER_GOOGLE;
+                                    $stat->setProvider($provider);
+
+                                    $stat->setProviderAccountId($customerId);
+                                    $stat->setproviderAccountName($customer->getName());
+
+                                    $stat->setProviderCampaignId($data['CampaignId']);
+                                    $stat->setProviderCampaignName($data['CampaignName']);
+
+                                    $stat->setProviderAdsetId($data['AdGroupId']);
+                                    $stat->setproviderAdsetName($data['AdGroupName']);
+
+                                    // @todo - Get Ad ID and Ad Names from a separate call and extrapolate.
+                                    $stat->setProviderAdId('pseudo-'.$data['AdGroupId']);
+                                    $stat->setproviderAdName('pseudo-'.$data['AdGroupName']);
+
+                                    $stat->setCurrency($customer->getCurrencyCode());
+                                    $stat->setSpend(floatval($data['Cost']) / 1000000);
+                                    $stat->setCpm(floatval($data['AverageCpm']) / 1000000);
+                                    $stat->setCpc(floatval($data['AverageCpc']) / 1000000);
+                                    $stat->setCpp(floatval($data['AverageCpm']) / 1000000 / 1000);
+                                    $stat->setCtr(floatval($data['Ctr']));
+                                    $stat->setImpressions(intval($data['Impressions']));
+                                    $stat->setClicks(intval($data['Clicks']));
+
+                                    // $stat->setReach(intval($data['reach']));
+
+                                    // Don't bother saving stat records without valuable data.
+                                    if (
+                                        $stat->getSpend()
+                                        || $stat->getCpm()
+                                        || $stat->getCpc()
+                                        || $stat->getCpp()
+                                        || $stat->getCtr()
+                                        || $stat->getImpressions()
+                                        || $stat->getClicks()
+                                        || $stat->getReach()
+                                    ) {
+                                        // Uniqueness to match the unique_by_ad constraint.
+                                        $key               = implode(
+                                            '|',
+                                            [
+                                                $date->getTimestamp(),
+                                                $stat->getProvider(),
+                                                $stat->getMediaAccountId(),
+                                                $stat->getProviderAdId(),
+                                            ]
+                                        );
+                                        $this->stats[$key] = $stat;
+                                        if (0 === count($this->stats) % 100) {
+                                            $this->saveQueue();
+                                        }
+                                        $spend += $stat->getSpend();
+                                    }
+                                }
+                            }
+
                             $doContinue = false;
+                        } catch (ApiException $e) {
+                            $this->saveQueue();
+                            if (null === $e->getErrors() && $retryCount < self::$rateLimitMaxErrors) {
+                                $this->output->write('.');
+                                sleep(self::$rateLimitSleep);
+                            } else {
+                                throw new \Exception('Too many request errors.');
+                            }
                         }
-                    }
-                } while ($doContinue === true);
+                    } while (true === $doContinue);
+                    $this->output->writeln(' - '.$customer->getCurrencyCode().' '.$spend);
+                }
+                $date->sub($oneDay);
             }
-            print "All downloads completed. Results:\n";
-            print "Successful reports:\n";
-            foreach ($successfulReports as $customerId => $filePath) {
-                printf("\tClient ID %d => '%s'\n", $customerId, $filePath);
-            }
-            print "Failed reports:\n";
-            foreach ($failedReports as $customerId => $filePath) {
-                printf("\tClient ID %d => '%s'\n", $customerId, $filePath);
-            }
-            print "End of results.\n";
-
-
-            // $this->authenticate();
-            // $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
-            // if (!$accounts) {
-            //     return $this->stats;
-            // }
-            //
-            // // Using the active accounts, go backwards through time one day at a time to pull hourly data.
-            // $date   = clone $dateTo;
-            // $oneDay = new \DateInterval('P1D');
-            // while ($date >= $dateFrom) {
-            //     /** @var AdAccount $account */
-            //     foreach ($accounts as $account) {
-            //         $spend    = 0;
-            //         $self     = $account->getData();
-            //         $timezone = new \DateTimeZone($self['timezone_name']);
-            //         $since    = clone $date;
-            //         $until    = clone $date;
-            //         $this->output->write(
-            //             MediaAccount::PROVIDER_FACEBOOK.' - Pulling hourly data - '.
-            //             $since->format('Y-m-d').' - '.
-            //             $self['name']
-            //         );
-            //         $since->setTimeZone($timezone);
-            //         $until->setTimeZone($timezone)->add($oneDay);
-            //
-            //         // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
-            //         $fields = [
-            //             'ad_id',
-            //             'ad_name',
-            //             'adset_id',
-            //             'adset_name',
-            //             'campaign_id',
-            //             'campaign_name',
-            //             'spend',
-            //             'cpm',
-            //             'cpc',
-            //             'cpp', // Always null at ad level?
-            //             'ctr',
-            //             'impressions',
-            //             'clicks',
-            //             'reach', // Always null at ad level?
-            //         ];
-            //         $params = [
-            //             'level'      => 'ad',
-            //             // 'filtering'  => [
-            //             //     [
-            //             //         'field'    => 'spend',
-            //             //         'operator' => 'GREATER_THAN',
-            //             //         'value'    => '0',
-            //             //     ],
-            //             // ],
-            //             'breakdowns' => [
-            //                 'hourly_stats_aggregated_by_advertiser_time_zone',
-            //             ],
-            //             'time_range' => [
-            //                 'since' => $since->format('Y-m-d'),
-            //                 'until' => $until->format('Y-m-d'),
-            //             ],
-            //         ];
-            //         $this->getInsights(
-            //             $account,
-            //             $fields,
-            //             $params,
-            //             function ($data) use (&$spend, $timezone, $self) {
-            //                 // Convert the date to our standard.
-            //                 $time = substr($data['hourly_stats_aggregated_by_advertiser_time_zone'], 0, 8);
-            //                 $date = \DateTime::createFromFormat(
-            //                     'Y-m-d H:i:s',
-            //                     $data['date_start'].' '.$time,
-            //                     $timezone
-            //                 );
-            //                 $stat = new Stat();
-            //                 $stat->setMediaAccountId($this->mediaAccountId);
-            //
-            //                 $stat->setDateAdded($date);
-            //
-            //                 $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-            //                     $self['id'],
-            //                     $data['campaign_id']
-            //                 );
-            //                 if (is_int($campaignId)) {
-            //                     $stat->setCampaignId($campaignId);
-            //                 }
-            //
-            //                 $provider = MediaAccount::PROVIDER_FACEBOOK;
-            //                 $stat->setProvider($provider);
-            //
-            //                 $stat->setProviderAccountId($self['id']);
-            //                 $stat->setproviderAccountName($self['name']);
-            //
-            //                 $stat->setProviderCampaignId($data['campaign_id']);
-            //                 $stat->setProviderCampaignName($data['campaign_name']);
-            //
-            //                 $stat->setProviderAdsetId($data['adset_id']);
-            //                 $stat->setproviderAdsetName($data['ad_name']);
-            //
-            //                 $stat->setProviderAdId($data['ad_id']);
-            //                 $stat->setproviderAdName($data['ad_name']);
-            //
-            //                 $stat->setCurrency($self['currency']);
-            //                 $stat->setSpend(floatval($data['spend']));
-            //                 $stat->setCpm(floatval($data['cpm']));
-            //                 $stat->setCpc(floatval($data['cpc']));
-            //                 $stat->setCpp(floatval($data['cpp']));
-            //                 $stat->setCtr(floatval($data['ctr']));
-            //                 $stat->setImpressions(intval($data['impressions']));
-            //                 $stat->setClicks(intval($data['clicks']));
-            //                 $stat->setReach(intval($data['reach']));
-            //
-            //                 // Don't bother saving stat records without valuable data.
-            //                 if (
-            //                     $stat->getSpend()
-            //                     || $stat->getCpm()
-            //                     || $stat->getCpc()
-            //                     || $stat->getCpp()
-            //                     || $stat->getCtr()
-            //                     || $stat->getImpressions()
-            //                     || $stat->getClicks()
-            //                     || $stat->getReach()
-            //                 ) {
-            //                     // Uniqueness to match the unique_by_ad constraint.
-            //                     $key               = implode(
-            //                         '|',
-            //                         [
-            //                             $date->getTimestamp(),
-            //                             $provider,
-            //                             $this->mediaAccountId,
-            //                             $data['ad_id'],
-            //                         ]
-            //                     );
-            //                     $this->stats[$key] = $stat;
-            //                     if (0 === count($this->stats) % 100) {
-            //                         $this->saveQueue();
-            //                     }
-            //                     $spend += $data['spend'];
-            //                 }
-            //             }
-            //         );
-            //         $this->output->writeln(' - '.$self['currency'].' '.$spend);
-            //     }
-            //     $date->sub($oneDay);
-            // }
         } catch (\Exception $e) {
-            $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.' - '.$e->getMessage().'</error>');
+            $this->output->writeln('<error>'.MediaAccount::PROVIDER_GOOGLE.' - '.$e->getMessage().'</error>');
         }
         $this->saveQueue();
 
@@ -449,16 +391,22 @@ class GoogleHelper
     }
 
     /**
-     * Retrieves all the customer IDs under a manager account.
+     * Retrieves all the customers under a manager account.
      *
      * @return array
+     *
+     * @throws \Exception
      */
-    private function getAllManagedCustomerIds()
+    private function getAllManagedCustomers()
     {
-        $customerIds            = [];
-        $managedCustomerService = (new AdWordsServices())->get($this->sessionBuilder->build(), ManagedCustomerService::class);
+        $customers = [];
+        /** @var AdWordsServices $managedCustomerService */
+        $managedCustomerService = (new AdWordsServices())->get(
+            $this->getSession(),
+            ManagedCustomerService::class
+        );
         $selector               = new Selector();
-        $selector->setFields(['CustomerId']);
+        $selector->setFields(['CustomerId', 'CurrencyCode', 'DateTimeZone', 'Name']);
         $selector->setPaging(new Paging(0, self::$pageLimit));
         $selector->setPredicates(
             [
@@ -472,10 +420,10 @@ class GoogleHelper
         $totalNumEntries = 0;
         do {
             $page = $managedCustomerService->get($selector);
-            if ($page->getEntries() !== null) {
+            if (null !== $page->getEntries()) {
                 $totalNumEntries = $page->getTotalNumEntries();
                 foreach ($page->getEntries() as $customer) {
-                    $customerIds[] = $customer->getCustomerId();
+                    $customers[$customer->getCustomerId()] = $customer;
                 }
             }
             $selector->getPaging()->setStartIndex(
@@ -483,7 +431,61 @@ class GoogleHelper
             );
         } while ($selector->getPaging()->getStartIndex() < $totalNumEntries);
 
-        return $customerIds;
+        return $customers;
+    }
+
+    /**
+     * Authenticate and aquire a session.
+     *
+     * @param string $customerId
+     *
+     * @return mixed|null
+     *
+     * @throws \Exception
+     */
+    private function getSession($customerId = '')
+    {
+        if (!isset($this->sessions[$customerId])) {
+            // Check mandatory credentials.
+            if (
+                !$this->configuration->getConfiguration('developerToken', 'ADWORDS')
+                || !$this->configuration->getConfiguration('clientId', 'OAUTH2')
+                || !$this->configuration->getConfiguration('clientSecret', 'OAUTH2')
+                || !$this->configuration->getConfiguration('refreshToken', 'OAUTH2')
+            ) {
+                throw new \Exception(
+                    'Missing credentials for this media account '.$this->providerAccountId.'.'
+                );
+            }
+
+            try {
+                if (!$this->sessionBuilder) {
+                    $oAuth2Credential     = (new OAuth2TokenBuilder())
+                        ->from($this->configuration)
+                        ->build();
+                    $this->sessionBuilder = (new AdWordsSessionBuilder())
+                        ->from($this->configuration)
+                        ->withOAuth2Credential($oAuth2Credential);
+
+                    // Hide log output.
+                    $logger = new NullLogger();
+                    $this->sessionBuilder->withSoapLogger($logger)
+                        ->withReportDownloaderLogger($logger);
+                }
+                if ($customerId) {
+                    $this->sessions[$customerId] = $this->sessionBuilder->withClientCustomerId($customerId)->build();
+                } else {
+                    $this->sessions[$customerId] = $this->sessionBuilder->build();
+                }
+            } catch (\Exception $e) {
+                if ($e instanceof \InvalidArgumentException) {
+                    $try = 3;
+                }
+                $tmp = 1;
+            }
+        }
+
+        return isset($this->sessions[$customerId]) ? $this->sessions[$customerId] : null;
     }
 
     /**
@@ -505,25 +507,5 @@ class GoogleHelper
             $this->stats = [];
             $this->em->clear(Stat::class);
         }
-    }
-
-    /**
-     * @throws \Exception
-     */
-    private function authenticate()
-    {
-
-
-        // Authenticate and get the primary user ID.
-        // $me = $this->client->call('/me')->getContent();
-        // if (!$me || !isset($me['id'])) {
-        //     throw new \Exception(
-        //         'Cannot discern Facebook user for account '.$this->providerAccountId.'. You likely need to reauthenticate.'
-        //     );
-        // }
-        // $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
-        // $this->user = new AdAccountUser($me['id']);
-
-        return $this->user;
     }
 }

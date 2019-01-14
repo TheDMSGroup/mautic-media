@@ -17,7 +17,6 @@ use Mautic\CoreBundle\Controller\AjaxLookupControllerTrait;
 use Mautic\CoreBundle\Helper\InputHelper;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
-use MauticPlugin\MauticMediaBundle\Helper\JSONHelper;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -36,13 +35,9 @@ class AjaxController extends CommonAjaxController
      */
     protected function getCampaignMapAction(Request $request)
     {
-        $jsonHelper            = new JSONHelper();
         $mediaAccountId        = (int) InputHelper::clean($request->request->get('mediaAccountId'));
         $mediaProvider         = InputHelper::clean($request->request->get('mediaProvider'));
-        $campaignSettingsField = $jsonHelper->decodeObject(
-            InputHelper::clean($request->request->get('campaignSettings')),
-            'CampaignSettings'
-        );
+        $campaignSettingsField = InputHelper::clean($request->request->get('campaignSettings'));
 
         // Get all our Mautic internal campaigns.
         /** @var CampaignRepository */

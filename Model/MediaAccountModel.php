@@ -26,6 +26,7 @@ use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
 use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
+use MauticPlugin\MauticMediaBundle\Helper\SnapchatHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
@@ -426,7 +427,7 @@ class MediaAccountModel extends FormModel
                 break;
 
             case MediaAccount::PROVIDER_SNAPCHAT:
-                $helper = new GoogleHelper();
+                $helper = new SnapchatHelper();
                 break;
         }
     }

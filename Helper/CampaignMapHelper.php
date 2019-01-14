@@ -27,6 +27,9 @@ class CampaignMapHelper
     /** @var UTF8Helper */
     private $utf8Helper;
 
+    /** @var array */
+    private $guesses = [];
+
     /**
      * CampaignMapHelper constructor.
      */
@@ -37,15 +40,18 @@ class CampaignMapHelper
 
     /**
      * @param array $campaignNames
+     * @param bool  $force
      */
-    public function setCampaignNames($campaignNames = [])
+    public function setCampaignNames($campaignNames = [], $force = false)
     {
-        foreach ($campaignNames as &$campaignName) {
-            $this->simplify($campaignName);
-        }
-        $this->campaignNames        = $campaignNames;
-        if ($campaignNames) {
-            $this->campaignNamesFlipped = array_flip($campaignNames);
+        if (!$this->campaignNames || $force) {
+            foreach ($campaignNames as &$campaignName) {
+                $this->simplify($campaignName);
+            }
+            $this->campaignNames = $campaignNames;
+            if ($campaignNames) {
+                $this->campaignNamesFlipped = array_flip($campaignNames);
+            }
         }
     }
 
@@ -58,7 +64,22 @@ class CampaignMapHelper
      */
     private function simplify(&$string = '')
     {
-        $string = trim(strtolower($this->utf8Helper::fixUTF8($string)));
+        $replacements = [
+            '-'  => ' ',
+            '_'  => ' ',
+            '!'  => ' ',
+            '/'  => ' ',
+            '\\' => ' ',
+            '.'  => ' ',
+            '  ' => ' ',
+        ];
+        $string       = trim(
+            str_replace(
+                array_keys($replacements),
+                array_values($replacements),
+                strtolower($this->utf8Helper::fixUTF8($string))
+            )
+        );
 
         return $string;
     }
@@ -72,27 +93,33 @@ class CampaignMapHelper
     public function guess($providerCampaignName = '', $maxDistance = 3)
     {
         $closestCampaignId = 0;
-        $shortest          = -1;
-        $this->simplify($providerCampaignName);
-        if (strlen($providerCampaignName)) {
-            // Exact match check first as it's drastically faster.
-            if (isset($this->campaignNamesFlipped[$providerCampaignName])) {
-                $closestCampaignId = $this->campaignNamesFlipped[$providerCampaignName];
-            } else {
-                // Levenshtein distance check second.
-                foreach ($this->campaignNames as $campaignId => $campaignName) {
-                    $lev = levenshtein($providerCampaignName, $campaignName);
-                    if (0 === $lev) {
-                        $closestCampaignId = $campaignId;
-                        break;
-                    } elseif ($lev > $maxDistance) {
-                        continue;
-                    } elseif ($lev <= $shortest || $shortest == -1) {
-                        $closestCampaignId = $campaignId;
-                        $shortest          = $lev;
+        $origName          = (string) $providerCampaignName;
+        if (!isset($this->guesses[$origName])) {
+            $shortest = -1;
+            $this->simplify($providerCampaignName);
+            if (strlen($providerCampaignName)) {
+                // Exact match check first as it's drastically faster.
+                if (isset($this->campaignNamesFlipped[$providerCampaignName])) {
+                    $closestCampaignId = $this->campaignNamesFlipped[$providerCampaignName];
+                } else {
+                    // Levenshtein distance check second.
+                    foreach ($this->campaignNames as $campaignId => $campaignName) {
+                        $lev = levenshtein($providerCampaignName, $campaignName);
+                        if (0 === $lev) {
+                            $closestCampaignId = $campaignId;
+                            break;
+                        } elseif ($lev > $maxDistance) {
+                            continue;
+                        } elseif ($lev <= $shortest || $shortest == -1) {
+                            $closestCampaignId = $campaignId;
+                            $shortest          = $lev;
+                        }
                     }
                 }
             }
+            $this->guesses[$origName] = $closestCampaignId;
+        } else {
+            $closestCampaignId = $this->guesses[$origName];
         }
 
         return $closestCampaignId;
