@@ -332,9 +332,9 @@ class GoogleHelper
                                         || $stat->getCpc()
                                         || $stat->getCpp()
                                         || $stat->getCtr()
-                                        || $stat->getImpressions()
-                                        || $stat->getClicks()
-                                        || $stat->getReach()
+                                        // || $stat->getImpressions()
+                                        // || $stat->getClicks()
+                                        // || $stat->getReach()
                                     ) {
                                         // Uniqueness to match the unique_by_ad constraint.
                                         $key               = implode(
