@@ -37,7 +37,7 @@ class AjaxController extends CommonAjaxController
     {
         $mediaAccountId        = (int) InputHelper::clean($request->request->get('mediaAccountId'));
         $mediaProvider         = InputHelper::clean($request->request->get('mediaProvider'));
-        $campaignSettingsField = InputHelper::clean($request->request->get('campaignSettings'));
+        $campaignSettingsField = html_entity_decode(InputHelper::clean($request->request->get('campaignSettings')));
 
         // Get all our Mautic internal campaigns.
         /** @var CampaignRepository */
