@@ -248,6 +248,7 @@ class FacebookHelper
                                         $date->getTimestamp(),
                                         $stat->getProvider(),
                                         $stat->getMediaAccountId(),
+                                        $stat->getProviderAdsetId(),
                                         $stat->getProviderAdId(),
                                     ]
                                 );

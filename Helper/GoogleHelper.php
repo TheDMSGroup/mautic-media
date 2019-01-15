@@ -18,7 +18,6 @@ use Google\AdsApi\AdWords\Reporting\v201809\DownloadFormat;
 use Google\AdsApi\AdWords\Reporting\v201809\ReportDefinition;
 use Google\AdsApi\AdWords\Reporting\v201809\ReportDefinitionDateRangeType;
 use Google\AdsApi\AdWords\Reporting\v201809\ReportDownloader;
-use Google\AdsApi\AdWords\ReportSettingsBuilder;
 use Google\AdsApi\AdWords\v201809\cm\ApiException;
 use Google\AdsApi\AdWords\v201809\cm\DateRange;
 use Google\AdsApi\AdWords\v201809\cm\Paging;
@@ -137,10 +136,11 @@ class GoogleHelper
                     // 'includeUtilitiesInUserAgent' => true,
                 ],
                 'ADWORDS_REPORTING' => [
-                    // 'isSkipReportHeader'          => false,
-                    // 'isSkipColumnHeader'          => false,
-                    // 'isSkipReportSummary'         => false,
-                    // 'isUseRawEnumValues'          => false,
+                    'isSkipReportHeader'       => true,
+                    'isSkipColumnHeader'       => true,
+                    'isSkipReportSummary'      => true,
+                    'isUseRawEnumValues'       => true,
+                    'isIncludeZeroImpressions' => false,
                 ],
                 'OAUTH2'            => [
                     'clientId'     => $providerClientId,
@@ -183,7 +183,6 @@ class GoogleHelper
         $fields = [
             'Date',
             'HourOfDay',
-            // @todo - Drill down to ad level in a subsequent request for estimation.
             // 'AdId',
             // 'AdName',
             'AdGroupId',
@@ -254,14 +253,6 @@ class GoogleHelper
                     );
                     $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
 
-                    // Settings for minimal report wrapping, include all data.
-                    $reportSettingsOverride = (new ReportSettingsBuilder())
-                        ->includeZeroImpressions(false)
-                        ->skipReportSummary(true)
-                        ->skipReportHeader(true)
-                        ->skipColumnHeader(true)
-                        ->build();
-
                     // Construct an API session for the specified client customer ID.
                     $session          = $this->getSession($customerId);
                     $reportDownloader = new ReportDownloader($session);
@@ -270,11 +261,7 @@ class GoogleHelper
                     do {
                         ++$retryCount;
                         try {
-                            $reportDownloadResult = $reportDownloader->downloadReport(
-                                $reportDefinition,
-                                $reportSettingsOverride
-                            );
-                            $reportString         = $reportDownloadResult->getAsString();
+                            $reportString = $reportDownloader->downloadReport($reportDefinition)->getAsString();
                             if ($reportString
                                 && DownloadFormat::GZIPPED_CSV === $reportDefinition->getDownloadFormat()
                             ) {
@@ -322,9 +309,9 @@ class GoogleHelper
                                     $stat->setProviderAdsetId($data['AdGroupId']);
                                     $stat->setproviderAdsetName($data['AdGroupName']);
 
-                                    // @todo - Get Ad ID and Ad Names from a separate call and extrapolate.
-                                    $stat->setProviderAdId('pseudo-'.$data['AdGroupId']);
-                                    $stat->setproviderAdName('pseudo-'.$data['AdGroupName']);
+                                    // Google doesn't provide ad-level spend on an hourly basis, so we will use adgroups instead.
+                                    // $stat->setProviderAdId('');
+                                    // $stat->setproviderAdName('');
 
                                     $stat->setCurrency($customer->getCurrencyCode());
                                     $stat->setSpend(floatval($data['Cost']) / 1000000);
@@ -355,6 +342,7 @@ class GoogleHelper
                                                 $date->getTimestamp(),
                                                 $stat->getProvider(),
                                                 $stat->getMediaAccountId(),
+                                                $stat->getProviderAdsetId(),
                                                 $stat->getProviderAdId(),
                                             ]
                                         );
@@ -454,7 +442,7 @@ class GoogleHelper
                 || !$this->configuration->getConfiguration('refreshToken', 'OAUTH2')
             ) {
                 throw new \Exception(
-                    'Missing credentials for this media account '.$this->providerAccountId.'.'
+                    'Missing credentials for this media account '.$this->mediaAccountId.'.'
                 );
             }
 
@@ -479,9 +467,14 @@ class GoogleHelper
                 }
             } catch (\Exception $e) {
                 if ($e instanceof \InvalidArgumentException) {
-                    $try = 3;
+                    throw new \Exception(
+                        'Missing credentials for this media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                    );
+                } else {
+                    throw new \Exception(
+                        'Cannot establish Google session for media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                    );
                 }
-                $tmp = 1;
             }
         }
 

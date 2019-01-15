@@ -100,6 +100,7 @@ class StatRepository extends CommonRepository
                 $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
                 $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
+                $query->expr()->isNotNull($alias.'.provider_adset_id'),
                 $query->expr()->isNotNull($alias.'.provider_ad_id')
             )
         );
@@ -144,6 +145,7 @@ class StatRepository extends CommonRepository
                 $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
                 $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
+                $query->expr()->isNotNull($alias.'.provider_adset_id'),
                 $query->expr()->isNotNull($alias.'.provider_ad_id')
             )
         );
