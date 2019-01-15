@@ -32,7 +32,7 @@ class CampaignSettingsHelper
     private $accountCampaignMap = [];
 
     /** @var array */
-    private $searchedCampaignNames = [];
+    private $newCampaignNamesSearched = [];
 
     /**
      * CampaignSettingsHelper constructor.
@@ -118,9 +118,9 @@ class CampaignSettingsHelper
             !isset($this->accountCampaignMap[$providerAccountId])
             && $providerAccountName
             && $providerCampaignName
-            && !isset($searchedCampaignNames[$providerCampaignName])
+            && !isset($this->newCampaignNamesSearched[$providerCampaignName])
         ) {
-            $searchedCampaignNames[$providerCampaignName] = true;
+            $this->newCampaignNamesSearched[$providerCampaignName] = true;
             // A new Campaign Name was detected that has no data yet.
             $this->providerAccountsWithCampaigns['campaigns'][$providerCampaignId] = $providerCampaignName;
             $this->providerAccountsWithCampaigns['accounts'][$providerAccountId]   = $providerAccountName;
@@ -128,7 +128,6 @@ class CampaignSettingsHelper
                 $this->providerAccountsWithCampaigns['hierarchy'][$providerAccountId] = [];
             }
             $this->providerAccountsWithCampaigns['hierarchy'][$providerAccountId][] = $providerCampaignId;
-            echo '-'.$providerCampaignName;
             $this->updateAccountCampaignMap();
         }
 
@@ -154,6 +153,9 @@ class CampaignSettingsHelper
         return $result;
     }
 
+    /**
+     * Update the campaign Map
+     */
     private function updateAccountCampaignMap()
     {
         $obj = $this->getAutoUpdatedCampaignSettings();
