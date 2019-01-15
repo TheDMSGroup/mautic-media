@@ -103,7 +103,8 @@ Mautic.mediaCampaigns = function () {
                                 campaign,
                                 providerAccount,
                                 providerCampaign,
-                                $pppp;
+                                $pppp,
+                                $multiple;
                             if (typeof obj === 'object') {
                                 var raw = JSON.stringify(obj, null, '  ');
                                 if (raw.length) {
@@ -114,13 +115,16 @@ Mautic.mediaCampaigns = function () {
                             // Clickable Campaign headers.
                             $campaignsJSONEditor.find('div[data-schemapath$=".providerAccountId"] .control-label').each(function () {
                                 providerAccount = mQuery(this).parent().find('select:first').val().replace('act_', '');
-                                $pppp = $(this).parent().parent().parent().parent();
+                                $pppp = $(this).parent().parent().parent().parent(),
+                                    $multiple = $pppp.find('input[type="checkbox"][name$="[multiple]"]:first');
                                 switch (mediaProvider) {
                                     case 'facebook':
                                         mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/accounts?act=' + providerAccount + '" target="_blank">Facebook Account ' + providerAccount + '</a>');
                                         break;
                                 }
+                                var multiple = false;
                                 $pppp.find('div[data-schemapath$=".providerCampaignId"] .control-label').each(function () {
+                                    multiple = true;
                                     providerCampaign = mQuery(this).parent().find('select:first').val().replace('act_', '');
                                     switch (mediaProvider) {
                                         case 'facebook':
@@ -137,13 +141,20 @@ Mautic.mediaCampaigns = function () {
                                         mQuery(this).html('<span class="unmapped">Internal Campaign</span>');
                                     }
                                 });
-                                if ($pppp.find('input[type="checkbox"][name$="[multiple]"]:first').is(':checked')) {
-                                    $pppp.addClass('multiple');
-                                    $pppp.removeClass('single');
+                                if (multiple) {
+                                    if ($multiple.is(':checked')) {
+                                        $pppp.addClass('multiple');
+                                        $pppp.removeClass('single');
+                                    }
+                                    else {
+                                        $pppp.addClass('single');
+                                        $pppp.removeClass('multiple');
+                                    }
                                 }
                                 else {
                                     $pppp.addClass('single');
                                     $pppp.removeClass('multiple');
+                                    $multiple.attr('disabled', true).parent().parent().parent().addClass('hide');
                                 }
                             });
                         });
