@@ -157,7 +157,7 @@ class MediaAccountType extends AbstractType
                 'required'          => true,
                 'attr'              => [
                     'class'   => 'form-control',
-                    'tooltip' => 'mautic.media.form.type.tooltip',
+                    'tooltip' => 'mautic.media.form.provider.tooltip',
                 ],
             ]
         );

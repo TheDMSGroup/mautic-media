@@ -209,6 +209,7 @@ class CampaignSettingsHelper
         foreach ($this->providerAccountsWithCampaigns['hierarchy'] as $providerAccountId => $providerCampaigns) {
             // Make sure this account is included.
             $newAccount = true;
+            unset($accountObj);
             if (!isset($this->campaignSettingsField->accounts)) {
                 $this->campaignSettingsField->accounts = [];
             } else {
@@ -223,6 +224,7 @@ class CampaignSettingsHelper
                 }
             }
             if ($newAccount) {
+                unset($accountObj);
                 $accountObj                    = new \stdClass();
                 $accountObj->providerAccountId = (string) $providerAccountId;
                 $accountObj->campaigns         = [];
@@ -237,6 +239,7 @@ class CampaignSettingsHelper
                 if (count($providerCampaigns) <= $this->maxCampaignsForMultiple) {
                     foreach ($providerCampaigns as $providerCampaignId) {
                         $newCampaign = true;
+                        unset($campaignObj);
                         foreach ($accountObj->campaigns as &$campaignObj) {
                             if (
                                 isset($campaignObj->providerCampaignId)
@@ -248,6 +251,7 @@ class CampaignSettingsHelper
                         }
                         // Only add campaigns not already mapped
                         if ($newCampaign) {
+                            unset($campaignObj);
                             $campaignObj                     = new \stdClass();
                             $campaignObj->providerCampaignId = (string) $providerCampaignId;
                         }
