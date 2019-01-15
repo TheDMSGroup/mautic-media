@@ -291,7 +291,7 @@ class GoogleHelper
                                     $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                         (string) $customerId,
                                         $data['CampaignId'],
-                                        (string) $customerId,
+                                        (string) $customer->getName(),
                                         $data['CampaignName']
                                     );
                                     if (is_int($campaignId)) {
