@@ -85,7 +85,7 @@ class AjaxController extends CommonAjaxController
         foreach ($data['accounts'] as $value => $title) {
             $providerAccountField[] = [
                 'title' => htmlspecialchars_decode($title),
-                'value' => $value,
+                'value' => (string) $value,
             ];
         }
         $providerCampaignField = [
@@ -97,7 +97,7 @@ class AjaxController extends CommonAjaxController
         foreach ($data['campaigns'] as $value => $title) {
             $providerCampaignField[] = [
                 'title' => htmlspecialchars_decode($title),
-                'value' => $value,
+                'value' => (string) $value,
             ];
         }
 
