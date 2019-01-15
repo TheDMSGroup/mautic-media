@@ -54,9 +54,6 @@ class GoogleHelper
     /** @var AdWordsSessionBuilder */
     private $sessionBuilder;
 
-    // /** @var User */
-    // private $user;
-
     /** @var string */
     private $providerAccountId;
 
@@ -84,15 +81,6 @@ class GoogleHelper
     /** @var array */
     private $sessions = [];
 
-    /** @var string */
-    // private $providerToken;
-
-    /** @var string */
-    // private $providerClientSecret;
-
-    /** @var string */
-    // private $providerClientId;
-
     /**
      * GoogleHelper constructor.
      *
@@ -116,16 +104,11 @@ class GoogleHelper
         EntityManager $em,
         CampaignSettingsHelper $campaignSettingsHelper
     ) {
-        $this->mediaAccountId    = $mediaAccountId;
-        $this->providerAccountId = $providerAccountId;
-        // $this->providerClientId       = $providerClientId;
-        // $this->providerClientSecret   = $providerClientSecret;
-        // $this->providerToken          = $providerToken;
+        $this->mediaAccountId         = $mediaAccountId;
+        $this->providerAccountId      = $providerAccountId;
         $this->output                 = $output;
         $this->em                     = $em;
         $this->campaignSettingsHelper = $campaignSettingsHelper;
-
-
 
         $this->configuration = new Configuration(
             [
@@ -238,6 +221,16 @@ class GoogleHelper
                     $reportDefinition->setDateRangeType(
                         ReportDefinitionDateRangeType::CUSTOM_DATE
                     );
+                    $selector->setPredicates(
+                        [
+                            new Predicate(
+                                'Cost',
+                                PredicateOperator::GREATER_THAN,
+                                ['0']
+                            ),
+                        ]
+                    );
+
                     // Sorting is not currently supported for reports.
                     // $selector->setOrdering(
                     //     [

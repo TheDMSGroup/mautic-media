@@ -376,19 +376,18 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
-        $mediaAccountId       = $mediaAccount->getId();
-        $providerAccountId    = $mediaAccount->getAccountId();
-        $providerClientId     = $mediaAccount->getClientId();
-        $providerClientSecret = $mediaAccount->getClientSecret();
-        $providerToken        = $mediaAccount->getToken();
-        $providerRefreshToken = $mediaAccount->getRefreshToken();
-
+        $mediaAccountId         = $mediaAccount->getId();
+        $providerAccountId      = $mediaAccount->getAccountId();
+        $providerClientId       = $mediaAccount->getClientId();
+        $providerClientSecret   = $mediaAccount->getClientSecret();
+        $providerToken          = $mediaAccount->getToken();
+        $providerRefreshToken   = $mediaAccount->getRefreshToken();
+        $campaignSettings       = $mediaAccount->getCampaignSettings();
+        $campaignNames          = $this->getCampaignNames();
         $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
             $mediaAccountId,
             $mediaAccount->getProvider()
         );
-        $campaignNames          = $this->getCampaignNames();
-        $campaignSettings       = $mediaAccount->getCampaignSettings();
         $campaignSettingsHelper = new CampaignSettingsHelper(
             $campaignNames,
             $campaignSettings,
