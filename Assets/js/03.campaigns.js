@@ -125,9 +125,9 @@ Mautic.mediaCampaigns = function () {
                                         mQuery(this).html('<a href="https://adwords.google.com/aw/overview?__e=' + providerAccount + '" target="_blank">Google Account ' + providerAccount + '</a>');
                                         break;
                                 }
-                                var multiple = false;
+                                var providerCampaignIds = 0;
                                 $pppp.find('div[data-schemapath$=".providerCampaignId"] .control-label').each(function () {
-                                    multiple = true;
+                                    providerCampaignIds++;
                                     providerCampaign = mQuery(this).parent().find('select:first').val().replace('act_', '');
                                     switch (mediaProvider) {
                                         case 'facebook':
@@ -147,7 +147,7 @@ Mautic.mediaCampaigns = function () {
                                         mQuery(this).html('<span class="unmapped">Internal Campaign</span>');
                                     }
                                 });
-                                if (multiple) {
+                                if (providerCampaignIds > 1) {
                                     if ($multiple.is(':checked')) {
                                         $pppp.addClass('multiple');
                                         $pppp.removeClass('single');

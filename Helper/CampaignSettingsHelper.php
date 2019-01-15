@@ -236,7 +236,7 @@ class CampaignSettingsHelper
             }
             if (isset($accountObj)) {
                 // Make sure all campaigns are included in the account
-                if (count($providerCampaigns) <= $this->maxCampaignsForMultiple) {
+                if (count($providerCampaigns) > 1 && count($providerCampaigns) <= $this->maxCampaignsForMultiple) {
                     foreach ($providerCampaigns as $providerCampaignId) {
                         $newCampaign = true;
                         unset($campaignObj);

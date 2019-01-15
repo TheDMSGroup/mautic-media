@@ -35,8 +35,7 @@
             "format": "checkbox",
             "title": "Multiple",
             "options": {
-              "grid_columns": 1,
-              "infoText": "Map multiple campaigns."
+              "grid_columns": 1
             },
             "default": false
           },
