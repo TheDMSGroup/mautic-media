@@ -381,6 +381,7 @@ class MediaAccountModel extends FormModel
         $providerClientId     = $mediaAccount->getClientId();
         $providerClientSecret = $mediaAccount->getClientSecret();
         $providerToken        = $mediaAccount->getToken();
+        $providerRefreshToken = $mediaAccount->getRefreshToken();
 
         $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
             $mediaAccountId,
@@ -419,6 +420,7 @@ class MediaAccountModel extends FormModel
                     $providerClientId,
                     $providerClientSecret,
                     $providerToken,
+                    $providerRefreshToken,
                     $output,
                     $this->em,
                     $campaignSettingsHelper

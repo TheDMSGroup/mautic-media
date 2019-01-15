@@ -111,6 +111,7 @@ class GoogleHelper
         $providerClientId,
         $providerClientSecret,
         $providerToken,
+        $providerRefreshToken,
         OutputInterface $output,
         EntityManager $em,
         CampaignSettingsHelper $campaignSettingsHelper
@@ -129,7 +130,7 @@ class GoogleHelper
         $this->configuration = new Configuration(
             [
                 'ADWORDS'           => [
-                    'developerToken' => $providerDeveloperToken,
+                    'developerToken' => $providerToken,
                     // 'clientCustomerId' => $providerCustomerId,
                     'userAgent'      => 'Mautic',
                     // 'isPartialFailure'            => false,

@@ -94,6 +94,9 @@ echo $view['form']->start($form);
                                 <div class="col-md-12">
                                     <?php echo $view['form']->row($form['token']); ?>
                                 </div>
+                                <div class="col-md-12">
+                                    <?php echo $view['form']->row($form['refresh_token']); ?>
+                                </div>
                             </div>
                             <hr class="mnr-md mnl-md">
                         </div>

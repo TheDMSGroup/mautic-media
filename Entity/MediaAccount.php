@@ -56,8 +56,11 @@ class MediaAccount extends FormEntity
     /** @var string Typically an OAUTH2 Client Secret */
     private $clientSecret;
 
-    /** @var string Typically an OAUTH2 Refresh Token */
+    /** @var string Typically an OAUTH2 Client Token */
     private $token;
+
+    /** @var string Typically an OAUTH2 Refresh Token */
+    private $refreshToken;
 
     /** @var \DateTime */
     private $publishUp;
@@ -117,6 +120,8 @@ class MediaAccount extends FormEntity
 
         $builder->addNamedField('token', 'string', 'token', true);
 
+        $builder->addNamedField('refreshToken', 'string', 'refresh_token', true);
+
         $builder->addNamedField('campaignSettings', 'string', 'campaign_settings', true);
     }
 
@@ -138,10 +143,12 @@ class MediaAccount extends FormEntity
             ->addProperties(
                 [
                     'description',
+                    'provider',
                     'accountId',
                     'clientId',
                     'clientSecret',
                     'token',
+                    'refreshToken',
                     'publishUp',
                     'publishDown',
                     'campaignList',
@@ -226,6 +233,28 @@ class MediaAccount extends FormEntity
         $this->isChanged('token', $token);
 
         $this->token = $token;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getRefreshToken()
+    {
+        return $this->refreshToken;
+    }
+
+    /**
+     * @param string $refreshToken
+     *
+     * @return $this
+     */
+    public function setRefreshToken($refreshToken)
+    {
+        $this->isChanged('refreshToken', $refreshToken);
+
+        $this->refreshToken = $refreshToken;
 
         return $this;
     }
