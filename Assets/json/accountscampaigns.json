@@ -36,7 +36,7 @@
             "title": "Multiple",
             "options": {
               "grid_columns": 1,
-              "infoText": "Instead of sending all data from this provider account into a single campaign, enable this to map specific provider campaigns to multiple internal campaigns."
+              "infoText": "Map multiple campaigns."
             },
             "default": false
           },

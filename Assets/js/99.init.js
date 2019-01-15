@@ -1,5 +1,6 @@
 // General helpers for the Contact Client editor form.
 Mautic.mediaOnLoad = function () {
+    Mautic.mediaProvider();
     Mautic.mediaCampaigns();
 
     // Hide the right column when Campaigns tab is open to give more room

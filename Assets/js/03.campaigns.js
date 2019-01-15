@@ -115,11 +115,14 @@ Mautic.mediaCampaigns = function () {
                             // Clickable Campaign headers.
                             $campaignsJSONEditor.find('div[data-schemapath$=".providerAccountId"] .control-label').each(function () {
                                 providerAccount = mQuery(this).parent().find('select:first').val().replace('act_', '');
-                                $pppp = $(this).parent().parent().parent().parent(),
-                                    $multiple = $pppp.find('input[type="checkbox"][name$="[multiple]"]:first');
+                                $pppp = $(this).parent().parent().parent().parent();
+                                $multiple = $pppp.find('input[type="checkbox"][name$="[multiple]"]:first');
                                 switch (mediaProvider) {
                                     case 'facebook':
                                         mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/accounts?act=' + providerAccount + '" target="_blank">Facebook Account ' + providerAccount + '</a>');
+                                        break;
+                                    case 'google':
+                                        mQuery(this).html('<a href="https://adwords.google.com/aw/overview?__e=' + providerAccount + '" target="_blank">Google Account ' + providerAccount + '</a>');
                                         break;
                                 }
                                 var multiple = false;
@@ -129,6 +132,9 @@ Mautic.mediaCampaigns = function () {
                                     switch (mediaProvider) {
                                         case 'facebook':
                                             mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/adsets?act=' + providerAccount + '&selected_campaign_ids=' + providerCampaign + '" target="_blank">Facebook Campaign ' + providerCampaign + '</a>');
+                                            break;
+                                        case 'google':
+                                            mQuery(this).html('<a href="https://adwords.google.com/aw/overview?__e=' + providerAccount + '&campaignId=' + providerCampaign + '" target="_blank">Google Campaign ' + providerCampaign + '</a>');
                                             break;
                                     }
                                 });
