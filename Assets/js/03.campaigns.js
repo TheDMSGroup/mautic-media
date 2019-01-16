@@ -2,8 +2,17 @@
 Mautic.mediaCampaigns = function () {
     var $campaigns = mQuery('#media_campaign_settings:first:not(.campaigns-checked)');
     if ($campaigns.length) {
-        setTimeout(function () {Mautic.startPageLoadingBar();}, 100);
         $campaigns.addClass('campaigns-checked');
+
+        if (!Mautic.getEntityId()) {
+            mQuery('#media-campaigns-empty').removeClass('hide');
+            mQuery('#media-campaigns-loading').addClass('hide');
+            return;
+        } else {
+            mQuery('#media-campaigns-empty').addClass('hide');
+            mQuery('#media-campaigns-loading').removeClass('hide');
+        }
+
         // Retrieve the list of available campaigns via Ajax
         var campaigns = {},
             providerCampaigns = {},
@@ -13,7 +22,7 @@ Mautic.mediaCampaigns = function () {
             campaignSettings = $campaignSettings.val(),
             campaignsJSONEditor,
             $campaignsJSONEditor;
-        Mautic.startPageLoadingBar();
+
         mQuery.ajax({
             url: mauticAjaxUrl,
             type: 'POST',
@@ -165,10 +174,15 @@ Mautic.mediaCampaigns = function () {
                             });
                         });
 
+                        if (providerAccounts.length) {
+                            mQuery('#media-campaigns-empty').addClass('hide');
+                            mQuery('#media-campaigns-loading').addClass('hide');
+                        } else {
+                            mQuery('#media-campaigns-empty').removeClass('hide');
+                            mQuery('#media-campaigns-loading').addClass('hide');
+                        }
+
                         $campaignsJSONEditor.show();
-                    },
-                    complete: function (response) {
-                        Mautic.stopPageLoadingBar();
                     }
                 });
 

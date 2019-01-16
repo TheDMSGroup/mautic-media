@@ -13,6 +13,10 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 
 /**
  * Class SnapchatHelper.
+ *
+ * https://developers.snapchat.com/api/docs/
+ *
+ * Note: There is currently no SDK for Snapchat. Their Ads API is brand new, so we'll be doing a lot of guzzle here.
  */
 class SnapchatHelper
 {
