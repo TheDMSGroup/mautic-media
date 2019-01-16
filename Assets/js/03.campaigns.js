@@ -103,7 +103,8 @@ Mautic.mediaCampaigns = function () {
                                 campaign,
                                 providerAccount,
                                 providerCampaign,
-                                $pppp;
+                                $pppp,
+                                $multiple;
                             if (typeof obj === 'object') {
                                 var raw = JSON.stringify(obj, null, '  ');
                                 if (raw.length) {
@@ -115,16 +116,25 @@ Mautic.mediaCampaigns = function () {
                             $campaignsJSONEditor.find('div[data-schemapath$=".providerAccountId"] .control-label').each(function () {
                                 providerAccount = mQuery(this).parent().find('select:first').val().replace('act_', '');
                                 $pppp = $(this).parent().parent().parent().parent();
+                                $multiple = $pppp.find('input[type="checkbox"][name$="[multiple]"]:first');
                                 switch (mediaProvider) {
                                     case 'facebook':
                                         mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/accounts?act=' + providerAccount + '" target="_blank">Facebook Account ' + providerAccount + '</a>');
                                         break;
+                                    case 'google':
+                                        mQuery(this).html('<a href="https://adwords.google.com/aw/overview?__e=' + providerAccount + '" target="_blank">Google Account ' + providerAccount + '</a>');
+                                        break;
                                 }
+                                var providerCampaignIds = 0;
                                 $pppp.find('div[data-schemapath$=".providerCampaignId"] .control-label').each(function () {
+                                    providerCampaignIds++;
                                     providerCampaign = mQuery(this).parent().find('select:first').val().replace('act_', '');
                                     switch (mediaProvider) {
                                         case 'facebook':
                                             mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/adsets?act=' + providerAccount + '&selected_campaign_ids=' + providerCampaign + '" target="_blank">Facebook Campaign ' + providerCampaign + '</a>');
+                                            break;
+                                        case 'google':
+                                            mQuery(this).html('<a href="https://adwords.google.com/aw/overview?__e=' + providerAccount + '&campaignId=' + providerCampaign + '" target="_blank">Google Campaign ' + providerCampaign + '</a>');
                                             break;
                                     }
                                 });
@@ -137,13 +147,20 @@ Mautic.mediaCampaigns = function () {
                                         mQuery(this).html('<span class="unmapped">Internal Campaign</span>');
                                     }
                                 });
-                                if ($pppp.find('input[type="checkbox"][name$="[multiple]"]:first').is(':checked')) {
-                                    $pppp.addClass('multiple');
-                                    $pppp.removeClass('single');
+                                if (providerCampaignIds > 1) {
+                                    if ($multiple.is(':checked')) {
+                                        $pppp.addClass('multiple');
+                                        $pppp.removeClass('single');
+                                    }
+                                    else {
+                                        $pppp.addClass('single');
+                                        $pppp.removeClass('multiple');
+                                    }
                                 }
                                 else {
                                     $pppp.addClass('single');
                                     $pppp.removeClass('multiple');
+                                    $multiple.attr('disabled', true).parent().parent().parent().addClass('hide');
                                 }
                             });
                         });

@@ -26,6 +26,7 @@ use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
 use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
+use MauticPlugin\MauticMediaBundle\Helper\SnapchatHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
@@ -375,18 +376,18 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
-        $mediaAccountId       = $mediaAccount->getId();
-        $providerAccountId    = $mediaAccount->getAccountId();
-        $providerClientId     = $mediaAccount->getClientId();
-        $providerClientSecret = $mediaAccount->getClientSecret();
-        $providerToken        = $mediaAccount->getToken();
-
+        $mediaAccountId         = $mediaAccount->getId();
+        $providerAccountId      = $mediaAccount->getAccountId();
+        $providerClientId       = $mediaAccount->getClientId();
+        $providerClientSecret   = $mediaAccount->getClientSecret();
+        $providerToken          = $mediaAccount->getToken();
+        $providerRefreshToken   = $mediaAccount->getRefreshToken();
+        $campaignSettings       = $mediaAccount->getCampaignSettings();
+        $campaignNames          = $this->getCampaignNames();
         $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
             $mediaAccountId,
             $mediaAccount->getProvider()
         );
-        $campaignNames          = $this->getCampaignNames();
-        $campaignSettings       = $mediaAccount->getCampaignSettings();
         $campaignSettingsHelper = new CampaignSettingsHelper(
             $campaignNames,
             $campaignSettings,
@@ -412,11 +413,22 @@ class MediaAccountModel extends FormModel
                 break;
 
             case MediaAccount::PROVIDER_GOOGLE:
-                $helper = new GoogleHelper();
+                $helper = new GoogleHelper(
+                    $mediaAccountId,
+                    $providerAccountId,
+                    $providerClientId,
+                    $providerClientSecret,
+                    $providerToken,
+                    $providerRefreshToken,
+                    $output,
+                    $this->em,
+                    $campaignSettingsHelper
+                );
+                $helper->pullData($dateFrom, $dateTo);
                 break;
 
             case MediaAccount::PROVIDER_SNAPCHAT:
-                $helper = new GoogleHelper();
+                $helper = new SnapchatHelper();
                 break;
         }
     }

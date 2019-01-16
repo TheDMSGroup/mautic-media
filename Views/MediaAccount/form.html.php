@@ -94,6 +94,9 @@ echo $view['form']->start($form);
                                 <div class="col-md-12">
                                     <?php echo $view['form']->row($form['token']); ?>
                                 </div>
+                                <div class="col-md-12">
+                                    <?php echo $view['form']->row($form['refresh_token']); ?>
+                                </div>
                             </div>
                             <hr class="mnr-md mnl-md">
                         </div>
@@ -133,3 +136,25 @@ echo $view['form']->start($form);
 
 <?php echo $view['form']->end($form); ?>
 <input type="hidden" name="entityId" id="entityId" value="<?php echo $entity->getId(); ?>"/>
+<script>
+    mauticLang['mautic.media.form.provider.bing.account_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.bing.account_id'); ?>';
+    mauticLang['mautic.media.form.provider.bing.client_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.bing.client_id'); ?>';
+    mauticLang['mautic.media.form.provider.bing.client_secret'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.bing.client_secret'); ?>';
+    mauticLang['mautic.media.form.provider.bing.token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.bing.token'); ?>';
+    mauticLang['mautic.media.form.provider.bing.refresh_token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.bing.refresh_token'); ?>';
+    mauticLang['mautic.media.form.provider.facebook.account_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.facebook.account_id'); ?>';
+    mauticLang['mautic.media.form.provider.facebook.client_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.facebook.client_id'); ?>';
+    mauticLang['mautic.media.form.provider.facebook.client_secret'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.facebook.client_secret'); ?>';
+    mauticLang['mautic.media.form.provider.facebook.token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.facebook.token'); ?>';
+    mauticLang['mautic.media.form.provider.facebook.refresh_token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.facebook.refresh_token'); ?>';
+    mauticLang['mautic.media.form.provider.google.account_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.google.account_id'); ?>';
+    mauticLang['mautic.media.form.provider.google.client_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.google.client_id'); ?>';
+    mauticLang['mautic.media.form.provider.google.client_secret'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.google.client_secret'); ?>';
+    mauticLang['mautic.media.form.provider.google.token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.google.token'); ?>';
+    mauticLang['mautic.media.form.provider.google.refresh_token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.google.refresh_token'); ?>';
+    mauticLang['mautic.media.form.provider.snapchat.account_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.snapchat.account_id'); ?>';
+    mauticLang['mautic.media.form.provider.snapchat.client_id'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.snapchat.client_id'); ?>';
+    mauticLang['mautic.media.form.provider.snapchat.client_secret'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.snapchat.client_secret'); ?>';
+    mauticLang['mautic.media.form.provider.snapchat.token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.snapchat.token'); ?>';
+    mauticLang['mautic.media.form.provider.snapchat.refresh_token'] = '<?php echo $view['translator']->trans('mautic.media.form.provider.snapchat.refresh_token'); ?>';
+</script>

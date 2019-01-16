@@ -66,6 +66,15 @@ class FacebookHelper
     /** @var CampaignSettingsHelper */
     private $campaignSettingsHelper;
 
+    /** @var string */
+    private $providerToken;
+
+    /** @var string */
+    private $providerClientSecret;
+
+    /** @var string */
+    private $providerClientId;
+
     /**
      * FacebookHelper constructor.
      *
@@ -90,15 +99,12 @@ class FacebookHelper
     ) {
         $this->mediaAccountId         = $mediaAccountId;
         $this->providerAccountId      = $providerAccountId;
+        $this->providerClientId       = $providerClientId;
+        $this->providerClientSecret   = $providerClientSecret;
+        $this->providerToken          = $providerToken;
         $this->output                 = $output;
         $this->em                     = $em;
         $this->campaignSettingsHelper = $campaignSettingsHelper;
-
-        Api::init($providerClientId, $providerClientSecret, $providerToken);
-        $this->client = Api::instance();
-
-        // $this->client->setLogger(new \FacebookAds\Logger\CurlLogger());
-        Cursor::setDefaultUseImplicitFetch(true);
     }
 
     /**
@@ -153,6 +159,7 @@ class FacebookHelper
                         'impressions',
                         'clicks',
                         'reach', // Always null at ad level?
+                        // 'actions' Currently excluding CpCo, since we'd need to decide a timeframe.
                     ];
                     $params = [
                         'level'      => 'ad',
@@ -190,7 +197,9 @@ class FacebookHelper
 
                             $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                 $self['id'],
-                                $data['campaign_id']
+                                $data['campaign_id'],
+                                $self['name'],
+                                $data['campaign_name']
                             );
                             if (is_int($campaignId)) {
                                 $stat->setCampaignId($campaignId);
@@ -228,25 +237,26 @@ class FacebookHelper
                                 || $stat->getCpc()
                                 || $stat->getCpp()
                                 || $stat->getCtr()
-                                || $stat->getImpressions()
-                                || $stat->getClicks()
-                                || $stat->getReach()
+                                // || $stat->getImpressions()
+                                // || $stat->getClicks()
+                                // || $stat->getReach()
                             ) {
                                 // Uniqueness to match the unique_by_ad constraint.
                                 $key               = implode(
                                     '|',
                                     [
                                         $date->getTimestamp(),
-                                        $provider,
-                                        $this->mediaAccountId,
-                                        $data['ad_id'],
+                                        $stat->getProvider(),
+                                        $stat->getMediaAccountId(),
+                                        $stat->getProviderAdsetId(),
+                                        $stat->getProviderAdId(),
                                     ]
                                 );
                                 $this->stats[$key] = $stat;
                                 if (0 === count($this->stats) % 100) {
                                     $this->saveQueue();
                                 }
-                                $spend += $data['spend'];
+                                $spend += $stat->getSpend();
                             }
                         }
                     );
@@ -267,17 +277,30 @@ class FacebookHelper
      */
     private function authenticate()
     {
-        // Authenticate and get the primary user ID.
-        $me = $this->client->call('/me')->getContent();
-        if (!$me || !isset($me['id'])) {
-            throw new \Exception(
-                'Cannot discern Facebook user for account '.$this->providerAccountId.'. You likely need to reauthenticate.'
-            );
-        }
-        $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
-        $this->user = new AdAccountUser($me['id']);
+        if (!$this->client || !$this->user) {
+            // Check mandatory credentials.
+            if (!trim($this->providerClientId) || !trim($this->providerClientSecret) || !trim($this->providerToken)) {
+                throw new \Exception(
+                    'Missing credentials for this media account '.$this->providerAccountId.'.'
+                );
+            }
 
-        return $this->user;
+            // Configure the client session.
+            Api::init($this->providerClientId, $this->providerClientSecret, $this->providerToken);
+            $this->client = Api::instance();
+            // $this->client->setLogger(new \FacebookAds\Logger\CurlLogger());
+            Cursor::setDefaultUseImplicitFetch(true);
+
+            // Authenticate and get the primary user ID in the same call.
+            $me = $this->client->call('/me')->getContent();
+            if (!$me || !isset($me['id'])) {
+                throw new \Exception(
+                    'Cannot discern Facebook user for account '.$this->providerAccountId.'. You likely need to reauthenticate.'
+                );
+            }
+            $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
+            $this->user = new AdAccountUser($me['id']);
+        }
     }
 
     /**
@@ -345,7 +368,9 @@ class FacebookHelper
             }
         );
         $this->output->writeln(
-            MediaAccount::PROVIDER_FACEBOOK.' - Found '.count($accounts).' accounts active during this time frame.'
+            MediaAccount::PROVIDER_FACEBOOK.' - Found '.count(
+                $accounts
+            ).' accounts active for media account '.$this->mediaAccountId.'.'
         );
 
         return $accounts;

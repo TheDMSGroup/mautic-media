@@ -161,6 +161,7 @@ class Stat
                 'date_added',
                 'provider',
                 'media_account_id',
+                'provider_adset_id',
                 'provider_ad_id',
             ],
             'unique_by_ad'

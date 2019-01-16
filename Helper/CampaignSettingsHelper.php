@@ -31,22 +31,51 @@ class CampaignSettingsHelper
     /** @var array */
     private $accountCampaignMap = [];
 
+    /** @var array */
+    private $newCampaignNamesSearched = [];
+
+    /** @var int If there are than this many campaigns inside an account, multiple mapping mode will be disabled. */
+    private $maxCampaignsForMultiple = 20;
+
     /**
      * CampaignSettingsHelper constructor.
      *
-     * @param array $campaignNames
-     * @param       $campaignSettingsField
-     * @param array $providerAccountsWithCampaigns
+     * @param array  $campaignNames
+     * @param string $campaignSettingsField
+     * @param array  $providerAccountsWithCampaigns
+     *
+     * @throws \Exception
      */
     public function __construct(
         $campaignNames = [],
-        $campaignSettingsField,
+        $campaignSettingsField = '',
         $providerAccountsWithCampaigns = []
     ) {
         $this->campaignNames                 = $campaignNames;
         $this->campaignMapHelper             = new CampaignMapHelper();
-        $this->campaignSettingsField         = $campaignSettingsField;
         $this->providerAccountsWithCampaigns = $providerAccountsWithCampaigns;
+        $this->setCampaignSettingsField($campaignSettingsField);
+    }
+
+    /**
+     * @param $campaignSettingsField
+     *
+     * @return $this
+     *
+     * @throws \Exception
+     */
+    public function setCampaignSettingsField($campaignSettingsField)
+    {
+        if (!is_object($campaignSettingsField)) {
+            $jsonHelper            = new JSONHelper();
+            $campaignSettingsField = $jsonHelper->decodeObject(
+                $campaignSettingsField,
+                'CampaignSettings'
+            );
+        }
+        $this->campaignSettingsField = $campaignSettingsField;
+
+        return $this;
     }
 
     /**
@@ -55,14 +84,6 @@ class CampaignSettingsHelper
     public function setCampaignNames($campaignNames)
     {
         $this->campaignNames = $campaignNames;
-    }
-
-    /**
-     * @param $campaignSettingsField
-     */
-    public function setCampaignSettingsField($campaignSettingsField)
-    {
-        $this->campaignSettingsField = $campaignSettingsField;
     }
 
     /**
@@ -79,50 +100,38 @@ class CampaignSettingsHelper
      *      $this->accountCampaignMap[ProviderAccountId][ProviderCampaignId] = CampaignId (multiple enabled)
      *      $this->accountCampaignMap[ProviderAccountId] = CampaignId (single mode)
      *
-     * @param null $providerAccountId
-     * @param null $providerCampaignId
+     * @param string $providerAccountId
+     * @param string $providerCampaignId
+     * @param string $providerAccountName
+     * @param string $providerCampaignName
      *
      * @return array|mixed
      */
-    public function getAccountCampaignMap($providerAccountId = null, $providerCampaignId = null)
-    {
+    public function getAccountCampaignMap(
+        $providerAccountId = '',
+        $providerCampaignId = '',
+        $providerAccountName = '',
+        $providerCampaignName = ''
+    ) {
         $result = [];
         if (!$this->accountCampaignMap) {
-            $obj = $this->getAutoUpdatedCampaignSettings();
-            if (isset($obj->accounts)) {
-                foreach ($obj->accounts as $account) {
-                    if (!empty($account->providerAccountId)) {
-                        if (
-                            isset($account->multiple)
-                            && $account->multiple
-                        ) {
-                            // Multiple mode
-                            if (isset($account->campaigns)) {
-                                foreach ($account->campaigns as $campaign) {
-                                    if (
-                                        !empty($campaign->providerCampaignId)
-                                        && !empty($campaign->campaignId)
-                                    ) {
-                                        if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
-                                            $this->accountCampaignMap[$account->providerAccountId] = [];
-                                        }
-                                        if (!isset($this->accountCampaignMap[$account->providerAccountId][$campaign->providerCampaignId])) {
-                                            $this->accountCampaignMap[$account->providerAccountId][$campaign->providerCampaignId] = $campaign->campaignId;
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            // Single mode
-                            if (!empty($account->campaignId)) {
-                                if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
-                                    $this->accountCampaignMap[$account->providerAccountId] = $account->campaignId;
-                                }
-                            }
-                        }
-                    }
-                }
+            $this->updateAccountCampaignMap();
+        }
+        if (
+            !isset($this->accountCampaignMap[$providerAccountId])
+            && $providerAccountName
+            && $providerCampaignName
+            && !isset($this->newCampaignNamesSearched[$providerCampaignName])
+        ) {
+            $this->newCampaignNamesSearched[$providerCampaignName] = true;
+            // A new Campaign Name was detected that has no data yet.
+            $this->providerAccountsWithCampaigns['campaigns'][$providerCampaignId] = $providerCampaignName;
+            $this->providerAccountsWithCampaigns['accounts'][$providerAccountId]   = $providerAccountName;
+            if (!isset($this->providerAccountsWithCampaigns['hierarchy'][$providerAccountId])) {
+                $this->providerAccountsWithCampaigns['hierarchy'][$providerAccountId] = [];
             }
+            $this->providerAccountsWithCampaigns['hierarchy'][$providerAccountId][] = $providerCampaignId;
+            $this->updateAccountCampaignMap();
         }
 
         if (empty($providerAccountId)) {
@@ -148,6 +157,48 @@ class CampaignSettingsHelper
     }
 
     /**
+     * Update the campaign Map.
+     */
+    private function updateAccountCampaignMap()
+    {
+        $obj = $this->getAutoUpdatedCampaignSettings();
+        if (isset($obj->accounts)) {
+            foreach ($obj->accounts as $account) {
+                if (!empty($account->providerAccountId)) {
+                    if (
+                        isset($account->multiple)
+                        && $account->multiple
+                    ) {
+                        // Multiple mode
+                        if (isset($account->campaigns)) {
+                            foreach ($account->campaigns as $campaign) {
+                                if (
+                                    !empty($campaign->providerCampaignId)
+                                    && !empty($campaign->campaignId)
+                                ) {
+                                    if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
+                                        $this->accountCampaignMap[$account->providerAccountId] = [];
+                                    }
+                                    if (!isset($this->accountCampaignMap[$account->providerAccountId][$campaign->providerCampaignId])) {
+                                        $this->accountCampaignMap[$account->providerAccountId][$campaign->providerCampaignId] = $campaign->campaignId;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Single mode
+                        if (!empty($account->campaignId)) {
+                            if (!isset($this->accountCampaignMap[$account->providerAccountId])) {
+                                $this->accountCampaignMap[$account->providerAccountId] = $account->campaignId;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * @return \stdClass
      */
     public function getAutoUpdatedCampaignSettings()
@@ -158,19 +209,22 @@ class CampaignSettingsHelper
         foreach ($this->providerAccountsWithCampaigns['hierarchy'] as $providerAccountId => $providerCampaigns) {
             // Make sure this account is included.
             $newAccount = true;
+            unset($accountObj);
             if (!isset($this->campaignSettingsField->accounts)) {
                 $this->campaignSettingsField->accounts = [];
-            }
-            foreach ($this->campaignSettingsField->accounts as &$accountObj) {
-                if (
-                    isset($accountObj->providerAccountId)
-                    && $accountObj->providerAccountId == $providerAccountId
-                ) {
-                    $newAccount = false;
-                    break;
+            } else {
+                foreach ($this->campaignSettingsField->accounts as &$accountObj) {
+                    if (
+                        isset($accountObj->providerAccountId)
+                        && $accountObj->providerAccountId == $providerAccountId
+                    ) {
+                        $newAccount = false;
+                        break;
+                    }
                 }
             }
             if ($newAccount) {
+                unset($accountObj);
                 $accountObj                    = new \stdClass();
                 $accountObj->providerAccountId = (string) $providerAccountId;
                 $accountObj->campaigns         = [];
@@ -178,35 +232,39 @@ class CampaignSettingsHelper
                 $accountObj->campaignId = $this->campaignMapHelper->guess(
                     $this->providerAccountsWithCampaigns['accounts'][$providerAccountId]
                 );
-                $accountObj->multiple = 0;
+                $accountObj->multiple   = 0;
             }
             if (isset($accountObj)) {
                 // Make sure all campaigns are included in the account
-                foreach ($providerCampaigns as $providerCampaignId) {
-                    $newCampaign = true;
-                    foreach ($accountObj->campaigns as &$campaignObj) {
-                        if (
-                            isset($campaignObj->providerCampaignId)
-                            && $campaignObj->providerCampaignId == $providerCampaignId
-                        ) {
-                            $newCampaign = false;
-                            break;
+                if (count($providerCampaigns) > 1 && count($providerCampaigns) <= $this->maxCampaignsForMultiple) {
+                    foreach ($providerCampaigns as $providerCampaignId) {
+                        $newCampaign = true;
+                        unset($campaignObj);
+                        foreach ($accountObj->campaigns as &$campaignObj) {
+                            if (
+                                isset($campaignObj->providerCampaignId)
+                                && $campaignObj->providerCampaignId == $providerCampaignId
+                            ) {
+                                $newCampaign = false;
+                                break;
+                            }
                         }
-                    }
-                    // Only add campaigns not already mapped
-                    if ($newCampaign) {
-                        $campaignObj                     = new \stdClass();
-                        $campaignObj->providerCampaignId = (string) $providerCampaignId;
-                    }
-                    if (isset($campaignObj)) {
-                        if (!empty($campaignObj) && empty($campaignObj->campaignId)) {
-                            // Guess the campaign based on the provider campaign name.
-                            $campaignObj->campaignId = $this->campaignMapHelper->guess(
-                                $this->providerAccountsWithCampaigns['campaigns'][$providerCampaignId]
-                            );
-                        }
+                        // Only add campaigns not already mapped
                         if ($newCampaign) {
-                            $accountObj->campaigns[] = $campaignObj;
+                            unset($campaignObj);
+                            $campaignObj                     = new \stdClass();
+                            $campaignObj->providerCampaignId = (string) $providerCampaignId;
+                        }
+                        if (isset($campaignObj)) {
+                            if (!empty($campaignObj) && empty($campaignObj->campaignId)) {
+                                // Guess the campaign based on the provider campaign name.
+                                $campaignObj->campaignId = $this->campaignMapHelper->guess(
+                                    $this->providerAccountsWithCampaigns['campaigns'][$providerCampaignId]
+                                );
+                            }
+                            if ($newCampaign) {
+                                $accountObj->campaigns[] = $campaignObj;
+                            }
                         }
                     }
                 }

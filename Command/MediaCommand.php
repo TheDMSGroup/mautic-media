@@ -54,6 +54,13 @@ class MediaCommand extends ModeratedCommand
                 'now'
             )
             ->addOption(
+                'provider',
+                '',
+                InputOption::VALUE_OPTIONAL,
+                'Optionally specify google, facebook, snapchat, bing, etc.',
+                ''
+            )
+            ->addOption(
                 'media-account',
                 'i',
                 InputOption::VALUE_OPTIONAL,
@@ -82,6 +89,7 @@ class MediaCommand extends ModeratedCommand
         $mediaAccountId = $input->getOption('media-account');
         $dateFrom       = new \DateTime($input->getOption('date-from'));
         $dateTo         = new \DateTime($input->getOption('date-to'));
+        $provider       = strtolower($input->getOption('provider'));
 
         /** @var MediaAccountModel $model */
         $model = $container->get('mautic.media.model.media');
@@ -104,6 +112,13 @@ class MediaCommand extends ModeratedCommand
                 'column' => 'm.id',
                 'expr'   => 'eq',
                 'value'  => (int) $mediaAccountId,
+            ];
+        }
+        if ($provider) {
+            $filters['filter']['force'][] = [
+                'column' => 'm.provider',
+                'expr'   => 'eq',
+                'value'  => $provider,
             ];
         }
         $mediaAccounts = $repo->getEntities($filters);

@@ -157,7 +157,7 @@ class MediaAccountType extends AbstractType
                 'required'          => true,
                 'attr'              => [
                     'class'   => 'form-control',
-                    'tooltip' => 'mautic.media.form.type.tooltip',
+                    'tooltip' => 'mautic.media.form.provider.tooltip',
                 ],
             ]
         );
@@ -200,6 +200,17 @@ class MediaAccountType extends AbstractType
             'text',
             [
                 'label'      => 'mautic.media.form.token',
+                'label_attr' => ['class' => 'control-label'],
+                'attr'       => ['class' => 'form-control'],
+                'required'   => false,
+            ]
+        );
+
+        $builder->add(
+            'refresh_token',
+            'text',
+            [
+                'label'      => 'mautic.media.form.refresh_token',
                 'label_attr' => ['class' => 'control-label'],
                 'attr'       => ['class' => 'form-control'],
                 'required'   => false,
