@@ -157,7 +157,7 @@ class CampaignSettingsHelper
     }
 
     /**
-     * Update the campaign Map
+     * Update the campaign Map.
      */
     private function updateAccountCampaignMap()
     {
