@@ -375,7 +375,6 @@ class FacebookHelper extends CommonProviderHelper
                             break;
                         }
                     }
-                    // $this->output->write('.');
                     sleep(self::$betweenOpSleep);
                     $cursor->prev();
                 }

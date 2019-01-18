@@ -12,6 +12,7 @@
 namespace MauticPlugin\MauticMediaBundle\Model;
 
 use Doctrine\DBAL\Query\QueryBuilder;
+use Doctrine\ORM\EntityManager;
 use Mautic\CampaignBundle\Model\CampaignModel;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use Mautic\CoreBundle\Helper\Chart\LineChart;
@@ -23,10 +24,12 @@ use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
+use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 /**
@@ -55,6 +58,9 @@ class MediaAccountModel extends FormModel
     /** @var CampaignModel */
     protected $campaignModel;
 
+    /** @var Session */
+    protected $session;
+
     /**
      * MediaAccountModel constructor.
      *
@@ -63,6 +69,8 @@ class MediaAccountModel extends FormModel
      * @param TemplatingHelper                   $templating
      * @param EventDispatcherInterface           $dispatcher
      * @param ContactModel                       $contactModel
+     * @param CampaignModel                      $campaignModel
+     * @param Session                            $session
      */
     public function __construct(
         \Mautic\FormBundle\Model\FormModel $formModel,
@@ -70,7 +78,8 @@ class MediaAccountModel extends FormModel
         TemplatingHelper $templating,
         EventDispatcherInterface $dispatcher,
         ContactModel $contactModel,
-        CampaignModel $campaignModel
+        CampaignModel $campaignModel,
+        Session $session
     ) {
         $this->formModel      = $formModel;
         $this->trackableModel = $trackableModel;
@@ -78,6 +87,7 @@ class MediaAccountModel extends FormModel
         $this->dispatcher     = $dispatcher;
         $this->contactModel   = $contactModel;
         $this->campaignModel  = $campaignModel;
+        $this->session        = $session;
     }
 
     /**
@@ -364,10 +374,30 @@ class MediaAccountModel extends FormModel
      * @throws \Exception
      */
     public function pullData(
-        MediaAccount $mediaAccount = null,
+        MediaAccount $mediaAccount,
         \DateTime $dateFrom,
         \DateTime $dateTo,
         OutputInterface $output
+    ) {
+        $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
+        if ($helper) {
+            $helper->pullData($dateFrom, $dateTo);
+        }
+    }
+
+    /**
+     * @param      $mediaAccount
+     * @param      $output
+     * @param      $em
+     * @param bool $includeCampaignSettings
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getProviderHelper(
+        MediaAccount $mediaAccount,
+        OutputInterface $output = null,
+        EntityManager $em = null,
+        $includeCampaignSettings = false
     ) {
         if (!$mediaAccount) {
             return;
@@ -385,28 +415,34 @@ class MediaAccountModel extends FormModel
             // Currently unsupported provider.
             return;
         }
-        $campaignNames          = $this->getCampaignNames();
-        $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
-            $mediaAccountId,
-            $mediaAccount->getProvider()
-        );
-        $campaignSettingsHelper = new CampaignSettingsHelper(
-            $campaignNames,
-            $campaignSettings,
-            $data
-        );
-        $helper                 = new $providerHelper(
+        $campaignSettingsHelper = null;
+        if ($mediaAccountId && $includeCampaignSettings) {
+            $campaignNames          = $this->getCampaignNames();
+            $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
+                $mediaAccountId,
+                $mediaAccount->getProvider()
+            );
+            $campaignSettingsHelper = new CampaignSettingsHelper(
+                $campaignNames,
+                $campaignSettings,
+                $data
+            );
+        }
+        /** @var CommonProviderHelper $helper */
+        $helper = new $providerHelper(
             $mediaAccountId,
             $providerAccountId,
             $providerClientId,
             $providerClientSecret,
             $providerToken,
             $providerRefreshToken,
+            $this->session,
             $output,
-            $this->em,
+            $em,
             $campaignSettingsHelper
         );
-        $helper->pullData($dateFrom, $dateTo);
+
+        return $helper;
     }
 
     /**

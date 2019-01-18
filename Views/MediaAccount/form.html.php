@@ -89,17 +89,47 @@ echo $view['form']->start($form);
                             <div class="col-md-12">
                                 <?php echo $view['form']->row($form['account_id']); ?>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-12">
                                 <?php echo $view['form']->row($form['client_id']); ?>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-12">
                                 <?php echo $view['form']->row($form['client_secret']); ?>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-12">
                                 <?php echo $view['form']->row($form['token']); ?>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-12">
                                 <?php echo $view['form']->row($form['refresh_token']); ?>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="well">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <?php echo $view['translator']->trans('mautic.integration.callbackuri'); ?>
+                                            <br/>
+                                            <input type="text" readonly onclick="this.setSelectionRange(0, this.value.length);" value="<?php
+                                            echo $view->escape(
+                                                $view['router']->generate(
+                                                    'mautic_media_auth_callback_secure',
+                                                    ['mediaAccountId' => $entity->getId()],
+                                                    0
+                                                )
+                                            ); ?>" class="form-control"/>
+                                            <br/>
+                                            <?php echo $view['form']->widget($form['authButton']); ?>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <!-- <hr class="mnr-md mnl-md"> -->

@@ -15,8 +15,13 @@ use Mautic\CampaignBundle\Entity\CampaignRepository;
 use Mautic\CoreBundle\Controller\AjaxController as CommonAjaxController;
 use Mautic\CoreBundle\Controller\AjaxLookupControllerTrait;
 use Mautic\CoreBundle\Helper\InputHelper;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
+use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
+use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
+use Symfony\Bundle\FrameworkBundle\Routing\Router;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -36,7 +41,7 @@ class AjaxController extends CommonAjaxController
     protected function getCampaignMapAction(Request $request)
     {
         $mediaAccountId        = (int) InputHelper::clean($request->request->get('mediaAccountId'));
-        $mediaProvider         = InputHelper::clean($request->request->get('mediaProvider'));
+        $provider              = InputHelper::clean($request->request->get('provider'));
         $campaignSettingsField = html_entity_decode(InputHelper::clean($request->request->get('campaignSettings')));
 
         // Get all our Mautic internal campaigns.
@@ -75,7 +80,7 @@ class AjaxController extends CommonAjaxController
         // Get all recent and active campaigns and accounts from the provider.
         /** @var StatRepository $statRepository */
         $statRepository       = $this->get('mautic.media.model.media')->getStatRepository();
-        $data                 = $statRepository->getProviderAccountsWithCampaigns($mediaAccountId, $mediaProvider);
+        $data                 = $statRepository->getProviderAccountsWithCampaigns($mediaAccountId, $provider);
         $providerAccountField = [
             [
                 'value' => 0,
@@ -105,10 +110,66 @@ class AjaxController extends CommonAjaxController
 
         return $this->sendJsonResponse(
             [
+                'success'           => true,
                 'campaigns'         => $campaignsField,
                 'providerAccounts'  => $providerAccountField,
                 'providerCampaigns' => $providerCampaignField,
                 'campaignSettings'  => $campaignSettingsHelper->getAutoUpdatedCampaignSettings(),
+            ]
+        );
+    }
+
+    /**
+     * Begin an OAuth2 request with one of the supported providers.
+     *
+     * @param Request $request
+     *
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     *
+     * @throws \Exception
+     */
+    protected function startAuthAction(Request $request)
+    {
+        $mediaAccountId       = (int) InputHelper::clean($request->request->get('mediaAccountId'));
+        $provider             = (string) InputHelper::clean($request->request->get('provider'));
+        $providerAccountId    = (string) InputHelper::clean($request->request->get('accountId'));
+        $providerClientId     = (string) InputHelper::clean($request->request->get('clientId'));
+        $providerClientSecret = (string) InputHelper::clean($request->request->get('clientSecret'));
+        $providerToken        = (string) InputHelper::clean($request->request->get('token'));
+        $providerRefreshToken = (string) InputHelper::clean($request->request->get('refreshToken'));
+
+        /** @var MediaAccountModel $model */
+        $model = $this->get('mautic.media.model.media');
+        // Load settings from DB just for a complete entity, if pre-existing.
+        if ($mediaAccountId) {
+            /** @var MediaAccount $mediaAccount */
+            $mediaAccount = $model->getRepository()->getEntity($mediaAccountId);
+        } else {
+            $mediaAccount = new MediaAccount();
+        }
+        // Overlay browser session variable values.
+        $mediaAccount->setProvider($provider);
+        $mediaAccount->setAccountId($providerAccountId);
+        $mediaAccount->setClientId($providerClientId);
+        $mediaAccount->setClientSecret($providerClientSecret);
+        $mediaAccount->setToken($providerToken);
+        $mediaAccount->setRefreshToken($providerRefreshToken);
+
+        /** @var CommonProviderHelper $providerHelper */
+        $providerHelper = $model->getProviderHelper($mediaAccount, (new NullOutput()));
+
+        /** @var Router $router */
+        $router      = $this->get('router');
+        $redirectUri = $router->generate(
+            'mautic_media_auth_callback_secure',
+            ['mediaAccountId' => $mediaAccountId],
+            Router::ABSOLUTE_URL
+        );
+
+        return $this->sendJsonResponse(
+            [
+                'success' => true,
+                'authUri' => $providerHelper->getAuthUri($redirectUri),
             ]
         );
     }

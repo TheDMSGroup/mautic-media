@@ -14,6 +14,7 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\HttpFoundation\Session\Session;
 
 /**
  * Interface CommonProviderHelper.
@@ -62,6 +63,9 @@ class CommonProviderHelper
     /** @var string */
     protected $providerClientId = '';
 
+    /** @var Session */
+    protected $session;
+
     /**
      * ProviderInterface constructor.
      *
@@ -71,6 +75,7 @@ class CommonProviderHelper
      * @param string                      $providerClientSecret
      * @param string                      $providerToken
      * @param string                      $providerRefreshToken
+     * @param Session                     $session
      * @param OutputInterface|null        $output
      * @param EntityManager|null          $em
      * @param CampaignSettingsHelper|null $campaignSettingsHelper
@@ -82,6 +87,7 @@ class CommonProviderHelper
         $providerClientSecret = '',
         $providerToken = '',
         $providerRefreshToken = '',
+        $session,
         $output = null,
         $em = null,
         $campaignSettingsHelper = null
@@ -91,6 +97,7 @@ class CommonProviderHelper
         $this->providerClientId       = $providerClientId;
         $this->providerClientSecret   = $providerClientSecret;
         $this->providerToken          = $providerToken;
+        $this->session                = $session;
         $this->providerRefreshToken   = $providerRefreshToken;
         $this->output                 = $output;
         $this->em                     = $em;
@@ -116,6 +123,18 @@ class CommonProviderHelper
     public function getErrors()
     {
         return $this->errors;
+    }
+
+    /**
+     * Get the url required to begin an oAuth2 handshake with the provider.
+     *
+     * @param string $redirectUri
+     *
+     * @return string
+     */
+    public function getAuthUri($redirectUri)
+    {
+        return '';
     }
 
     /**
