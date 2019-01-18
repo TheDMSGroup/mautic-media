@@ -22,11 +22,7 @@ use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
-use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
-use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
-use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
-use MauticPlugin\MauticMediaBundle\Helper\SnapchatHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
@@ -376,13 +372,19 @@ class MediaAccountModel extends FormModel
         if (!$mediaAccount) {
             return;
         }
-        $mediaAccountId         = $mediaAccount->getId();
-        $providerAccountId      = $mediaAccount->getAccountId();
-        $providerClientId       = $mediaAccount->getClientId();
-        $providerClientSecret   = $mediaAccount->getClientSecret();
-        $providerToken          = $mediaAccount->getToken();
-        $providerRefreshToken   = $mediaAccount->getRefreshToken();
-        $campaignSettings       = $mediaAccount->getCampaignSettings();
+        $mediaAccountId       = $mediaAccount->getId();
+        $providerAccountId    = $mediaAccount->getAccountId();
+        $providerClientId     = $mediaAccount->getClientId();
+        $providerClientSecret = $mediaAccount->getClientSecret();
+        $providerToken        = $mediaAccount->getToken();
+        $providerRefreshToken = $mediaAccount->getRefreshToken();
+        $campaignSettings     = $mediaAccount->getCampaignSettings();
+        $provider             = $mediaAccount->getProvider();
+        $providerHelper       = 'MauticPlugin\\MauticMediaBundle\\Helper\\'.ucfirst($provider).'Helper';
+        if (!in_array($provider, MediaAccount::getAllProviders()) || !class_exists($providerHelper)) {
+            // Currently unsupported provider.
+            return;
+        }
         $campaignNames          = $this->getCampaignNames();
         $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
             $mediaAccountId,
@@ -393,44 +395,18 @@ class MediaAccountModel extends FormModel
             $campaignSettings,
             $data
         );
-        switch ($mediaAccount->getProvider()) {
-            case MediaAccount::PROVIDER_FACEBOOK:
-                $helper = new FacebookHelper(
-                    $mediaAccountId,
-                    $providerAccountId,
-                    $providerClientId,
-                    $providerClientSecret,
-                    $providerToken,
-                    $output,
-                    $this->em,
-                    $campaignSettingsHelper
-                );
-                $helper->pullData($dateFrom, $dateTo);
-                break;
-
-            case MediaAccount::PROVIDER_BING:
-                $helper = new BingHelper();
-                break;
-
-            case MediaAccount::PROVIDER_GOOGLE:
-                $helper = new GoogleHelper(
-                    $mediaAccountId,
-                    $providerAccountId,
-                    $providerClientId,
-                    $providerClientSecret,
-                    $providerToken,
-                    $providerRefreshToken,
-                    $output,
-                    $this->em,
-                    $campaignSettingsHelper
-                );
-                $helper->pullData($dateFrom, $dateTo);
-                break;
-
-            case MediaAccount::PROVIDER_SNAPCHAT:
-                $helper = new SnapchatHelper();
-                break;
-        }
+        $helper                 = new $providerHelper(
+            $mediaAccountId,
+            $providerAccountId,
+            $providerClientId,
+            $providerClientSecret,
+            $providerToken,
+            $providerRefreshToken,
+            $output,
+            $this->em,
+            $campaignSettingsHelper
+        );
+        $helper->pullData($dateFrom, $dateTo);
     }
 
     /**

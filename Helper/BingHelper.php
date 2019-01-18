@@ -11,9 +11,15 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+// Specify the Microsoft\BingAds\V12\Reporting classes that will be used.
+// use Microsoft\BingAds\Samples\WebAuthHelper;
+
 /**
  * Class BingHelper.
+ *
+ * https://docs.microsoft.com/en-us/bingads/reporting-service/reporting-service-reference?view=bingads-12
+ * https://github.com/BingAds/BingAds-PHP-SDK
  */
-class BingHelper
+class BingHelper extends CommonProviderHelper
 {
 }
