@@ -69,6 +69,8 @@ class SnapchatHelper extends CommonProviderHelper
 
     /**
      * @param $params
+     *
+     * @return bool
      */
     public function authCallback($params)
     {
@@ -77,15 +79,26 @@ class SnapchatHelper extends CommonProviderHelper
         if (
             $authorization
             && isset($authorization->Authentication)
-            && !$authorization->RefreshToken
             && !empty($params['code'])
             && !empty($params['state'])
             && $params['state'] == $authorization->Authentication->State
         ) {
-            $authorization->RefreshToken = $params['code'];
-            $this->session->set('mautic.media.helper.snapchat.auth', $authorization);
+            if ($authorization->RefreshToken !== $params['code']) {
+                $authorization->RefreshToken = $params['code'];
+                $this->session->set('mautic.media.helper.snapchat.auth', $authorization);
 
-            // $this->session->set('mautic.media.')
+                $auth = $this->session->get('mautic.media.helper.auths', []);
+                if (!isset($auth['snapchat'])) {
+                    $auth['snapchat'] = [];
+                }
+                $auth['snapchat'][] = [
+                    'ClientId'     => $authorization->Authentication->ClientId,
+                    'ClientSecret' => $authorization->Authentication->ClientSecret,
+                    'RefreshToken' => $authorization->Authentication->RefreshToken,
+                ];
+                $this->session->set('mautic.media.helper.auths', $auth);
+            }
+
             $result = true;
         }
 
