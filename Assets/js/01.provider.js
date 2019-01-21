@@ -34,12 +34,12 @@ Mautic.mediaProvider = function () {
                 $refreshToken.parent().removeClass('hide');
                 break;
             case 'bing':
-                // Needs all.
-                $accountId.parent().removeClass('hide');
+                // Does not need account, or refresh token.
+                $accountId.parent().addClass('hide');
                 $clientId.parent().removeClass('hide');
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
-                $refreshToken.parent().removeClass('hide');
+                $refreshToken.parent().addClass('hide');
                 break;
         }
         // Apply provider specific labels.

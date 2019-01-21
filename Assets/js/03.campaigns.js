@@ -8,7 +8,8 @@ Mautic.mediaCampaigns = function () {
             mQuery('#media-campaigns-empty').removeClass('hide');
             mQuery('#media-campaigns-loading').addClass('hide');
             return;
-        } else {
+        }
+        else {
             mQuery('#media-campaigns-empty').addClass('hide');
             mQuery('#media-campaigns-loading').removeClass('hide');
         }
@@ -17,19 +18,19 @@ Mautic.mediaCampaigns = function () {
         var campaigns = {},
             providerCampaigns = {},
             providerAccounts = {},
-            $mediaProvider = mQuery('#media_provider:first'),
-            $campaignSettings = mQuery('#media_campaign_settings:first'),
-            campaignSettings = $campaignSettings.val(),
+            $provider = mQuery('select[name="media[provider]"]:first'),
+            campaignSettings = $campaigns.val(),
             campaignsJSONEditor,
             $campaignsJSONEditor;
 
         mQuery.ajax({
+            showLoadingBar: true,
             url: mauticAjaxUrl,
             type: 'POST',
             data: {
                 action: 'plugin:mauticMedia:getCampaignMap',
                 mediaAccountId: Mautic.getEntityId(),
-                mediaProvider: $mediaProvider.val(),
+                provider: $provider.val(),
                 campaignSettings: campaignSettings
             },
             dataType: 'json',
@@ -49,17 +50,18 @@ Mautic.mediaCampaigns = function () {
                 }
                 if (typeof response.campaignSettings !== 'undefined') {
                     var raw = JSON.stringify(response.campaignSettings, null, '  ');
-                    $campaignSettings.val(raw);
+                    $campaigns.val(raw);
                 }
 
                 // Grab the JSON Schema to begin rendering the form with
                 // JSONEditor.
-                Mautic.startPageLoadingBar();
                 mQuery.ajax({
+                    showLoadingBar: true,
                     dataType: 'json',
                     cache: true,
                     url: mauticBasePath + '/' + mauticAssetPrefix + 'plugins/MauticMediaBundle/Assets/json/accountscampaigns.json',
                     success: function (data) {
+                        Mautic.stopPageLoadingBar();
                         var schema = data;
 
                         if (campaigns.length) {
@@ -108,7 +110,7 @@ Mautic.mediaCampaigns = function () {
                         // Persist the value to the JSON Editor.
                         campaignsJSONEditor.on('change', function (event) {
                             var obj = campaignsJSONEditor.getValue(),
-                                mediaProvider = $mediaProvider.val(),
+                                provider = $provider.val(),
                                 campaign,
                                 providerAccount,
                                 providerCampaign,
@@ -126,7 +128,7 @@ Mautic.mediaCampaigns = function () {
                                 providerAccount = mQuery(this).parent().find('select:first').val().replace('act_', '');
                                 $pppp = $(this).parent().parent().parent().parent();
                                 $multiple = $pppp.find('input[type="checkbox"][name$="[multiple]"]:first');
-                                switch (mediaProvider) {
+                                switch (provider) {
                                     case 'facebook':
                                         mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/accounts?act=' + providerAccount + '" target="_blank">Facebook Account ' + providerAccount + '</a>');
                                         break;
@@ -138,7 +140,7 @@ Mautic.mediaCampaigns = function () {
                                 $pppp.find('div[data-schemapath$=".providerCampaignId"] .control-label').each(function () {
                                     providerCampaignIds++;
                                     providerCampaign = mQuery(this).parent().find('select:first').val().replace('act_', '');
-                                    switch (mediaProvider) {
+                                    switch (provider) {
                                         case 'facebook':
                                             mQuery(this).html('<a href="https://www.facebook.com/adsmanager/manage/adsets?act=' + providerAccount + '&selected_campaign_ids=' + providerCampaign + '" target="_blank">Facebook Campaign ' + providerCampaign + '</a>');
                                             break;
@@ -177,13 +179,17 @@ Mautic.mediaCampaigns = function () {
                         if (providerAccounts.length) {
                             mQuery('#media-campaigns-empty').addClass('hide');
                             mQuery('#media-campaigns-loading').addClass('hide');
-                        } else {
+                        }
+                        else {
                             mQuery('#media-campaigns-empty').removeClass('hide');
                             mQuery('#media-campaigns-loading').addClass('hide');
                         }
 
                         $campaignsJSONEditor.show();
-                    }
+                    },
+                    error: function (request, textStatus, errorThrown) {
+                        Mautic.processAjaxError(request, textStatus, errorThrown);
+                    },
                 });
 
             }

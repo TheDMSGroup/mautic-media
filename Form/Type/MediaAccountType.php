@@ -217,6 +217,19 @@ class MediaAccountType extends AbstractType
             ]
         );
 
+        $builder->add(
+            'authButton',
+            'standalone_button',
+            [
+                'attr'  => [
+                    'class'   => 'btn btn-success',
+                    'onclick' => 'Mautic.mediaAuthorization()',
+                    'icon'    => 'fa fa-key',
+                ],
+                'label' => 'mautic.integration.form.authorize',
+            ]
+        );
+
         if (!empty($options['action'])) {
             $builder->setAction($options['action']);
         }

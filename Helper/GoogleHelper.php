@@ -11,7 +11,6 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
-use Doctrine\ORM\EntityManager;
 use Google\AdsApi\AdWords\AdWordsServices;
 use Google\AdsApi\AdWords\AdWordsSessionBuilder;
 use Google\AdsApi\AdWords\Reporting\v201809\DownloadFormat;
@@ -32,12 +31,11 @@ use Google\AdsApi\Common\OAuth2TokenBuilder;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Psr\Log\NullLogger;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Class GoogleHelper.
  */
-class GoogleHelper
+class GoogleHelper extends CommonProviderHelper
 {
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 5;
@@ -49,110 +47,16 @@ class GoogleHelper
     public static $rateLimitSleep = 10;
 
     /** @var int */
-    public static $pageLimit = 500;
+    public static $adWordsPageLimit = 500;
 
     /** @var AdWordsSessionBuilder */
-    private $sessionBuilder;
-
-    /** @var string */
-    private $providerAccountId;
-
-    /** @var string */
-    private $mediaAccountId;
-
-    /** @var OutputInterface */
-    private $output;
+    private $adWordsSessionBuilder;
 
     /** @var array */
-    private $errors = [];
-
-    /** @var EntityManager */
-    private $em;
+    private $adWordsConfiguration = [];
 
     /** @var array */
-    private $stats = [];
-
-    /** @var CampaignSettingsHelper */
-    private $campaignSettingsHelper;
-
-    /** @var array */
-    private $configuration = [];
-
-    /** @var array */
-    private $sessions = [];
-
-    /**
-     * GoogleHelper constructor.
-     *
-     * @param                        $mediaAccountId
-     * @param                        $providerAccountId
-     * @param                        $providerClientId
-     * @param                        $providerClientSecret
-     * @param                        $providerToken
-     * @param OutputInterface        $output
-     * @param EntityManager          $em
-     * @param CampaignSettingsHelper $campaignSettingsHelper
-     */
-    public function __construct(
-        $mediaAccountId,
-        $providerAccountId,
-        $providerClientId,
-        $providerClientSecret,
-        $providerToken,
-        $providerRefreshToken,
-        OutputInterface $output,
-        EntityManager $em,
-        CampaignSettingsHelper $campaignSettingsHelper
-    ) {
-        $this->mediaAccountId         = $mediaAccountId;
-        $this->providerAccountId      = $providerAccountId;
-        $this->output                 = $output;
-        $this->em                     = $em;
-        $this->campaignSettingsHelper = $campaignSettingsHelper;
-
-        $this->configuration = new Configuration(
-            [
-                'ADWORDS'           => [
-                    'developerToken' => $providerToken,
-                    // 'clientCustomerId' => $providerCustomerId,
-                    'userAgent'      => 'Mautic',
-                    // 'isPartialFailure'            => false,
-                    // 'includeUtilitiesInUserAgent' => true,
-                ],
-                'ADWORDS_REPORTING' => [
-                    'isSkipReportHeader'       => true,
-                    'isSkipColumnHeader'       => true,
-                    'isSkipReportSummary'      => true,
-                    'isUseRawEnumValues'       => true,
-                    'isIncludeZeroImpressions' => false,
-                ],
-                'OAUTH2'            => [
-                    'clientId'     => $providerClientId,
-                    'clientSecret' => $providerClientSecret,
-                    'refreshToken' => $providerRefreshToken,
-                    // 'accessToken'  => $providerToken
-                    // 'jsonKeyFilePath'             => 'INSERT_ABSOLUTE_PATH_TO_OAUTH2_JSON_KEY_FILE_HERE',
-                    // 'scopes'                      => 'https://www.googleapis.com/auth/adwords',
-                    // 'impersonatedEmail'           => 'INSERT_EMAIL_OF_ACCOUNT_TO_IMPERSONATE_HERE',
-                ],
-                'SOAP'              => [
-                    // 'compressionLevel'            => null
-                ],
-                'CONNECTION'        => [
-                    // 'proxy'                       => 'protocol://user:pass@host:port',
-                    'enableReportingGzip' => true,
-                ],
-                'LOGGING'           => [
-                    // 'soapLogFilePath'             => 'path/to/your/soap.log',
-                    // 'soapLogLevel'                => 'INFO',
-                    // 'reportDownloaderLogFilePath' => 'path/to/your/report-downloader.log',
-                    // 'reportDownloaderLogLevel'    => 'INFO',
-                    // 'batchJobsUtilLogFilePath'    => 'path/to/your/bjutil.log',
-                    // 'batchJobsUtilLogLevel'       => 'INFO',
-                ],
-            ]
-        );
-    }
+    private $adWordsSessions = [];
 
     /**
      * @param \DateTime $dateFrom
@@ -351,12 +255,13 @@ class GoogleHelper
 
                             $doContinue = false;
                         } catch (ApiException $e) {
+                            $this->errors[] = $e->getMessage();
                             $this->saveQueue();
                             if (null === $e->getErrors() && $retryCount < self::$rateLimitMaxErrors) {
                                 $this->output->write('.');
                                 sleep(self::$rateLimitSleep);
                             } else {
-                                throw new \Exception('Too many request errors.');
+                                throw new \Exception('Too many request errors. '.$e->getMessage());
                             }
                         }
                     } while (true === $doContinue);
@@ -365,6 +270,8 @@ class GoogleHelper
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+            $this->output->writeln('');
             $this->output->writeln('<error>'.MediaAccount::PROVIDER_GOOGLE.' - '.$e->getMessage().'</error>');
         }
         $this->saveQueue();
@@ -389,7 +296,7 @@ class GoogleHelper
         );
         $selector               = new Selector();
         $selector->setFields(['CustomerId', 'CurrencyCode', 'DateTimeZone', 'Name']);
-        $selector->setPaging(new Paging(0, self::$pageLimit));
+        $selector->setPaging(new Paging(0, self::$adWordsPageLimit));
         $selector->setPredicates(
             [
                 new Predicate(
@@ -409,7 +316,7 @@ class GoogleHelper
                 }
             }
             $selector->getPaging()->setStartIndex(
-                $selector->getPaging()->getStartIndex() + self::$pageLimit
+                $selector->getPaging()->getStartIndex() + self::$adWordsPageLimit
             );
         } while ($selector->getPaging()->getStartIndex() < $totalNumEntries);
 
@@ -427,13 +334,59 @@ class GoogleHelper
      */
     private function getSession($customerId = '')
     {
-        if (!isset($this->sessions[$customerId])) {
+        if (!isset($this->adWordsSessions[$customerId])) {
+            if (!$this->adWordsConfiguration) {
+                // Generate initial configuration defaults.
+                $this->adWordsConfiguration = new Configuration(
+                    [
+                        'ADWORDS'           => [
+                            'userAgent'      => 'Mautic',
+                            'developerToken' => $this->providerToken,
+                            // 'clientCustomerId' => 'INSERT_CUSTOMER_ID_HERE',
+                            // 'isPartialFailure'            => false,
+                            // 'includeUtilitiesInUserAgent' => true,
+                        ],
+                        'ADWORDS_REPORTING' => [
+                            'isSkipReportHeader'       => true,
+                            'isSkipColumnHeader'       => true,
+                            'isSkipReportSummary'      => true,
+                            'isUseRawEnumValues'       => true,
+                            'isIncludeZeroImpressions' => false,
+                        ],
+                        'OAUTH2'            => [
+                            'clientId'     => $this->providerClientId,
+                            'clientSecret' => $this->providerClientSecret,
+                            'refreshToken' => $this->providerRefreshToken,
+                            // 'accessToken'       => 'INSERT_ACCESS_TOKEN_HERE',
+                            // 'jsonKeyFilePath'   => 'INSERT_ABSOLUTE_PATH_TO_OAUTH2_JSON_KEY_FILE_HERE',
+                            // 'scopes'            => 'https://www.googleapis.com/auth/adwords',
+                            // 'impersonatedEmail' => 'INSERT_EMAIL_OF_ACCOUNT_TO_IMPERSONATE_HERE',
+                        ],
+                        'SOAP'              => [
+                            // 'compressionLevel'            => null
+                        ],
+                        'CONNECTION'        => [
+                            // 'proxy'                       => 'protocol://user:pass@host:port',
+                            'enableReportingGzip' => true,
+                        ],
+                        'LOGGING'           => [
+                            // 'soapLogFilePath'             => 'path/to/your/soap.log',
+                            // 'soapLogLevel'                => 'INFO',
+                            // 'reportDownloaderLogFilePath' => 'path/to/your/report-downloader.log',
+                            // 'reportDownloaderLogLevel'    => 'INFO',
+                            // 'batchJobsUtilLogFilePath'    => 'path/to/your/bjutil.log',
+                            // 'batchJobsUtilLogLevel'       => 'INFO',
+                        ],
+                    ]
+                );
+            }
+
             // Check mandatory credentials.
             if (
-                !$this->configuration->getConfiguration('developerToken', 'ADWORDS')
-                || !$this->configuration->getConfiguration('clientId', 'OAUTH2')
-                || !$this->configuration->getConfiguration('clientSecret', 'OAUTH2')
-                || !$this->configuration->getConfiguration('refreshToken', 'OAUTH2')
+                !$this->adWordsConfiguration->getConfiguration('developerToken', 'ADWORDS')
+                || !$this->adWordsConfiguration->getConfiguration('clientId', 'OAUTH2')
+                || !$this->adWordsConfiguration->getConfiguration('clientSecret', 'OAUTH2')
+                || !$this->adWordsConfiguration->getConfiguration('refreshToken', 'OAUTH2')
             ) {
                 throw new \Exception(
                     'Missing credentials for this media account '.$this->mediaAccountId.'.'
@@ -441,23 +394,25 @@ class GoogleHelper
             }
 
             try {
-                if (!$this->sessionBuilder) {
-                    $oAuth2Credential     = (new OAuth2TokenBuilder())
-                        ->from($this->configuration)
+                if (!$this->adWordsSessionBuilder) {
+                    $oAuth2Credential            = (new OAuth2TokenBuilder())
+                        ->from($this->adWordsConfiguration)
                         ->build();
-                    $this->sessionBuilder = (new AdWordsSessionBuilder())
-                        ->from($this->configuration)
+                    $this->adWordsSessionBuilder = (new AdWordsSessionBuilder())
+                        ->from($this->adWordsConfiguration)
                         ->withOAuth2Credential($oAuth2Credential);
 
                     // Hide log output.
                     $logger = new NullLogger();
-                    $this->sessionBuilder->withSoapLogger($logger)
+                    $this->adWordsSessionBuilder->withSoapLogger($logger)
                         ->withReportDownloaderLogger($logger);
                 }
                 if ($customerId) {
-                    $this->sessions[$customerId] = $this->sessionBuilder->withClientCustomerId($customerId)->build();
+                    $this->adWordsSessions[$customerId] = $this->adWordsSessionBuilder->withClientCustomerId(
+                        $customerId
+                    )->build();
                 } else {
-                    $this->sessions[$customerId] = $this->sessionBuilder->build();
+                    $this->adWordsSessions[$customerId] = $this->adWordsSessionBuilder->build();
                 }
             } catch (\Exception $e) {
                 if ($e instanceof \InvalidArgumentException) {
@@ -472,27 +427,6 @@ class GoogleHelper
             }
         }
 
-        return isset($this->sessions[$customerId]) ? $this->sessions[$customerId] : null;
-    }
-
-    /**
-     * Save all the stat entities in queue.
-     */
-    private function saveQueue()
-    {
-        if ($this->stats) {
-            if (!$this->em->isOpen()) {
-                $this->em = $this->em->create(
-                    $this->em->getConnection(),
-                    $this->em->getConfiguration(),
-                    $this->em->getEventManager()
-                );
-            }
-            $this->em->getRepository('MauticMediaBundle:Stat')
-                ->saveEntities($this->stats);
-
-            $this->stats = [];
-            $this->em->clear(Stat::class);
-        }
+        return isset($this->adWordsSessions[$customerId]) ? $this->adWordsSessions[$customerId] : null;
     }
 }

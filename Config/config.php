@@ -29,6 +29,10 @@ return [
                     'objectId'     => '\w+',
                 ],
             ],
+            'mautic_media_auth_callback_secure' => [
+                'path'       => '/media/authcallback/{mediaAccountId}',
+                'controller' => 'MauticMediaBundle:Auth:authCallback',
+            ],
         ],
     ],
     'services' => [
@@ -97,6 +101,7 @@ return [
                     'event_dispatcher',
                     'mautic.lead.model.lead',
                     'mautic.campaign.model.campaign',
+                    'session',
                 ],
             ],
         ],
