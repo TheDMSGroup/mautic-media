@@ -21,7 +21,6 @@ use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 use Symfony\Bundle\FrameworkBundle\Routing\Router;
-use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -156,15 +155,18 @@ class AjaxController extends CommonAjaxController
         $mediaAccount->setRefreshToken($providerRefreshToken);
 
         /** @var CommonProviderHelper $providerHelper */
-        $providerHelper = $model->getProviderHelper($mediaAccount, (new NullOutput()));
+        $providerHelper = $model->getProviderHelper($mediaAccount);
 
         /** @var Router $router */
         $router      = $this->get('router');
         $redirectUri = $router->generate(
-            'mautic_media_auth_callback_secure',
-            ['mediaAccountId' => $mediaAccountId],
+            'mautic_media_auth_callback',
+            ['provider' => $mediaAccount->getProvider()],
             Router::ABSOLUTE_URL
         );
+
+        // @todo - Temporary measure.
+        $redirectUri = str_replace('http://', 'https://', $redirectUri);
 
         return $this->sendJsonResponse(
             [

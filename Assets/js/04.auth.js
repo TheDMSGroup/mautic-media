@@ -1,6 +1,7 @@
 Mautic.mediaAuthorization = function () {
     var $form = mQuery('form[name="media"]:first'),
         $provider = $form.find('select[name="media[provider]"]:first'),
+        provider = $provider.val(),
         $accountId = $form.find('input[name="media[account_id]"]:first'),
         $clientId = $form.find('input[name="media[client_id]"]:first'),
         $clientSecret = $form.find('input[name="media[client_secret]"]:first'),
@@ -13,7 +14,7 @@ Mautic.mediaAuthorization = function () {
         data: {
             action: 'plugin:mauticMedia:startAuth',
             mediaAccountId: Mautic.getEntityId(),
-            provider: $provider.val(),
+            provider: provider,
             accountId: $accountId.val(),
             clientId: $clientId.val(),
             clientSecret: $clientSecret.val(),
@@ -26,14 +27,17 @@ Mautic.mediaAuthorization = function () {
             console.log(response);
             if (typeof response.success !== 'undefined' && response.success) {
                 if (typeof response.authUri !== 'undefined' && response.authUri) {
-                    window.open(response.authUri, '_blank');
+                    var newwindow = window.open(response.authUri, '_blank', 'height=200,width=200');
+                    if (window.focus) {
+                        newwindow.focus();
+                    }
                 }
             }
         },
         error: function (request, textStatus, errorThrown) {
             Mautic.processAjaxError(request, textStatus, errorThrown);
         },
-        complete: function() {
+        complete: function () {
             mQuery('#media_authButton .fa').addClass('fa-key').removeClass('fa-spin').removeClass('fa-spinner');
         }
     });

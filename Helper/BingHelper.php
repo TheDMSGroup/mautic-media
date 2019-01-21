@@ -32,12 +32,10 @@ class BingHelper extends CommonProviderHelper
      */
     public function getAuthUri($redirectUri)
     {
-        $this->session->set('mautic.media.helper.bing.auth', null);
         $result = '';
         /** @var OAuthWebAuthCodeGrant|null $authorization */
         $authorization = $this->session->get('mautic.media.helper.bing.auth');
         if (!$authorization || !isset($authorization->Authentication)) {
-
             if ($redirectUri && $this->providerClientId && $this->providerClientSecret && $this->providerToken) {
                 /** @var OAuthWebAuthCodeGrant $authentication */
                 $authentication = (new OAuthWebAuthCodeGrant())
@@ -46,7 +44,7 @@ class BingHelper extends CommonProviderHelper
                     // @todo - change to prod
                     ->withEnvironment(ApiEnvironment::Sandbox)
                     ->withRedirectUri($redirectUri)
-                    ->withState(uniqid());
+                    ->withState(uniqid('mautic_', true));
 
                 /** @var AuthorizationData $authorization */
                 $authorization = (new AuthorizationData())

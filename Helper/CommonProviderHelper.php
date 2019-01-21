@@ -138,6 +138,18 @@ class CommonProviderHelper
     }
 
     /**
+     * Handle the callback from the provider. Store anything in session that needs to be persisted with the entity.
+     *
+     * @param $params
+     *
+     * @return bool
+     */
+    public function authCallback($params)
+    {
+        return false;
+    }
+
+    /**
      * Save all the stat entities in queue.
      */
     protected function saveQueue()

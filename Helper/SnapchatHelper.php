@@ -20,4 +20,75 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
  */
 class SnapchatHelper extends CommonProviderHelper
 {
+    /** @var string */
+    private static $snapchatScope = 'snapchat-marketing-api';
+
+    /** @var string */
+    private static $snapchatAuthUri = 'https://accounts.snapchat.com/login/oauth2/authorize';
+
+    /**
+     * @param $redirectUri
+     *
+     * @return string
+     */
+    public function getAuthUri($redirectUri)
+    {
+        $result = '';
+        $this->session->set('mautic.media.helper.snapchat.auth', null);
+
+        $authorization = $this->session->get('mautic.media.helper.snapchat.auth');
+        if (!$authorization || !isset($authorization->Authentication) || !$authorization->RefreshToken) {
+            if ($redirectUri && $this->providerClientId && $this->providerClientSecret) {
+                $authentication               = new \stdClass();
+                $authentication->ClientId     = $this->providerClientId;
+                $authentication->ClientSecret = $this->providerClientId;
+                $authentication->RedirectUri  = $redirectUri;
+                $authentication->State        = uniqid('mautic_', true);
+
+                $authorization                 = new \stdClass();
+                $authorization->Authentication = $authentication;
+                $authorization->RefreshToken   = null;
+
+                $this->session->set('mautic.media.helper.snapchat.auth', $authorization);
+                $this->session->set('mautic.media.helper.snapchat.state', $authorization->Authentication->State);
+            }
+        }
+        if (isset($authorization->Authentication)) {
+            $params = [
+                'response_type' => 'code',
+                'client_id'     => $authorization->Authentication->ClientId,
+                'redirect_uri'  => $authorization->Authentication->RedirectUri,
+                'scope'         => self::$snapchatScope,
+                'state'         => $authorization->Authentication->State,
+            ];
+            $result = self::$snapchatAuthUri.'?'.http_build_query($params);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param $params
+     */
+    public function authCallback($params)
+    {
+        $result        = false;
+        $authorization = $this->session->get('mautic.media.helper.snapchat.auth');
+        if (
+            $authorization
+            && isset($authorization->Authentication)
+            && !$authorization->RefreshToken
+            && !empty($params['code'])
+            && !empty($params['state'])
+            && $params['state'] == $authorization->Authentication->State
+        ) {
+            $authorization->RefreshToken = $params['code'];
+            $this->session->set('mautic.media.helper.snapchat.auth', $authorization);
+
+            // $this->session->set('mautic.media.')
+            $result = true;
+        }
+
+        return $result;
+    }
 }

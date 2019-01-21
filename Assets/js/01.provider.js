@@ -7,7 +7,9 @@ Mautic.mediaProvider = function () {
             $clientId = mQuery('input[name="media[client_id]"]:first'),
             $clientSecret = mQuery('input[name="media[client_secret]"]:first'),
             $token = mQuery('input[name="media[token]"]:first'),
-            $refreshToken = mQuery('input[name="media[refresh_token]"]:first');
+            $refreshToken = mQuery('input[name="media[refresh_token]"]:first'),
+            $callbackUri = mQuery('input#media-callback-uri'),
+            callbackUri = $callbackUri.val();
         switch (provider) {
             case 'facebook':
                 // Does not need a refresh token.
@@ -48,5 +50,11 @@ Mautic.mediaProvider = function () {
         $clientSecret.parent().find('label:first').text(Mautic.translate('mautic.media.form.provider.' + provider + '.client_secret'));
         $token.parent().find('label:first').text(Mautic.translate('mautic.media.form.provider.' + provider + '.token'));
         $refreshToken.parent().find('label:first').text(Mautic.translate('mautic.media.form.provider.' + provider + '.refresh_token'));
+
+        // Update the callback URI.
+        var parts = callbackUri.split('/');
+        parts.pop();
+        parts.push(provider);
+        $callbackUri.val(parts.join('/'));
     }).trigger('change');
 };

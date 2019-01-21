@@ -26,6 +26,7 @@ use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -386,10 +387,12 @@ class MediaAccountModel extends FormModel
     }
 
     /**
-     * @param      $mediaAccount
-     * @param      $output
-     * @param      $em
-     * @param bool $includeCampaignSettings
+     * @param MediaAccount         $mediaAccount
+     * @param OutputInterface|null $output
+     * @param EntityManager|null   $em
+     * @param bool                 $includeCampaignSettings
+     *
+     * @return CommonProviderHelper|void
      *
      * @throws \Doctrine\ORM\ORMException
      */
@@ -401,6 +404,9 @@ class MediaAccountModel extends FormModel
     ) {
         if (!$mediaAccount) {
             return;
+        }
+        if (!$output) {
+            $output = new NullOutput();
         }
         $mediaAccountId       = $mediaAccount->getId();
         $providerAccountId    = $mediaAccount->getAccountId();

@@ -269,7 +269,9 @@ class StatRepository extends CommonRepository
     {
         $q = $this->getEntityManager()->getConnection()->createQueryBuilder()
             ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
-            ->select('DATE_FORMAT(s.date_added, "'.$args['dbunit'].'") AS spendDate, s.campaign_id, SUM(s.spend) AS spend');
+            ->select(
+                'DATE_FORMAT(s.date_added, "'.$args['dbunit'].'") AS spendDate, s.campaign_id, SUM(s.spend) AS spend'
+            );
 
         $expr = $q->expr()->andX(
             $q->expr()->eq('s.campaign_id', (int) $campaignId),

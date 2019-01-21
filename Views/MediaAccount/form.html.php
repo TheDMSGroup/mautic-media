@@ -29,6 +29,12 @@ echo $view['assets']->includeScript(
 echo $view['assets']->includeStylesheet('plugins/MauticMediaBundle/Assets/build/media.min.css');
 
 echo $view['form']->start($form);
+
+$callbackUri = $view->escape(
+    $view['router']->generate('mautic_media_auth_callback', ['provider' => $entity->getProvider()], 0)
+);
+// @todo - Temporary measure.
+$callbackUri = str_replace('http://', 'https://', $callbackUri);
 ?>
 
 <!-- start: box layout -->
@@ -117,14 +123,7 @@ echo $view['form']->start($form);
                                         <div class="col-md-12">
                                             <?php echo $view['translator']->trans('mautic.integration.callbackuri'); ?>
                                             <br/>
-                                            <input type="text" readonly onclick="this.setSelectionRange(0, this.value.length);" value="<?php
-                                            echo $view->escape(
-                                                $view['router']->generate(
-                                                    'mautic_media_auth_callback_secure',
-                                                    ['mediaAccountId' => $entity->getId()],
-                                                    0
-                                                )
-                                            ); ?>" class="form-control"/>
+                                            <input id="media-callback-uri" type="text" readonly onclick="this.setSelectionRange(0, this.value.length);" value="<?php echo $callbackUri; ?>" class="form-control"/>
                                             <br/>
                                             <?php echo $view['form']->widget($form['authButton']); ?>
                                         </div>
