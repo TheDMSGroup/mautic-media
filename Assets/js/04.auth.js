@@ -27,7 +27,7 @@ Mautic.mediaAuthorization = function () {
             console.log(response);
             if (typeof response.success !== 'undefined' && response.success) {
                 if (typeof response.authUri !== 'undefined' && response.authUri) {
-                    var newwindow = window.open(response.authUri, '_blank', 'height=200,width=200');
+                    var newwindow = window.open(response.authUri, '_blank', 'height=640,width=480');
                     if (window.focus) {
                         newwindow.focus();
                     }

@@ -13,10 +13,8 @@ namespace MauticPlugin\MauticMediaBundle\Controller;
 
 use Mautic\CoreBundle\Helper\InputHelper;
 use Mautic\FormBundle\Controller\FormController;
-use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -52,94 +50,45 @@ class AuthController extends FormController
      */
     public function authCallbackAction(Request $request, $provider)
     {
+        $code   = (string) InputHelper::clean($request->get('code'));
+        $state  = (string) InputHelper::clean($request->get('state'));
+        $result = false;
+
         $params = [
-            'code'  => (string) InputHelper::clean($request->get('code')),
-            'state' => (string) InputHelper::clean($request->get('state')),
+            'code'  => $code,
+            'state' => $state,
         ];
 
         /** @var MediaAccountModel $model */
-        $model        = $this->get('mautic.media.model.media');
-        $mediaAccount = new MediaAccount();
-        $mediaAccount->setProvider($provider);
+        $model          = $this->get('mautic.media.model.media');
+        $mediaAccountId = CommonProviderHelper::getMediaAccountIdFromState($state);
 
-        /** @var CommonProviderHelper $providerHelper */
-        $providerHelper = $model->getProviderHelper($mediaAccount);
+        if ($mediaAccountId) {
+            $mediaAccount = $model->getEntity($mediaAccountId);
+        } else {
+            // Assume this is a new mediaAccount in creation.
+            $mediaAccount = $this->request->getSession()->get('mautic.media.auth.'.$provider.'.start');
+        }
 
-        $result = $providerHelper->authCallback($params);
+        if ($mediaAccount) {
+            /** @var CommonProviderHelper $providerHelper */
+            $providerHelper = $model->getProviderHelper($mediaAccount);
+            if ($providerHelper) {
+                $result = $providerHelper->authCallback($params);
+            }
+        }
 
         if ($result) {
             $message = $this->translator->trans('mautic.media.auth.success');
+            $alert   = 'success';
         } else {
             $message = $this->translator->trans('mautic.media.auth.fail');
+            $alert   = 'error';
         }
 
         return $this->render(
             'MauticMediaBundle:Auth:postauth.html.php',
-            ['result' => $result, 'message' => $message, 'alert' => '', 'data' => '']
+            ['result' => $result, 'message' => $message, 'alert' => $alert, 'data' => '']
         );
-    }
-
-    /**
-     * @param $integration
-     *
-     * @return \Symfony\Component\HttpFoundation\Response
-     */
-    public function authStatusAction($integration)
-    {
-        // @todo
-        $tmp = 3;
-        // $postAuthTemplate = 'MauticPluginBundle:Auth:postauth.html.php';
-        //
-        // $session     = $this->get('session');
-        // $postMessage = $session->get('mautic.integration.postauth.message');
-        // $userData    = [];
-        //
-        // if (isset($integration)) {
-        //     $userData = $session->get('mautic.integration.'.$integration.'.userdata');
-        // }
-        //
-        // $message = $type = '';
-        // $alert   = 'success';
-        // if (!empty($postMessage)) {
-        //     $message = $this->translator->trans($postMessage[0], $postMessage[1], 'flashes');
-        //     $session->remove('mautic.integration.postauth.message');
-        //     $type = $postMessage[2];
-        //     if ($type == 'error') {
-        //         $alert = 'danger';
-        //     }
-        // }
-        //
-        // return $this->render($postAuthTemplate, ['message' => $message, 'alert' => $alert, 'data' => $userData]);
-    }
-
-    /**
-     * @param $integration
-     *
-     * @return RedirectResponse
-     */
-    public function authUserAction($integration)
-    {
-        // @todo
-        $tmp = 1;
-        // /** @var \Mautic\PluginBundle\Helper\IntegrationHelper $integrationHelper */
-        // $integrationHelper = $this->factory->getHelper('integration');
-        // $integrationObject = $integrationHelper->getIntegrationObject($integration);
-        //
-        // $settings['method']      = 'GET';
-        // $settings['integration'] = $integrationObject->getName();
-        //
-        // /** @var \Mautic\PluginBundle\Integration\AbstractIntegration $integrationObject */
-        // $event = $this->dispatcher->dispatch(
-        //     PluginEvents::PLUGIN_ON_INTEGRATION_AUTH_REDIRECT,
-        //     new PluginIntegrationAuthRedirectEvent(
-        //         $integrationObject,
-        //         $integrationObject->getAuthLoginUrl()
-        //     )
-        // );
-        // $oauthUrl = $event->getAuthUrl();
-        //
-        // $response = new RedirectResponse($oauthUrl);
-        //
-        // return $response;
     }
 }

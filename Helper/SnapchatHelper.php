@@ -43,7 +43,7 @@ class SnapchatHelper extends CommonProviderHelper
                 $authentication->ClientId     = $this->providerClientId;
                 $authentication->ClientSecret = $this->providerClientId;
                 $authentication->RedirectUri  = $redirectUri;
-                $authentication->State        = uniqid('mautic_', true);
+                $authentication->State        = $this->createState();
 
                 $authorization                 = new \stdClass();
                 $authorization->Authentication = $authentication;
@@ -70,7 +70,7 @@ class SnapchatHelper extends CommonProviderHelper
     /**
      * @param $params
      *
-     * @return bool
+     * @return bool|\MauticPlugin\MauticMediaBundle\Entity\MediaAccount|string
      */
     public function authCallback($params)
     {
@@ -83,20 +83,15 @@ class SnapchatHelper extends CommonProviderHelper
             && !empty($params['state'])
             && $params['state'] == $authorization->Authentication->State
         ) {
-            if ($authorization->RefreshToken !== $params['code']) {
+            if (
+                $authorization->RefreshToken !== $params['code']
+                || $this->mediaAccount->getRefreshToken() !== $params['code']
+            ) {
                 $authorization->RefreshToken = $params['code'];
                 $this->session->set('mautic.media.helper.snapchat.auth', $authorization);
 
-                $auth = $this->session->get('mautic.media.helper.auths', []);
-                if (!isset($auth['snapchat'])) {
-                    $auth['snapchat'] = [];
-                }
-                $auth['snapchat'][] = [
-                    'ClientId'     => $authorization->Authentication->ClientId,
-                    'ClientSecret' => $authorization->Authentication->ClientSecret,
-                    'RefreshToken' => $authorization->Authentication->RefreshToken,
-                ];
-                $this->session->set('mautic.media.helper.auths', $auth);
+                $this->mediaAccount->setRefreshToken($params['code']);
+                $this->saveMediaAccount();
             }
 
             $result = true;

@@ -97,7 +97,7 @@ class GoogleHelper extends CommonProviderHelper
             $this->output->writeln(
                 MediaAccount::PROVIDER_GOOGLE.' - Found '.count(
                     $customers
-                ).' accounts active for media account '.$this->mediaAccountId.'.'
+                ).' accounts active for media account '.$this->mediaAccount->getId().'.'
             );
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
@@ -181,7 +181,7 @@ class GoogleHelper extends CommonProviderHelper
                                         $timezone
                                     );
                                     $stat = new Stat();
-                                    $stat->setMediaAccountId($this->mediaAccountId);
+                                    $stat->setMediaAccountId($this->mediaAccount->getId());
 
                                     $stat->setDateAdded($date);
 
@@ -389,7 +389,7 @@ class GoogleHelper extends CommonProviderHelper
                 || !$this->adWordsConfiguration->getConfiguration('refreshToken', 'OAUTH2')
             ) {
                 throw new \Exception(
-                    'Missing credentials for this media account '.$this->mediaAccountId.'.'
+                    'Missing credentials for this media account '.$this->mediaAccount->getId().'.'
                 );
             }
 
@@ -417,11 +417,11 @@ class GoogleHelper extends CommonProviderHelper
             } catch (\Exception $e) {
                 if ($e instanceof \InvalidArgumentException) {
                     throw new \Exception(
-                        'Missing credentials for this media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                        'Missing credentials for this media account '.$this->mediaAccount->getId().'. '.$e->getMessage()
                     );
                 } else {
                     throw new \Exception(
-                        'Cannot establish Google session for media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                        'Cannot establish Google session for media account '.$this->mediaAccount->getId().'. '.$e->getMessage()
                     );
                 }
             }

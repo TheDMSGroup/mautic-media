@@ -139,13 +139,16 @@ class AjaxController extends CommonAjaxController
 
         /** @var MediaAccountModel $model */
         $model = $this->get('mautic.media.model.media');
+
         // Load settings from DB just for a complete entity, if pre-existing.
         if ($mediaAccountId) {
             /** @var MediaAccount $mediaAccount */
             $mediaAccount = $model->getRepository()->getEntity($mediaAccountId);
         } else {
+            // Assume we're talking about the most recent in session.
             $mediaAccount = new MediaAccount();
         }
+
         // Overlay browser session variable values.
         $mediaAccount->setProvider($provider);
         $mediaAccount->setAccountId($providerAccountId);
@@ -153,6 +156,9 @@ class AjaxController extends CommonAjaxController
         $mediaAccount->setClientSecret($providerClientSecret);
         $mediaAccount->setToken($providerToken);
         $mediaAccount->setRefreshToken($providerRefreshToken);
+
+        // Store in session for correlation if a new provider entry is being made.
+        $this->request->getSession()->set('mautic.media.auth.'.$provider.'.start', $mediaAccount);
 
         /** @var CommonProviderHelper $providerHelper */
         $providerHelper = $model->getProviderHelper($mediaAccount);

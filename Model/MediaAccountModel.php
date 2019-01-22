@@ -408,6 +408,9 @@ class MediaAccountModel extends FormModel
         if (!$output) {
             $output = new NullOutput();
         }
+        if (!$em && $this->em) {
+            $em = $this->em;
+        }
         $mediaAccountId       = $mediaAccount->getId();
         $providerAccountId    = $mediaAccount->getAccountId();
         $providerClientId     = $mediaAccount->getClientId();
@@ -436,7 +439,7 @@ class MediaAccountModel extends FormModel
         }
         /** @var CommonProviderHelper $helper */
         $helper = new $providerHelper(
-            $mediaAccountId,
+            $mediaAccount,
             $providerAccountId,
             $providerClientId,
             $providerClientSecret,
@@ -495,6 +498,7 @@ class MediaAccountModel extends FormModel
         switch ($action) {
             case 'pre_save':
                 $name = MediaEvents::PRE_SAVE;
+                CommonProviderHelper::preSaveMediaAccount($this->session, $entity);
                 break;
             case 'post_save':
                 $name = MediaEvents::POST_SAVE;

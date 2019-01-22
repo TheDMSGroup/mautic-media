@@ -118,7 +118,7 @@ class FacebookHelper extends CommonProviderHelper
                                 $timezone
                             );
                             $stat = new Stat();
-                            $stat->setMediaAccountId($this->mediaAccountId);
+                            $stat->setMediaAccountId($this->mediaAccount->getId());
 
                             $stat->setDateAdded($date);
 
@@ -298,7 +298,7 @@ class FacebookHelper extends CommonProviderHelper
         $this->output->writeln(
             MediaAccount::PROVIDER_FACEBOOK.' - Found '.count(
                 $accounts
-            ).' accounts active for media account '.$this->mediaAccountId.'.'
+            ).' accounts active for media account '.$this->mediaAccount->getId().'.'
         );
 
         return $accounts;
