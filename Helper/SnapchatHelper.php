@@ -59,6 +59,12 @@ class SnapchatHelper extends CommonProviderHelper
     /** @var JSONHelper */
     private $jsonHelper;
 
+    /** @var array Ads by adaccount for fast reference. */
+    private $adCache = [];
+
+    /** @var array */
+    private $campaignCache = [];
+
     /**
      * @param $redirectUri
      *
@@ -211,21 +217,42 @@ class SnapchatHelper extends CommonProviderHelper
 
         foreach ($organizations as $organization) {
             if (isset($organization->id)) {
-                $accounts = $this->getAdAccounts($organization->id);
+                $accounts = $this->getActiveAdAccounts($organization->id);
                 $this->output->writeln(
                     MediaAccount::PROVIDER_SNAPCHAT.' - Found '.count(
                         $accounts
-                    ).' accounts in organization '.$organization->name.' ('.$organization->id.').'
+                    ).' active accounts in organization '.$organization->name.' ('.$organization->id.').'
                 );
-                foreach ($accounts as $account) {
-                    $ads = $this->getAds($account->id);
-                    $this->output->writeln(
-                        MediaAccount::PROVIDER_SNAPCHAT.' - Found '.count(
-                            $ads
-                        ).' ads under ad account '.$account->name.'.'
-                    );
+                $date   = clone $dateTo;
+                $oneDay = new \DateInterval('P1D');
+                while ($date >= $dateFrom) {
+                    /** @var AdAccount $account */
+                    foreach ($accounts as $account) {
+                        $campaigns = $this->getCampaigns($account->id);
+                        if (!$campaigns) {
+                            continue;
+                        }
+                        $spend    = 0;
+                        $timezone = new \DateTimeZone($account->timezone);
+                        $since    = clone $date;
+                        $until    = clone $date;
+                        $this->output->write(
+                            MediaAccount::PROVIDER_SNAPCHAT.' - Pulling hourly data - '.
+                            $since->format('Y-m-d').' - '.
+                            $account->name
+                        );
+                        $since->setTimeZone($timezone);
+                        $until->setTimeZone($timezone)->add($oneDay);
+                        $since->setTime($since->)
+                        // Snapchat requires rounding up to the nearest hour.
+                        foreach ($campaigns as $campaign) {
+                            $stats = $this->getCampaignStats($campaign->id, $since, $until);
+                            // $spend+= '222';
+                        }
+                    }
+                    $this->output->writeln(' - '.$account->currency.' '.$spend);
                 }
-
+                $date->sub($oneDay);
             }
         }
 
@@ -237,19 +264,23 @@ class SnapchatHelper extends CommonProviderHelper
      */
     private function getOrganizations()
     {
-        return $this->getRequest('/me/organizations?with_ad_accounts?true', 'organizations');
+        return $this->getRequest('/me/organizations', 'organizations', ['with_ad_accounts' => 'true']);
     }
 
     /**
      * @param string $path
      * @param string $object
-     * @param int    $limit
-     * @param array  $options
+     * @param array  $params
+     * @param null   $callback
      *
-     * @return mixed|null
+     * @return array
      */
-    private function getRequest($path = '/', $object = '', $limit = 1000, $options = [])
-    {
+    private function getRequest(
+        $path = '/',
+        $object = '',
+        $params = [],
+        $callback = null
+    ) {
         $result  = null;
         $status  = null;
         $done    = false;
@@ -261,24 +292,18 @@ class SnapchatHelper extends CommonProviderHelper
             }
             while (
                 // No results or more to come.
-                (!$results || !$done)
+                (!$results && !$done)
                 // Errors below the limit.
                 && count($this->errors) < self::$rateLimitMaxErrors
             ) {
                 // Apply standard headers to all requests.
-                if (!isset($options['headers'])) {
-                    $options['headers'] = [];
-                }
-                $options['headers']['Content-Type']  = 'application/json';
-                $options['headers']['Authorization'] = 'Bearer '.$this->providerToken;
-                if ($limit) {
-                    if (!isset($options['query'])) {
-                        $options['query'] = [];
-                    }
-                    if (!isset($options['query']['limit'])) {
-                        $options['query']['limit'] = $limit;
-                    }
-                }
+                $options = [
+                    'headers' => [
+                        'Content-Type'  => 'application/json',
+                        'Authorization' => 'Bearer '.$this->providerToken,
+                    ],
+                    'query'   => array_merge(['limit' => self::$pageLimit], $params),
+                ];
 
                 // Make the request
                 $request = $this->getClient()->get($uri, $options);
@@ -290,21 +315,22 @@ class SnapchatHelper extends CommonProviderHelper
 
                     // Unwrap the desired object and append it to $results.
                     if ($object) {
-                        if ($result && isset($result->$object)) {
-                            if (
-                                substr($object, -1, 1) == 's'
-                                && ($subobject = substr($object, 0, strlen($object) - 1))
-                                && isset($result->$object[0])
-                                && isset($result->$object[0]->$subobject)
-                            ) {
-                                foreach ($result->$object as $obj) {
-                                    if (isset($obj->$subobject)) {
-                                        $results[] = $obj->$subobject;
-                                    }
+                        if (
+                            $result
+                            && isset($result->$object)
+                            && 's' == substr($object, -1, 1)
+                            && ($subobject = substr($object, 0, strlen($object) - 1))
+                            && !empty($result->$object[0])
+                            && !empty($result->$object[0]->$subobject)
+                        ) {
+                            foreach ($result->$object as $obj) {
+                                if (!empty($obj->$subobject)) {
+                                    $results[] = $obj->$subobject;
                                 }
-                            } else {
-                                $results[] = $result->$object;
                             }
+                        } else {
+                            // No objects found.
+                            $done = true;
                         }
                     } else {
                         $results[] = $result;
@@ -319,6 +345,13 @@ class SnapchatHelper extends CommonProviderHelper
                         $uri  = $result->paging->next_link;
                     } else {
                         $done = true;
+                    }
+
+                    // Run callback if defined.
+                    if (is_callable($callback)) {
+                        if ($callback($results)) {
+                            break;
+                        }
                     }
                 } elseif (401 == $status) {
                     $this->refreshToken();
@@ -336,13 +369,76 @@ class SnapchatHelper extends CommonProviderHelper
     }
 
     /**
+     * Get all Active Ad accounts.
+     *
      * @param string $organizationId
      *
      * @return mixed|null
      */
-    private function getAdAccounts($organizationId)
+    private function getActiveAdAccounts($organizationId)
     {
-        return $this->getRequest('/organizations/'.$organizationId.'/adaccounts', 'adaccounts');
+        $results = [];
+        foreach ($this->getRequest('/organizations/'.$organizationId.'/adaccounts', 'adaccounts') as $account) {
+            if ('ACTIVE' == $account->status) {
+                $results[] = $account;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param string $adAccountId
+     *
+     * @return mixed|null
+     */
+    private function getCampaigns($adAccountId)
+    {
+        if (!isset($this->campaignCache[$adAccountId])) {
+            $campaigns = $this->getRequest('/adaccounts/'.$adAccountId.'/campaigns', 'campaigns');
+
+            $this->campaignCache[$adAccountId] = $campaigns;
+        }
+
+        return $this->campaignCache[$adAccountId];
+    }
+
+    /**
+     * Get all Active Ad accounts.
+     *
+     * @param $adAccountId
+     * @param $dateFrom
+     * @param $dateTo
+     *
+     * @return array
+     */
+    private function getCampaignStats($adAccountId, $dateFrom, $dateTo)
+    {
+        $params = [
+            'breakdown'                   => 'ad',
+            'granularity'                 => 'HOUR',
+            'fields'                      => implode(
+                ',',
+                [
+                    // @todo - Correlate to FB/Google data.
+                    'impressions',
+                    'spend',
+                    'conversion_add_cart',
+                    'conversion_add_cart_swipe_up',
+                    'conversion_add_cart_view',
+                    'conversion_purchases',
+                    'conversion_purchases_swipe_up',
+                    'conversion_purchases_view',
+                ]
+            ),
+            // We will typically not be pulling data for 28 days in arrears, so pull one day attributions only.
+            'swipe_up_attribution_window' => '1_DAY',
+            'view_attribution_window'     => '1_DAY',
+            'start_time'                  => $dateFrom->format(\DateTime::ISO8601),
+            'end_time'                    => $dateTo->format(\DateTime::ISO8601),
+        ];
+
+        return $this->getRequest('/campaigns/'.$adAccountId.'/stats', 'stats', $params);
     }
 
     /**
@@ -352,7 +448,53 @@ class SnapchatHelper extends CommonProviderHelper
      */
     private function getAds($adAccountId)
     {
-        return $this->getRequest('/adaccounts/'.$adAccountId.'/ads', 'ads', 1000);
+        if (!isset($this->adCache[$adAccountId])) {
+            $ads = $this->getRequest('/adaccounts/'.$adAccountId.'/ads', 'ads');
+
+            $this->adCache[$adAccountId] = $ads;
+        }
+
+        return $this->adCache[$adAccountId];
     }
 
+    /**
+     * Pull statistics for an ad within a time frame, paginated, with a callback.
+     *
+     * EX:
+     * https://adsapi.snapchat.com/v1/campaigns/04dd5e26-7156-4e07-b2b8-2911ae3aaccc/stats?granularity=DAY&fields=impressions,spend,conversion_add_cart,conversion_add_cart_swipe_up,conversion_add_cart_view,conversion_purchases,conversion_purchases_swipe_up,conversion_purchases_view&swipe_up_attribution_window=28_DAY&view_attribution_window=7_DAY&start_time=2017-11-10T00:00:00-08:00&end_time=2017-11-12T00:00:00-08:00
+     *
+     * @param           $adId
+     * @param \DateTime $dateFrom
+     * @param \DateTime $dateTo
+     * @param           $callback
+     *
+     * @return array
+     */
+    private function getAdStats($adId, \DateTime $dateFrom, \DateTime $dateTo, $callback)
+    {
+        $params = [
+            'granularity'                 => 'HOUR',
+            'fields'                      => implode(
+                ',',
+                [
+                    // @todo - Correlate to FB/Google data.
+                    'impressions',
+                    'spend',
+                    'conversion_add_cart',
+                    'conversion_add_cart_swipe_up',
+                    'conversion_add_cart_view',
+                    'conversion_purchases',
+                    'conversion_purchases_swipe_up',
+                    'conversion_purchases_view',
+                ]
+            ),
+            // We will typically not be pulling data for 28 days in arrears, so pull one day attributions only.
+            'swipe_up_attribution_window' => '1_DAY',
+            'view_attribution_window'     => '1_DAY',
+            'start_time'                  => $dateFrom->format(\DateTime::ISO8601),
+            'end_time'                    => $dateTo->format(\DateTime::ISO8601),
+        ];
+
+        return $this->getRequest('/ads/'.$adId.'/stats', 'stats', $params, $callback);
+    }
 }

@@ -31,6 +31,8 @@ class CommonProviderHelper
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 60;
 
+    public static $pageLimit = 1000;
+
     /** @var string */
     protected $providerAccountId;
 

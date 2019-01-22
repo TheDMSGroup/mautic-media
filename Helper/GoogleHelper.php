@@ -47,7 +47,7 @@ class GoogleHelper extends CommonProviderHelper
     public static $rateLimitSleep = 10;
 
     /** @var int */
-    public static $adWordsPageLimit = 500;
+    public static $pageLimit = 500;
 
     /** @var AdWordsSessionBuilder */
     private $adWordsSessionBuilder;
@@ -296,7 +296,7 @@ class GoogleHelper extends CommonProviderHelper
         );
         $selector               = new Selector();
         $selector->setFields(['CustomerId', 'CurrencyCode', 'DateTimeZone', 'Name']);
-        $selector->setPaging(new Paging(0, self::$adWordsPageLimit));
+        $selector->setPaging(new Paging(0, self::$pageLimit));
         $selector->setPredicates(
             [
                 new Predicate(
@@ -316,7 +316,7 @@ class GoogleHelper extends CommonProviderHelper
                 }
             }
             $selector->getPaging()->setStartIndex(
-                $selector->getPaging()->getStartIndex() + self::$adWordsPageLimit
+                $selector->getPaging()->getStartIndex() + self::$pageLimit
             );
         } while ($selector->getPaging()->getStartIndex() < $totalNumEntries);
 
