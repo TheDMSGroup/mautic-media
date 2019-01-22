@@ -217,18 +217,20 @@ class SnapchatHelper extends CommonProviderHelper
                         $accounts
                     ).' accounts in organization '.$organization->name.' ('.$organization->id.').'
                 );
-                
+                foreach ($accounts as $account) {
+                    $ads = $this->getAds($account->id);
+                    $this->output->writeln(
+                        MediaAccount::PROVIDER_SNAPCHAT.' - Found '.count(
+                            $ads
+                        ).' ads under ad account '.$account->name.'.'
+                    );
+                }
+
             }
         }
+
         return;
     }
-
-    // private function authenticate()
-    // {
-    //     $me = $this->getRequest('/me', 'me');
-    //
-    //     return $me;
-    // }
 
     /**
      * @return mixed|null
@@ -241,20 +243,26 @@ class SnapchatHelper extends CommonProviderHelper
     /**
      * @param string $path
      * @param string $object
+     * @param int    $limit
      * @param array  $options
      *
      * @return mixed|null
      */
-    private function getRequest($path = '/', $object = '', $options = [])
+    private function getRequest($path = '/', $object = '', $limit = 1000, $options = [])
     {
-        $result = null;
-        $status = null;
+        $result  = null;
+        $status  = null;
+        $done    = false;
+        $results = [];
+        $uri     = self::$snapchatApiBaseUri.$path;
         try {
             if (!$this->providerToken) {
                 $this->refreshToken();
             }
             while (
-                !$result
+                // No results or more to come.
+                (!$results || !$done)
+                // Errors below the limit.
                 && count($this->errors) < self::$rateLimitMaxErrors
             ) {
                 // Apply standard headers to all requests.
@@ -263,58 +271,88 @@ class SnapchatHelper extends CommonProviderHelper
                 }
                 $options['headers']['Content-Type']  = 'application/json';
                 $options['headers']['Authorization'] = 'Bearer '.$this->providerToken;
-                $request                             = $this->getClient()->get(
-                    self::$snapchatApiBaseUri.$path,
-                    $options
-                );
-                $status                              = $request->getStatusCode();
+                if ($limit) {
+                    if (!isset($options['query'])) {
+                        $options['query'] = [];
+                    }
+                    if (!isset($options['query']['limit'])) {
+                        $options['query']['limit'] = $limit;
+                    }
+                }
+
+                // Make the request
+                $request = $this->getClient()->get($uri, $options);
+                $status  = $request->getStatusCode();
                 if (200 == $status) {
+                    // Decode the JSON
                     $json   = $request->getBody()->getContents();
                     $result = $this->getJsonHelper()->decodeObject($json);
+
+                    // Unwrap the desired object and append it to $results.
+                    if ($object) {
+                        if ($result && isset($result->$object)) {
+                            if (
+                                substr($object, -1, 1) == 's'
+                                && ($subobject = substr($object, 0, strlen($object) - 1))
+                                && isset($result->$object[0])
+                                && isset($result->$object[0]->$subobject)
+                            ) {
+                                foreach ($result->$object as $obj) {
+                                    if (isset($obj->$subobject)) {
+                                        $results[] = $obj->$subobject;
+                                    }
+                                }
+                            } else {
+                                $results[] = $result->$object;
+                            }
+                        }
+                    } else {
+                        $results[] = $result;
+                    }
+
+                    // If there are more, keep looping.
+                    if ($result
+                        && isset($result->paging)
+                        && isset($result->paging->next_link)
+                    ) {
+                        $done = false;
+                        $uri  = $result->paging->next_link;
+                    } else {
+                        $done = true;
+                    }
                 } elseif (401 == $status) {
                     $this->refreshToken();
-                    sleep(self::$rateLimitSleep);
+                    sleep(self::$betweenOpSleep);
                 } else {
-                    sleep(self::$rateLimitSleep);
+                    sleep(self::$betweenOpSleep);
                 }
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
-            sleep(self::$rateLimitSleep);
-        }
-        if ($result && $object) {
-            if (isset($result->$object)) {
-                if (
-                    substr($object, -1, 1) == 's'
-                    && ($subobject = substr($object, 0, strlen($object) - 1))
-                    && isset($result->$object[0]->$subobject)
-                ) {
-                    $newResult = [];
-                    foreach ($result->$object as $obj) {
-                        if (isset($obj->$subobject)) {
-                            $newResult[] = $obj->$subobject;
-                        }
-                    }
-                    $result = $newResult;
-                } else {
-                    $result = $result->$object;
-                }
-            } else {
-                $result = false;
-            }
+            sleep(self::$betweenOpSleep);
         }
 
-        return $result;
+        return $results;
     }
 
     /**
-     * @param $organizationId
+     * @param string $organizationId
      *
      * @return mixed|null
      */
     private function getAdAccounts($organizationId)
     {
         return $this->getRequest('/organizations/'.$organizationId.'/adaccounts', 'adaccounts');
+    }
+
+    /**
+     * @param string $adAccountId
+     *
+     * @return mixed|null
+     */
+    private function getAds($adAccountId)
+    {
+        return $this->getRequest('/adaccounts/'.$adAccountId.'/ads', 'ads', 1000);
     }
 
 }
