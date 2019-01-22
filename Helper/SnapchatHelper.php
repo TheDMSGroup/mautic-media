@@ -254,6 +254,7 @@ class SnapchatHelper extends CommonProviderHelper
      * @param \DateTime $dateTo
      *
      * @return array
+     *
      * @throws \Exception
      */
     private function getAllActiveAccounts(
@@ -269,7 +270,7 @@ class SnapchatHelper extends CommonProviderHelper
                 ) as $account) {
                     if (
                         // Account Paused or closed before this date range.
-                        ($account->status != 'ACTIVE' && (new \DateTime($account->updated_at)) < $dateFrom)
+                        ('ACTIVE' != $account->status && (new \DateTime($account->updated_at)) < $dateFrom)
                         // Created after this date range.
                         || (new \DateTime($account->created_at)) > $dateTo
                     ) {
@@ -301,8 +302,7 @@ class SnapchatHelper extends CommonProviderHelper
      *
      * @return array
      */
-    private
-    function getRequest(
+    private function getRequest(
         $path = '/',
         $object = '',
         $params = [],
@@ -400,6 +400,7 @@ class SnapchatHelper extends CommonProviderHelper
      * @param $adAccountId
      *
      * @return mixed
+     *
      * @throws \Exception
      */
     private function getActiveCampaigns($adAccountId, \DateTime $dateFrom, \DateTime $dateTo)
@@ -416,7 +417,7 @@ class SnapchatHelper extends CommonProviderHelper
         foreach ($this->campaignCache[$adAccountId] as $campaign) {
             if (
                 // Paused or closed before this date range.
-                ($campaign->status != 'ACTIVE' && (new \DateTime($campaign->updated_at)) < $dateFrom)
+                ('ACTIVE' != $campaign->status && (new \DateTime($campaign->updated_at)) < $dateFrom)
                 // Created after this date range.
                 || (new \DateTime($campaign->created_at)) > $dateTo
             ) {
@@ -424,7 +425,6 @@ class SnapchatHelper extends CommonProviderHelper
             }
             $campaigns[] = $campaign;
         }
-
 
         return $campaigns;
     }
@@ -518,8 +518,7 @@ class SnapchatHelper extends CommonProviderHelper
      *
      * @return array
      */
-    private
-    function getAdStats(
+    private function getAdStats(
         $adId,
         \DateTime $dateFrom,
         \DateTime $dateTo,
