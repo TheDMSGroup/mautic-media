@@ -249,13 +249,10 @@ class CommonProviderHelper
                 ->saveEntity($this->mediaAccount);
 
             $this->em->clear(MediaAccount::class);
-        } else {
-            // This is a new mediaAccount that has not yet been saved.
-            // We will persist these credentials on save instead.
-            $persist   = $this->session->get('mautic.media.helper.persist', []);
-            $persist[] = $this->mediaAccount;
-            $this->session->set('mautic.media.helper.persist', $persist);
         }
+        $persist   = $this->session->get('mautic.media.helper.persist', []);
+        $persist[] = $this->mediaAccount;
+        $this->session->set('mautic.media.helper.persist', $persist);
     }
 
     /**

@@ -28,11 +28,11 @@ Mautic.mediaProvider = function () {
                 $refreshToken.parent().removeClass('hide');
                 break;
             case 'snapchat':
-                // Does not need account or token.
+                // Does not need account.
                 $accountId.parent().addClass('hide');
                 $clientId.parent().removeClass('hide');
                 $clientSecret.parent().removeClass('hide');
-                $token.parent().addClass('hide');
+                $token.parent().removeClass('hide');
                 $refreshToken.parent().removeClass('hide');
                 break;
             case 'bing':
