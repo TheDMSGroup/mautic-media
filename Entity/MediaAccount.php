@@ -116,13 +116,13 @@ class MediaAccount extends FormEntity
 
         $builder->addNamedField('clientId', 'string', 'client_id', true);
 
-        $builder->addNamedField('clientSecret', 'string', 'client_secret', true);
+        $builder->addNamedField('clientSecret', 'text', 'client_secret', true);
 
-        $builder->addNamedField('token', 'string', 'token', true);
+        $builder->addNamedField('token', 'text', 'token', true);
 
-        $builder->addNamedField('refreshToken', 'string', 'refresh_token', true);
+        $builder->addNamedField('refreshToken', 'text', 'refresh_token', true);
 
-        $builder->addNamedField('campaignSettings', 'string', 'campaign_settings', true);
+        $builder->addNamedField('campaignSettings', 'text', 'campaign_settings', true);
     }
 
     /**

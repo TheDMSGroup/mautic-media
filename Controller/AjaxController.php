@@ -160,6 +160,15 @@ class AjaxController extends CommonAjaxController
         // Store in session for correlation if a new provider entry is being made.
         $this->request->getSession()->set('mautic.media.auth.'.$provider.'.start', $mediaAccount);
 
+        // Flush out those to persist via this provider to prevent confusion.
+        $persist = $this->request->getSession()->get('mautic.media.helper.persist', []);
+        foreach ($persist as $key => $account) {
+            if ($account->getProvider() == $provider) {
+                unset($persist[$key]);
+            }
+        }
+        $this->request->getSession()->set('mautic.media.helper.persist', $persist);
+
         /** @var CommonProviderHelper $providerHelper */
         $providerHelper = $model->getProviderHelper($mediaAccount);
 
