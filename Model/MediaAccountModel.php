@@ -280,7 +280,7 @@ class MediaAccountModel extends FormModel
                     break;
                 }
             }
-            $sets++;
+            ++$sets;
         }
         if ($sets > 1) {
             foreach ($totals as $val) {
