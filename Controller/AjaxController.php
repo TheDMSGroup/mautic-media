@@ -163,11 +163,15 @@ class AjaxController extends CommonAjaxController
         // Flush out those to persist via this provider to prevent confusion.
         $persist = $this->request->getSession()->get('mautic.media.helper.persist', []);
         foreach ($persist as $key => $account) {
-            if ($account->getProvider() == $provider) {
+            if (
+                $account->getProvider() == $provider
+                && ((int) $account->getId()) == $mediaAccountId
+            ) {
                 unset($persist[$key]);
+                $this->request->getSession()->set('mautic.media.helper.persist', $persist);
+                break;
             }
         }
-        $this->request->getSession()->set('mautic.media.helper.persist', $persist);
 
         /** @var CommonProviderHelper $providerHelper */
         $providerHelper = $model->getProviderHelper($mediaAccount);
@@ -189,5 +193,41 @@ class AjaxController extends CommonAjaxController
                 'authUri' => $providerHelper->getAuthUri($redirectUri),
             ]
         );
+    }
+
+    /**
+     * @param Request $request
+     *
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     *
+     * @throws \Exception
+     */
+    protected function getAuthTokensAction(Request $request)
+    {
+        $mediaAccountId = (int) InputHelper::clean($request->request->get('mediaAccountId'));
+        $provider       = (string) InputHelper::clean($request->request->get('provider'));
+        $result         = [
+            'success'        => true,
+            'mediaAccountId' => $mediaAccountId,
+            'provider'       => $provider,
+            'token'          => null,
+            'refreshToken'   => null,
+        ];
+
+        // Flush out those to persist via this provider to prevent confusion.
+        $persist = $this->request->getSession()->get('mautic.media.helper.persist', []);
+        /** @var MediaAccount $account */
+        foreach ($persist as $key => $account) {
+            if (
+                $account->getProvider() == $provider
+                && ((int) $account->getId()) == $mediaAccountId
+            ) {
+                $result['token']        = $account->getToken();
+                $result['refreshToken'] = $account->getRefreshToken();
+                break;
+            }
+        }
+
+        return $this->sendJsonResponse($result);
     }
 }

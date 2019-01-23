@@ -127,13 +127,13 @@ class CommonProviderHelper
                 ) {
                     if (
                         !empty($account->getToken())
-                        && $account->getToken() !== $mediaAccount->getToken()
+                        && empty($mediaAccount->getToken())
                     ) {
                         $mediaAccount->setToken($account->getToken());
                     }
                     if (
                         !empty($account->getRefreshToken())
-                        && $account->getRefreshToken() !== $mediaAccount->getRefreshToken()
+                        && empty($mediaAccount->getRefreshToken())
                     ) {
                         $mediaAccount->setRefreshToken($account->getRefreshToken());
                     }

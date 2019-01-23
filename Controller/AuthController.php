@@ -15,7 +15,9 @@ use Mautic\CoreBundle\Helper\InputHelper;
 use Mautic\FormBundle\Controller\FormController;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Class AuthController.
@@ -50,14 +52,19 @@ class AuthController extends FormController
      */
     public function authCallbackAction(Request $request, $provider)
     {
-        $code   = (string) InputHelper::clean($request->get('code'));
-        $state  = (string) InputHelper::clean($request->get('state'));
-        $result = false;
-
-        $params = [
+        $code     = (string) InputHelper::clean($request->get('code'));
+        $state    = (string) InputHelper::clean($request->get('state'));
+        $result   = false;
+        $response = new Response();
+        $params   = [
             'code'  => $code,
             'state' => $state,
         ];
+
+        // @todo - temporary measure
+        $response->headers->setCookie(
+            new Cookie('mauticMediaAuthChange', time(), '+1 minute', '/', null, false, false)
+        );
 
         /** @var MediaAccountModel $model */
         $model          = $this->get('mautic.media.model.media');
@@ -81,6 +88,9 @@ class AuthController extends FormController
         if ($result) {
             $message = $this->translator->trans('mautic.media.auth.success');
             $alert   = 'success';
+            $response->headers->setCookie(
+                new Cookie('mauticMediaAuthChange', time(), '+1 minute', '/', null, false, false)
+            );
         } else {
             $message = $this->translator->trans('mautic.media.auth.fail');
             $alert   = 'error';
@@ -88,7 +98,8 @@ class AuthController extends FormController
 
         return $this->render(
             'MauticMediaBundle:Auth:postauth.html.php',
-            ['result' => $result, 'message' => $message, 'alert' => $alert, 'data' => '']
+            ['result' => $result, 'message' => $message, 'alert' => $alert, 'data' => ''],
+            $response
         );
     }
 }
