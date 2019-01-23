@@ -8,6 +8,7 @@ Mautic.mediaProvider = function () {
             $clientSecret = mQuery('input[name="media[client_secret]"]:first'),
             $token = mQuery('input[name="media[token]"]:first'),
             $refreshToken = mQuery('input[name="media[refresh_token]"]:first'),
+            $authButton = mQuery('#authButton:first'),
             $callbackUri = mQuery('input#media-callback-uri'),
             callbackUri = $callbackUri.val();
         switch (provider) {
@@ -18,6 +19,8 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().addClass('hide');
+                // Does not yet support automatic OAuth.
+                $authButton.addClass('hide');
                 break;
             case 'google':
                 // Does not need account
@@ -26,6 +29,8 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().removeClass('hide');
+                // Does not yet support automatic OAuth.
+                $authButton.addClass('hide');
                 break;
             case 'snapchat':
                 // Does not need account.
@@ -34,6 +39,8 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().removeClass('hide');
+                // Supports automatic OAuth
+                $authButton.removeClass('hide');
                 break;
             case 'bing':
                 // Does not need account, or refresh token.
@@ -42,6 +49,8 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().addClass('hide');
+                // Does not yet support automatic OAuth.
+                $authButton.addClass('hide');
                 break;
         }
         // Apply provider specific labels.

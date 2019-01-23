@@ -116,7 +116,7 @@ $callbackUri = str_replace('http://', 'https://', $callbackUri);
                                 <?php echo $view['form']->row($form['refresh_token']); ?>
                             </div>
                         </div>
-                        <div class="row">
+                        <div class="row" id="authButton">
                             <div class="col-md-12">
                                 <div class="well">
                                     <div class="row">
