@@ -13,6 +13,7 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use GuzzleHttp\Client;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
+use MauticPlugin\MauticMediaBundle\Entity\Stat;
 
 /**
  * Class SnapchatHelper.
@@ -67,6 +68,9 @@ class SnapchatHelper extends CommonProviderHelper
 
     /** @var array */
     private $campaignCache = [];
+
+    /** @var array */
+    private $adSquadCache = [];
 
     /**
      * @param $redirectUri
@@ -235,11 +239,74 @@ class SnapchatHelper extends CommonProviderHelper
                 $since->setTimeZone($timezone);
                 $until->setTimeZone($timezone)->add($oneDay);
                 foreach ($this->getActiveCampaigns($account->id, $dateFrom, $dateTo) as $campaign) {
-                    $stats = $this->getCampaignStats($campaign->id, $since, $until);
-                    if ($stats) {
-                        $spend += count($stats);
+                    $adStats = $this->getCampaignStats($campaign->id, $since, $until);
+                    foreach ($adStats as $adStat) {
+                        if (!$adStat) {
+                            continue;
+                        }
+                        $stat = new Stat();
+                        $stat->setMediaAccountId($this->mediaAccount->getId());
+
+                        $stat->setDateAdded((new \DateTime($adStat->start_time)));
+
+                        $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                            (string) $account->id,
+                            (string) $campaign->id,
+                            (string) $account->name,
+                            (string) $campaign->name
+                        );
+                        if (is_int($campaignId)) {
+                            $stat->setCampaignId($campaignId);
+                        }
+
+                        $provider = MediaAccount::PROVIDER_SNAPCHAT;
+                        $stat->setProvider($provider);
+
+                        $stat->setProviderAccountId($account->id);
+                        $stat->setproviderAccountName($account->name);
+
+                        $stat->setProviderCampaignId($campaign->id);
+                        $stat->setProviderCampaignName($campaign->name);
+
+                        // Since the stats API doesn't contain other data, we need to pull names sepperately.
+                        $adDetails = $this->getAdDetails($account->id, $adStat->id);
+                        if (isset($adDetails->ad_squad_id)) {
+                            $stat->setProviderAdsetId($adDetails->ad_squad_id);
+                            $adSquadDetails = $this->getAdSquadDetails($campaign->id, $adDetails->ad_squad_id);
+                            if (isset($adSquadDetails->name)) {
+                                $stat->setproviderAdsetName($adSquadDetails->name);
+                            }
+                        }
+
+                        $stat->setProviderAdId($adStat->id);
+                        if (isset($adDetails->name)) {
+                            $stat->setproviderAdName($adDetails->name);
+                        }
+
+                        // Definitions:
+                        // CPM is total cost for 1k impressions.
+                        //      CPM = cost * 1000 / impressions
+                        // CPC is the cost per action.
+                        //      CPC = cost / clicks
+                        // CTR is the click through rate.
+                        //      CTR = (clicks / impressions) * 100
+                        // For our purposes we are considering swipes as clicks for Snapchat.
+                        $clicks      = isset($adStat->swipes) ? $adStat->swipes : 0;
+                        $impressions = intval($adStat->impressions);
+                        $cost        = floatval($adStat->spend) / 1000000;
+                        $cpm         = ($cost * 1000) / $impressions;
+                        $cpc         = $cost / $clicks;
+                        $ctr         = ($clicks / $impressions) * 100;
+                        $stat->setCurrency($account->currency);
+                        $stat->setSpend($cost);
+                        $stat->setCpm($cpm);
+                        $stat->setCpc($cpc);
+                        $stat->setCtr($ctr);
+                        $stat->setImpressions($impressions);
+                        $stat->setClicks($clicks);
+
+                        $this->addStatToQueue($stat, $spend);
                     }
-                    // $spend+= '222';
                 }
                 $this->output->writeln(' - '.$account->currency.' '.$spend);
             }
@@ -443,11 +510,12 @@ class SnapchatHelper extends CommonProviderHelper
         $dateFrom,
         $dateTo
     ) {
-        $stats  = [];
-        $fields = [
+        $adStats = [];
+        $fields  = [
             // @todo - Correlate to FB/Google data.
             'impressions',
             'spend',
+            'swipes'
             // 'conversion_add_cart',
             // 'conversion_add_cart_swipe_up',
             // 'conversion_add_cart_view',
@@ -455,7 +523,7 @@ class SnapchatHelper extends CommonProviderHelper
             // 'conversion_purchases_swipe_up',
             // 'conversion_purchases_view',
         ];
-        $params = [
+        $params  = [
             'breakdown'                   => 'ad',
             'granularity'                 => 'HOUR',
             'fields'                      => implode(',', $fields),
@@ -473,20 +541,20 @@ class SnapchatHelper extends CommonProviderHelper
                 foreach ($statObj->breakdown_stats->ad as $ad) {
                     if (isset($ad->timeseries)) {
                         foreach ($ad->timeseries as $timeset) {
-                            $stat               = [];
-                            $stat['adId']       = $ad->id;
-                            $stat['start_time'] = $timeset->start_time;
+                            $adStat             = new \stdClass();
+                            $adStat->id         = $ad->id;
+                            $adStat->start_time = $timeset->start_time;
                             foreach ($fields as $field) {
-                                $stat[$field] = $timeset->stats->{$field};
+                                $adStat->{$field} = $timeset->stats->{$field};
                             }
-                            $stats[] = $stat;
+                            $adStats[] = $adStat;
                         }
                     }
                 }
             }
         }
 
-        return $stats;
+        return $adStats;
     }
 
     /**
@@ -494,15 +562,34 @@ class SnapchatHelper extends CommonProviderHelper
      *
      * @return mixed|null
      */
-    private function getAds($adAccountId)
+    private function getAdDetails($adAccountId, $adId)
     {
         if (!isset($this->adCache[$adAccountId])) {
             $ads = $this->getRequest('/adaccounts/'.$adAccountId.'/ads', 'ads');
-
-            $this->adCache[$adAccountId] = $ads;
+            foreach ($ads as $ad) {
+                $this->adCache[$adAccountId][$ad->id] = $ad;
+            }
         }
 
-        return $this->adCache[$adAccountId];
+        return isset($this->adCache[$adAccountId][$adId]) ? $this->adCache[$adAccountId][$adId] : null;
+    }
+
+    /**
+     * @param $campaignId
+     * @param $adSquadId
+     *
+     * @return |null
+     */
+    private function getAdSquadDetails($campaignId, $adSquadId)
+    {
+        if (!isset($this->adSquadCache[$campaignId])) {
+            $adSquads = $this->getRequest('/campaigns/'.$campaignId.'/adsquads', 'adsquads');
+            foreach ($adSquads as $adSquad) {
+                $this->adSquadCache[$campaignId][$adSquad->id] = $adSquad;
+            }
+        }
+
+        return isset($this->adSquadCache[$campaignId][$adSquadId]) ? $this->adSquadCache[$campaignId][$adSquadId] : null;
     }
 
     /**
