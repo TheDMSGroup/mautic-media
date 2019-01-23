@@ -50,12 +50,12 @@ class SnapchatHelper extends CommonProviderHelper
             'referer'   => false,
             'protocols' => ['https', 'http'],
         ],
-        'connect_timeout' => 1,
+        'connect_timeout' => 5,
         'cookies'         => true,
         'http_errors'     => false,
         'synchronous'     => true,
         'verify'          => false,
-        'timeout'         => 20,
+        'timeout'         => 30,
         'version'         => 1.1,
         'headers'         => null,
     ];
@@ -294,9 +294,9 @@ class SnapchatHelper extends CommonProviderHelper
                         $clicks      = isset($adStat->swipes) ? $adStat->swipes : 0;
                         $impressions = intval($adStat->impressions);
                         $cost        = floatval($adStat->spend) / 1000000;
-                        $cpm         = ($cost * 1000) / $impressions;
-                        $cpc         = $cost / $clicks;
-                        $ctr         = ($clicks / $impressions) * 100;
+                        $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
+                        $cpc         = $clicks ? ($cost / $clicks) : 0;
+                        $ctr         = $impressions ? (($clicks / $impressions) * 100) : 0;
                         $stat->setCurrency($account->currency);
                         $stat->setSpend($cost);
                         $stat->setCpm($cpm);
@@ -515,7 +515,7 @@ class SnapchatHelper extends CommonProviderHelper
             // @todo - Correlate to FB/Google data.
             'impressions',
             'spend',
-            'swipes'
+            'swipes',
             // 'conversion_add_cart',
             // 'conversion_add_cart_swipe_up',
             // 'conversion_add_cart_view',

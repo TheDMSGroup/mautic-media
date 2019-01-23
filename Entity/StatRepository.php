@@ -211,7 +211,7 @@ class StatRepository extends CommonRepository
                     array_fill(
                         0,
                         count($entities),
-                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
+                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
