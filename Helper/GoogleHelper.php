@@ -11,7 +11,6 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
-use Doctrine\ORM\EntityManager;
 use Google\AdsApi\AdWords\AdWordsServices;
 use Google\AdsApi\AdWords\AdWordsSessionBuilder;
 use Google\AdsApi\AdWords\Reporting\v201809\DownloadFormat;
@@ -32,12 +31,11 @@ use Google\AdsApi\Common\OAuth2TokenBuilder;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Psr\Log\NullLogger;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Class GoogleHelper.
  */
-class GoogleHelper
+class GoogleHelper extends CommonProviderHelper
 {
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 5;
@@ -52,107 +50,13 @@ class GoogleHelper
     public static $pageLimit = 500;
 
     /** @var AdWordsSessionBuilder */
-    private $sessionBuilder;
-
-    /** @var string */
-    private $providerAccountId;
-
-    /** @var string */
-    private $mediaAccountId;
-
-    /** @var OutputInterface */
-    private $output;
+    private $adWordsSessionBuilder;
 
     /** @var array */
-    private $errors = [];
-
-    /** @var EntityManager */
-    private $em;
+    private $adWordsConfiguration = [];
 
     /** @var array */
-    private $stats = [];
-
-    /** @var CampaignSettingsHelper */
-    private $campaignSettingsHelper;
-
-    /** @var array */
-    private $configuration = [];
-
-    /** @var array */
-    private $sessions = [];
-
-    /**
-     * GoogleHelper constructor.
-     *
-     * @param                        $mediaAccountId
-     * @param                        $providerAccountId
-     * @param                        $providerClientId
-     * @param                        $providerClientSecret
-     * @param                        $providerToken
-     * @param OutputInterface        $output
-     * @param EntityManager          $em
-     * @param CampaignSettingsHelper $campaignSettingsHelper
-     */
-    public function __construct(
-        $mediaAccountId,
-        $providerAccountId,
-        $providerClientId,
-        $providerClientSecret,
-        $providerToken,
-        $providerRefreshToken,
-        OutputInterface $output,
-        EntityManager $em,
-        CampaignSettingsHelper $campaignSettingsHelper
-    ) {
-        $this->mediaAccountId         = $mediaAccountId;
-        $this->providerAccountId      = $providerAccountId;
-        $this->output                 = $output;
-        $this->em                     = $em;
-        $this->campaignSettingsHelper = $campaignSettingsHelper;
-
-        $this->configuration = new Configuration(
-            [
-                'ADWORDS'           => [
-                    'developerToken' => $providerToken,
-                    // 'clientCustomerId' => $providerCustomerId,
-                    'userAgent'      => 'Mautic',
-                    // 'isPartialFailure'            => false,
-                    // 'includeUtilitiesInUserAgent' => true,
-                ],
-                'ADWORDS_REPORTING' => [
-                    'isSkipReportHeader'       => true,
-                    'isSkipColumnHeader'       => true,
-                    'isSkipReportSummary'      => true,
-                    'isUseRawEnumValues'       => true,
-                    'isIncludeZeroImpressions' => false,
-                ],
-                'OAUTH2'            => [
-                    'clientId'     => $providerClientId,
-                    'clientSecret' => $providerClientSecret,
-                    'refreshToken' => $providerRefreshToken,
-                    // 'accessToken'  => $providerToken
-                    // 'jsonKeyFilePath'             => 'INSERT_ABSOLUTE_PATH_TO_OAUTH2_JSON_KEY_FILE_HERE',
-                    // 'scopes'                      => 'https://www.googleapis.com/auth/adwords',
-                    // 'impersonatedEmail'           => 'INSERT_EMAIL_OF_ACCOUNT_TO_IMPERSONATE_HERE',
-                ],
-                'SOAP'              => [
-                    // 'compressionLevel'            => null
-                ],
-                'CONNECTION'        => [
-                    // 'proxy'                       => 'protocol://user:pass@host:port',
-                    'enableReportingGzip' => true,
-                ],
-                'LOGGING'           => [
-                    // 'soapLogFilePath'             => 'path/to/your/soap.log',
-                    // 'soapLogLevel'                => 'INFO',
-                    // 'reportDownloaderLogFilePath' => 'path/to/your/report-downloader.log',
-                    // 'reportDownloaderLogLevel'    => 'INFO',
-                    // 'batchJobsUtilLogFilePath'    => 'path/to/your/bjutil.log',
-                    // 'batchJobsUtilLogLevel'       => 'INFO',
-                ],
-            ]
-        );
-    }
+    private $adWordsSessions = [];
 
     /**
      * @param \DateTime $dateFrom
@@ -176,7 +80,6 @@ class GoogleHelper
             'Cost', // In micros
             'AverageCpm', // In micros
             'AverageCpc', // In micros
-            // CPP can be estimated by AverageCpm divided by 1000
             'Ctr',
             'Impressions',
             'Clicks',
@@ -193,7 +96,7 @@ class GoogleHelper
             $this->output->writeln(
                 MediaAccount::PROVIDER_GOOGLE.' - Found '.count(
                     $customers
-                ).' accounts active for media account '.$this->mediaAccountId.'.'
+                ).' accounts active for media account '.$this->mediaAccount->getId().'.'
             );
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
@@ -277,15 +180,15 @@ class GoogleHelper
                                         $timezone
                                     );
                                     $stat = new Stat();
-                                    $stat->setMediaAccountId($this->mediaAccountId);
+                                    $stat->setMediaAccountId($this->mediaAccount->getId());
 
                                     $stat->setDateAdded($date);
 
                                     $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                         (string) $customerId,
-                                        $data['CampaignId'],
+                                        (string) $data['CampaignId'],
                                         (string) $customer->getName(),
-                                        $data['CampaignName']
+                                        (string) $data['CampaignName']
                                     );
                                     if (is_int($campaignId)) {
                                         $stat->setCampaignId($campaignId);
@@ -307,56 +210,34 @@ class GoogleHelper
                                     // $stat->setProviderAdId('');
                                     // $stat->setproviderAdName('');
 
+                                    // Definitions:
+                                    // CPM is total cost for 1k impressions.
+                                    //      CPM = cost * 1000 / impressions
+                                    // CPC is the cost per action.
+                                    //      CPC = cost / clicks
+                                    // CTR is the click through rate.
+                                    //      CTR = (clicks / impressions) * 100
                                     $stat->setCurrency($customer->getCurrencyCode());
                                     $stat->setSpend(floatval($data['Cost']) / 1000000);
                                     $stat->setCpm(floatval($data['AverageCpm']) / 1000000);
                                     $stat->setCpc(floatval($data['AverageCpc']) / 1000000);
-                                    $stat->setCpp(floatval($data['AverageCpm']) / 1000000 / 1000);
                                     $stat->setCtr(floatval($data['Ctr']));
                                     $stat->setImpressions(intval($data['Impressions']));
                                     $stat->setClicks(intval($data['Clicks']));
 
-                                    // $stat->setReach(intval($data['reach']));
-
-                                    // Don't bother saving stat records without valuable data.
-                                    if (
-                                        $stat->getSpend()
-                                        || $stat->getCpm()
-                                        || $stat->getCpc()
-                                        || $stat->getCpp()
-                                        || $stat->getCtr()
-                                        // || $stat->getImpressions()
-                                        // || $stat->getClicks()
-                                        // || $stat->getReach()
-                                    ) {
-                                        // Uniqueness to match the unique_by_ad constraint.
-                                        $key               = implode(
-                                            '|',
-                                            [
-                                                $date->getTimestamp(),
-                                                $stat->getProvider(),
-                                                $stat->getMediaAccountId(),
-                                                $stat->getProviderAdsetId(),
-                                                $stat->getProviderAdId(),
-                                            ]
-                                        );
-                                        $this->stats[$key] = $stat;
-                                        if (0 === count($this->stats) % 100) {
-                                            $this->saveQueue();
-                                        }
-                                        $spend += $stat->getSpend();
-                                    }
+                                    $this->addStatToQueue($stat, $spend);
                                 }
                             }
 
                             $doContinue = false;
                         } catch (ApiException $e) {
+                            $this->errors[] = $e->getMessage();
                             $this->saveQueue();
                             if (null === $e->getErrors() && $retryCount < self::$rateLimitMaxErrors) {
                                 $this->output->write('.');
                                 sleep(self::$rateLimitSleep);
                             } else {
-                                throw new \Exception('Too many request errors.');
+                                throw new \Exception('Too many request errors. '.$e->getMessage());
                             }
                         }
                     } while (true === $doContinue);
@@ -365,6 +246,8 @@ class GoogleHelper
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+            $this->output->writeln('');
             $this->output->writeln('<error>'.MediaAccount::PROVIDER_GOOGLE.' - '.$e->getMessage().'</error>');
         }
         $this->saveQueue();
@@ -427,72 +310,100 @@ class GoogleHelper
      */
     private function getSession($customerId = '')
     {
-        if (!isset($this->sessions[$customerId])) {
+        if (!isset($this->adWordsSessions[$customerId])) {
+            if (!$this->adWordsConfiguration) {
+                // Generate initial configuration defaults.
+                $this->adWordsConfiguration = new Configuration(
+                    [
+                        'ADWORDS'           => [
+                            'userAgent'      => 'Mautic',
+                            'developerToken' => $this->providerToken,
+                            // 'clientCustomerId' => 'INSERT_CUSTOMER_ID_HERE',
+                            // 'isPartialFailure'            => false,
+                            // 'includeUtilitiesInUserAgent' => true,
+                        ],
+                        'ADWORDS_REPORTING' => [
+                            'isSkipReportHeader'       => true,
+                            'isSkipColumnHeader'       => true,
+                            'isSkipReportSummary'      => true,
+                            'isUseRawEnumValues'       => true,
+                            'isIncludeZeroImpressions' => false,
+                        ],
+                        'OAUTH2'            => [
+                            'clientId'     => $this->providerClientId,
+                            'clientSecret' => $this->providerClientSecret,
+                            'refreshToken' => $this->providerRefreshToken,
+                            // 'accessToken'       => 'INSERT_ACCESS_TOKEN_HERE',
+                            // 'jsonKeyFilePath'   => 'INSERT_ABSOLUTE_PATH_TO_OAUTH2_JSON_KEY_FILE_HERE',
+                            // 'scopes'            => 'https://www.googleapis.com/auth/adwords',
+                            // 'impersonatedEmail' => 'INSERT_EMAIL_OF_ACCOUNT_TO_IMPERSONATE_HERE',
+                        ],
+                        'SOAP'              => [
+                            // 'compressionLevel'            => null
+                        ],
+                        'CONNECTION'        => [
+                            // 'proxy'                       => 'protocol://user:pass@host:port',
+                            'enableReportingGzip' => true,
+                        ],
+                        'LOGGING'           => [
+                            // 'soapLogFilePath'             => 'path/to/your/soap.log',
+                            // 'soapLogLevel'                => 'INFO',
+                            // 'reportDownloaderLogFilePath' => 'path/to/your/report-downloader.log',
+                            // 'reportDownloaderLogLevel'    => 'INFO',
+                            // 'batchJobsUtilLogFilePath'    => 'path/to/your/bjutil.log',
+                            // 'batchJobsUtilLogLevel'       => 'INFO',
+                        ],
+                    ]
+                );
+            }
+
             // Check mandatory credentials.
             if (
-                !$this->configuration->getConfiguration('developerToken', 'ADWORDS')
-                || !$this->configuration->getConfiguration('clientId', 'OAUTH2')
-                || !$this->configuration->getConfiguration('clientSecret', 'OAUTH2')
-                || !$this->configuration->getConfiguration('refreshToken', 'OAUTH2')
+                !$this->adWordsConfiguration->getConfiguration('developerToken', 'ADWORDS')
+                || !$this->adWordsConfiguration->getConfiguration('clientId', 'OAUTH2')
+                || !$this->adWordsConfiguration->getConfiguration('clientSecret', 'OAUTH2')
+                || !$this->adWordsConfiguration->getConfiguration('refreshToken', 'OAUTH2')
             ) {
                 throw new \Exception(
-                    'Missing credentials for this media account '.$this->mediaAccountId.'.'
+                    'Missing credentials for this media account '.$this->mediaAccount->getId().'.'
                 );
             }
 
             try {
-                if (!$this->sessionBuilder) {
-                    $oAuth2Credential     = (new OAuth2TokenBuilder())
-                        ->from($this->configuration)
+                if (!$this->adWordsSessionBuilder) {
+                    $oAuth2Credential            = (new OAuth2TokenBuilder())
+                        ->from($this->adWordsConfiguration)
                         ->build();
-                    $this->sessionBuilder = (new AdWordsSessionBuilder())
-                        ->from($this->configuration)
+                    $this->adWordsSessionBuilder = (new AdWordsSessionBuilder())
+                        ->from($this->adWordsConfiguration)
                         ->withOAuth2Credential($oAuth2Credential);
 
                     // Hide log output.
                     $logger = new NullLogger();
-                    $this->sessionBuilder->withSoapLogger($logger)
+                    $this->adWordsSessionBuilder->withSoapLogger($logger)
                         ->withReportDownloaderLogger($logger);
                 }
                 if ($customerId) {
-                    $this->sessions[$customerId] = $this->sessionBuilder->withClientCustomerId($customerId)->build();
+                    $this->adWordsSessions[$customerId] = $this->adWordsSessionBuilder->withClientCustomerId(
+                        $customerId
+                    )->build();
                 } else {
-                    $this->sessions[$customerId] = $this->sessionBuilder->build();
+                    $this->adWordsSessions[$customerId] = $this->adWordsSessionBuilder->build();
                 }
             } catch (\Exception $e) {
                 if ($e instanceof \InvalidArgumentException) {
                     throw new \Exception(
-                        'Missing credentials for this media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                        'Missing credentials for this media account '.$this->mediaAccount->getId().'. '.$e->getMessage()
                     );
                 } else {
                     throw new \Exception(
-                        'Cannot establish Google session for media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                        'Cannot establish Google session for media account '.$this->mediaAccount->getId(
+                        ).'. '.$e->getMessage()
                     );
                 }
             }
         }
 
-        return isset($this->sessions[$customerId]) ? $this->sessions[$customerId] : null;
-    }
-
-    /**
-     * Save all the stat entities in queue.
-     */
-    private function saveQueue()
-    {
-        if ($this->stats) {
-            if (!$this->em->isOpen()) {
-                $this->em = $this->em->create(
-                    $this->em->getConnection(),
-                    $this->em->getConfiguration(),
-                    $this->em->getEventManager()
-                );
-            }
-            $this->em->getRepository('MauticMediaBundle:Stat')
-                ->saveEntities($this->stats);
-
-            $this->stats = [];
-            $this->em->clear(Stat::class);
-        }
+        return isset($this->adWordsSessions[$customerId]) ? $this->adWordsSessions[$customerId] : null;
     }
 }

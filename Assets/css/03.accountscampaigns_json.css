@@ -166,8 +166,18 @@ div[data-schemapath*="root.campaigns."] h3.moveRight {
     font-weight: bold;
 }
 
-.media_jsoneditor div[data-schemapath$=".providerCampaignId"] select {
-    margin-top: 4px;
+.media_jsoneditor .multiple div[data-schemapath$=".providerCampaignId"]:after,
+.media_jsoneditor .single div[data-schemapath$=".providerAccountId"]:after {
+    position: absolute;
+    right: -13px;
+    top: 20px;
+    display: inline-block;
+    font: normal normal normal 14px/1 FontAwesome;
+    font-size: 36px;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    content: "\f061";
+    color: #ebedf0;
 }
 
 .media_jsoneditor .single div[data-schemapath*=".campaigns"],
@@ -186,6 +196,7 @@ div[data-schemapath*="root.campaigns."] h3.moveRight {
 .media_jsoneditor div[data-schematype="array"] div[data-schemapath*=".campaigns"].col-md-12 {
     padding-top: 20px;
 }
+
 .media_jsoneditor .unmapped {
     color: #cb4641;
 }

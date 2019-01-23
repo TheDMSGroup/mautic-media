@@ -11,7 +11,6 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
-use Doctrine\ORM\EntityManager;
 use FacebookAds\Api;
 use FacebookAds\Cursor;
 use FacebookAds\Http\Exception\AuthorizationException;
@@ -21,91 +20,19 @@ use FacebookAds\Object\User;
 use FacebookAds\Object\Values\ReachFrequencyPredictionStatuses;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
-use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Class FacebookHelper.
  *
  * https://developers.facebook.com/docs/marketing-api/sdks/#install-facebook-sdks
  */
-class FacebookHelper
+class FacebookHelper extends CommonProviderHelper
 {
-    /** @var int Number of rate limit errors after which we abort. */
-    public static $rateLimitMaxErrors = 60;
-
-    /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = .2;
-
-    /** @var int Number of seconds to sleep when we hit API rate limits. */
-    public static $rateLimitSleep = 60;
-
     /** @var Api */
-    private $client;
+    private $facebookApi;
 
     /** @var User */
-    private $user;
-
-    /** @var string */
-    private $providerAccountId;
-
-    /** @var string */
-    private $mediaAccountId;
-
-    /** @var OutputInterface */
-    private $output;
-
-    /** @var array */
-    private $errors = [];
-
-    /** @var EntityManager */
-    private $em;
-
-    /** @var array */
-    private $stats = [];
-
-    /** @var CampaignSettingsHelper */
-    private $campaignSettingsHelper;
-
-    /** @var string */
-    private $providerToken;
-
-    /** @var string */
-    private $providerClientSecret;
-
-    /** @var string */
-    private $providerClientId;
-
-    /**
-     * FacebookHelper constructor.
-     *
-     * @param                        $mediaAccountId
-     * @param                        $providerAccountId
-     * @param                        $providerClientId
-     * @param                        $providerClientSecret
-     * @param                        $providerToken
-     * @param OutputInterface        $output
-     * @param EntityManager          $em
-     * @param CampaignSettingsHelper $campaignSettingsHelper
-     */
-    public function __construct(
-        $mediaAccountId,
-        $providerAccountId,
-        $providerClientId,
-        $providerClientSecret,
-        $providerToken,
-        OutputInterface $output,
-        EntityManager $em,
-        CampaignSettingsHelper $campaignSettingsHelper
-    ) {
-        $this->mediaAccountId         = $mediaAccountId;
-        $this->providerAccountId      = $providerAccountId;
-        $this->providerClientId       = $providerClientId;
-        $this->providerClientSecret   = $providerClientSecret;
-        $this->providerToken          = $providerToken;
-        $this->output                 = $output;
-        $this->em                     = $em;
-        $this->campaignSettingsHelper = $campaignSettingsHelper;
-    }
+    private $facebookUser;
 
     /**
      * @param \DateTime $dateFrom
@@ -154,11 +81,9 @@ class FacebookHelper
                         'spend',
                         'cpm',
                         'cpc',
-                        'cpp', // Always null at ad level?
                         'ctr',
                         'impressions',
                         'clicks',
-                        'reach', // Always null at ad level?
                         // 'actions' Currently excluding CpCo, since we'd need to decide a timeframe.
                     ];
                     $params = [
@@ -191,7 +116,7 @@ class FacebookHelper
                                 $timezone
                             );
                             $stat = new Stat();
-                            $stat->setMediaAccountId($this->mediaAccountId);
+                            $stat->setMediaAccountId($this->mediaAccount->getId());
 
                             $stat->setDateAdded($date);
 
@@ -224,40 +149,11 @@ class FacebookHelper
                             $stat->setSpend(floatval($data['spend']));
                             $stat->setCpm(floatval($data['cpm']));
                             $stat->setCpc(floatval($data['cpc']));
-                            $stat->setCpp(floatval($data['cpp']));
                             $stat->setCtr(floatval($data['ctr']));
                             $stat->setImpressions(intval($data['impressions']));
                             $stat->setClicks(intval($data['clicks']));
-                            $stat->setReach(intval($data['reach']));
 
-                            // Don't bother saving stat records without valuable data.
-                            if (
-                                $stat->getSpend()
-                                || $stat->getCpm()
-                                || $stat->getCpc()
-                                || $stat->getCpp()
-                                || $stat->getCtr()
-                                // || $stat->getImpressions()
-                                // || $stat->getClicks()
-                                // || $stat->getReach()
-                            ) {
-                                // Uniqueness to match the unique_by_ad constraint.
-                                $key               = implode(
-                                    '|',
-                                    [
-                                        $date->getTimestamp(),
-                                        $stat->getProvider(),
-                                        $stat->getMediaAccountId(),
-                                        $stat->getProviderAdsetId(),
-                                        $stat->getProviderAdId(),
-                                    ]
-                                );
-                                $this->stats[$key] = $stat;
-                                if (0 === count($this->stats) % 100) {
-                                    $this->saveQueue();
-                                }
-                                $spend += $stat->getSpend();
-                            }
+                            $this->addStatToQueue($stat, $spend);
                         }
                     );
                     $this->output->writeln(' - '.$self['currency'].' '.$spend);
@@ -265,6 +161,7 @@ class FacebookHelper
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
+            $this->output->writeln('');
             $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.' - '.$e->getMessage().'</error>');
         }
         $this->saveQueue();
@@ -277,7 +174,7 @@ class FacebookHelper
      */
     private function authenticate()
     {
-        if (!$this->client || !$this->user) {
+        if (!$this->facebookApi || !$this->facebookUser) {
             // Check mandatory credentials.
             if (!trim($this->providerClientId) || !trim($this->providerClientSecret) || !trim($this->providerToken)) {
                 throw new \Exception(
@@ -287,19 +184,19 @@ class FacebookHelper
 
             // Configure the client session.
             Api::init($this->providerClientId, $this->providerClientSecret, $this->providerToken);
-            $this->client = Api::instance();
-            // $this->client->setLogger(new \FacebookAds\Logger\CurlLogger());
+            $this->facebookApi = Api::instance();
+            // $this->facebookApi->setLogger(new \FacebookAds\Logger\CurlLogger());
             Cursor::setDefaultUseImplicitFetch(true);
 
             // Authenticate and get the primary user ID in the same call.
-            $me = $this->client->call('/me')->getContent();
+            $me = $this->facebookApi->call('/me')->getContent();
             if (!$me || !isset($me['id'])) {
                 throw new \Exception(
                     'Cannot discern Facebook user for account '.$this->providerAccountId.'. You likely need to reauthenticate.'
                 );
             }
             $this->output->writeln('Logged in to Facebook as '.strip_tags($me['name']));
-            $this->user = new AdAccountUser($me['id']);
+            $this->facebookUser = new AdAccountUser($me['id']);
         }
     }
 
@@ -370,7 +267,7 @@ class FacebookHelper
         $this->output->writeln(
             MediaAccount::PROVIDER_FACEBOOK.' - Found '.count(
                 $accounts
-            ).' accounts active for media account '.$this->mediaAccountId.'.'
+            ).' accounts active for media account '.$this->mediaAccount->getId().'.'
         );
 
         return $accounts;
@@ -395,7 +292,7 @@ class FacebookHelper
         do {
             try {
                 $code = null;
-                foreach ($this->user->getAdAccounts($fields, $params) as $account) {
+                foreach ($this->facebookUser->getAdAccounts($fields, $params) as $account) {
                     if (is_callable($callback)) {
                         if ($callback($account)) {
                             break;
@@ -407,7 +304,7 @@ class FacebookHelper
                 $this->errors[] = $e->getMessage();
                 $code           = $e->getCode();
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
-                    throw new \Exception('Too many request errors.');
+                    throw new \Exception('Too many request errors. '.$e->getMessage());
                 }
                 if (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code) {
                     $this->output->write('⌛');
@@ -447,7 +344,6 @@ class FacebookHelper
                             break;
                         }
                     }
-                    // $this->output->write('.');
                     sleep(self::$betweenOpSleep);
                     $cursor->prev();
                 }
@@ -464,26 +360,5 @@ class FacebookHelper
                 }
             }
         } while (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code);
-    }
-
-    /**
-     * Save all the stat entities in queue.
-     */
-    private function saveQueue()
-    {
-        if ($this->stats) {
-            if (!$this->em->isOpen()) {
-                $this->em = $this->em->create(
-                    $this->em->getConnection(),
-                    $this->em->getConfiguration(),
-                    $this->em->getEventManager()
-                );
-            }
-            $this->em->getRepository('MauticMediaBundle:Stat')
-                ->saveEntities($this->stats);
-
-            $this->stats = [];
-            $this->em->clear(Stat::class);
-        }
     }
 }

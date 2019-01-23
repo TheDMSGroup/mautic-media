@@ -17,11 +17,18 @@ return [
 
     'routes'   => [
         'main' => [
-            'mautic_media_index'  => [
+            'mautic_media_auth_callback' => [
+                'path'         => '/media/authcallback/{provider}',
+                'controller'   => 'MauticMediaBundle:Auth:authCallback',
+                'requirements' => [
+                    'provider' => '\w+',
+                ],
+            ],
+            'mautic_media_index'         => [
                 'path'       => '/media/{page}',
                 'controller' => 'MauticMediaBundle:MediaAccount:index',
             ],
-            'mautic_media_action' => [
+            'mautic_media_action'        => [
                 'path'         => '/media/{objectAction}/{objectId}',
                 'controller'   => 'MauticMediaBundle:MediaAccount:execute',
                 'requirements' => [
@@ -33,19 +40,19 @@ return [
     ],
     'services' => [
         'events'       => [
-            'mautic.media.subscriber.stat'  => [
+            'mautic.media.subscriber.stat'       => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatSubscriber',
                 'arguments' => [
                     'mautic.media.model.media',
                 ],
             ],
-            'mautic.media.subscriber.chart_data'  => [
+            'mautic.media.subscriber.chart_data' => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\ChartDataSubscriber',
                 'arguments' => [
                     'mautic.media.model.media',
                 ],
             ],
-            'mautic.media.subscriber.media' => [
+            'mautic.media.subscriber.media'      => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\MediaAccountSubscriber',
                 'arguments' => [
                     'router',
@@ -58,7 +65,7 @@ return [
                     'mautic.media.model.media',
                 ],
             ],
-            'mautic.media.stats.subscriber' => [
+            'mautic.media.stats.subscriber'      => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatsSubscriber',
                 'arguments' => [
                     'doctrine.orm.entity_manager',
@@ -97,6 +104,7 @@ return [
                     'event_dispatcher',
                     'mautic.lead.model.lead',
                     'mautic.campaign.model.campaign',
+                    'session',
                 ],
             ],
         ],

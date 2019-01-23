@@ -37,14 +37,14 @@ class MediaCommand extends ModeratedCommand
                 'l',
                 InputOption::VALUE_OPTIONAL,
                 'Maximum number of accounts to pull.',
-                50
+                0
             )
             ->addOption(
                 'date-from',
                 '',
                 InputOption::VALUE_OPTIONAL,
-                'Oldest date to pull spend data for. Leave blank for yesterday.',
-                'midnight yesterday'
+                'Oldest date to pull spend data for. Leave blank for the last day.',
+                '-1 day'
             )
             ->addOption(
                 'date-to',
@@ -105,8 +105,10 @@ class MediaCommand extends ModeratedCommand
                     ],
                 ],
             ],
-            'limit'  => $limit,
         ];
+        if ($limit) {
+            $filters['limit'] = $limit;
+        }
         if ($mediaAccountId) {
             $filters['filter']['force'][] = [
                 'column' => 'm.id',

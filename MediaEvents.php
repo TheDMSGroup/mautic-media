@@ -71,7 +71,5 @@ final class MediaEvents
      *
      * @var string
      */
-    const TIMELINE_ON_GENERATE     = 'mautic.media_timeline_on_generate';
-
-    const TRANSACTIONS_ON_GENERATE = 'mautic.media_transactions_on_generate';
+    const TIMELINE_ON_GENERATE = 'mautic.media_timeline_on_generate';
 }

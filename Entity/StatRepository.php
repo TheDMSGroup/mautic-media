@@ -203,17 +203,15 @@ class StatRepository extends CommonRepository
                 'spend,'.
                 'cpc,'.
                 'cpm,'.
-                'cpp,'.
                 'ctr,'.
                 'impressions,'.
-                'clicks,'.
-                'reach'.
+                'clicks'.
                 ') VALUES ('.implode(
                     '),(',
                     array_fill(
                         0,
                         count($entities),
-                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
+                        'FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?'
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
@@ -221,11 +219,9 @@ class StatRepository extends CommonRepository
                 'spend = VALUES(spend), '.
                 'cpc = VALUES(cpc), '.
                 'cpm = VALUES(cpm), '.
-                'cpp = VALUES(cpp), '.
                 'ctr = VALUES(ctr), '.
                 'impressions = VALUES(impressions), '.
-                'clicks = VALUES(clicks), '.
-                'reach = VALUES(reach)'
+                'clicks = VALUES(clicks)'
             );
 
         $count = 0;
@@ -247,11 +243,9 @@ class StatRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getSpend(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpc(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpm(), Type::FLOAT);
-            $q->bindValue(++$count, $entity->getCpp(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCtr(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getImpressions(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getClicks(), Type::INTEGER);
-            $q->bindValue(++$count, $entity->getReach(), Type::INTEGER);
         }
 
         $q->execute();
@@ -269,7 +263,9 @@ class StatRepository extends CommonRepository
     {
         $q = $this->getEntityManager()->getConnection()->createQueryBuilder()
             ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
-            ->select('DATE_FORMAT(s.date_added, "'.$args['dbunit'].'") AS spendDate, s.campaign_id, SUM(s.spend) AS spend');
+            ->select(
+                'DATE_FORMAT(s.date_added, "'.$args['dbunit'].'") AS spendDate, s.campaign_id, SUM(s.spend) AS spend'
+            );
 
         $expr = $q->expr()->andX(
             $q->expr()->eq('s.campaign_id', (int) $campaignId),

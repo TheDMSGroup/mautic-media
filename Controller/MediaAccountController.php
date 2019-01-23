@@ -158,9 +158,9 @@ class MediaAccountController extends FormController
                 'DESC',
             ];
             if ('POST' == $this->request->getMethod()) {
-                $chartFilterValues = $this->request->request->has('chartfilter')
-                    ? $this->request->request->get('chartfilter')
-                    : $session->get('mautic.media.'.$item->getId().'.chartfilter');
+                $chartFilterValues = $this->request->request->has('media_chart')
+                    ? $this->request->request->get('media_chart')
+                    : $session->get('mautic.media.'.$item->getId().'.media_chart');
                 if ($this->request->request->has('orderby')) {
                     $order[0] = $this->request->request->get('orderby');
                 }
@@ -168,8 +168,8 @@ class MediaAccountController extends FormController
                     $order[1] = $this->request->request->get('orderbydir');
                 }
             } else {
-                $chartFilterValues = $session->get('mautic.media.'.$item->getId().'.chartfilter')
-                    ? $session->get('mautic.media.'.$item->getId().'.chartfilter')
+                $chartFilterValues = $session->get('mautic.media.'.$item->getId().'.media_chart')
+                    ? $session->get('mautic.media.'.$item->getId().'.media_chart')
                     : [
                         'date_from' => $this->get('mautic.helper.core_parameters')->getParameter(
                             'default_daterange_filter',
@@ -180,7 +180,7 @@ class MediaAccountController extends FormController
                     ];
             }
 
-            $session->set('mautic.media.'.$item->getId().'.chartfilter', $chartFilterValues);
+            $session->set('mautic.media.'.$item->getId().'.media_chart', $chartFilterValues);
 
             //Setup for the chart and stats datatable
             /** @var \MauticPlugin\MauticMediaBundle\Model\MediaAccountModel $model */
@@ -217,11 +217,10 @@ class MediaAccountController extends FormController
             $args['viewParameters']['auditlog']        = $auditLog;
             $args['viewParameters']['stats']           = $stats;
             $args['viewParameters']['chartFilterForm'] = $chartFilterForm->createView();
-            // depracated datatable section
-            $args['viewParameters']['order'] = $order;
+            $args['viewParameters']['order']           = $order;
 
             unset($chartFilterValues['campaign']);
-            $session->set('mautic.media.'.$item->getId().'.chartfilter', $chartFilterValues);
+            $session->set('mautic.media.'.$item->getId().'.media_chart', $chartFilterValues);
         }
 
         return $args;

@@ -12,7 +12,11 @@ $view->extend('MauticCoreBundle:Default:content.html.php');
 $view['slots']->set('mauticContent', 'media');
 $view['slots']->set('headerTitle', $item->getName());
 
-echo $view['assets']->includeScript('plugins/MauticMediaBundle/Assets/build/media.min.js', 'mediaOnLoad', 'mediaOnLoad');
+echo $view['assets']->includeScript(
+    'plugins/MauticMediaBundle/Assets/build/media.min.js',
+    'mediaOnLoad',
+    'mediaOnLoad'
+);
 echo $view['assets']->includeStylesheet('plugins/MauticMediaBundle/Assets/build/media.min.css');
 
 $view['slots']->set(

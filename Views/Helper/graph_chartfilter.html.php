@@ -35,33 +35,15 @@ if (!isset($class)) {
     /**
      * Initialize graph date range selectors
      */
-    var dateFrom = mQuery('#mediachartfilter_date_from');
-    var dateTo = mQuery('#mediachartfilter_date_to');
-
-    if (dateFrom.length && dateTo.length) {
-        dateFrom.datetimepicker({
-            format: 'M j, Y',
-            onShow: function (ct) {
-                this.setOptions({
-                    maxDate: dateTo.val() ? new Date(dateTo.val()) : false
-                });
-            },
-            timepicker: false,
-            scrollMonth: false,
-            scrollInput: false
-        });
-
-        dateTo.datetimepicker({
-            format: 'M j, Y',
-            onShow: function (ct) {
-                this.setOptions({
-                    maxDate: new Date(),
-                    minDate: dateFrom.val() ? new Date(dateFrom.val()) : false
-                });
-            },
-            timepicker: false,
-            scrollMonth: false,
-            scrollInput: false
-        });
-    }
+    mQuery('#media_chart_date_from:first, #media_chart_date_to:first').datetimepicker({
+        format: 'M j, Y',
+        onShow: function (ct) {
+            this.setOptions({
+                maxDate: mQuery(this).val() ? new Date(mQuery(this).val()) : false
+            });
+        },
+        timepicker: false,
+        scrollMonth: false,
+        scrollInput: false
+    });
 </script>

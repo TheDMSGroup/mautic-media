@@ -12,6 +12,7 @@
 namespace MauticPlugin\MauticMediaBundle\Model;
 
 use Doctrine\DBAL\Query\QueryBuilder;
+use Doctrine\ORM\EntityManager;
 use Mautic\CampaignBundle\Model\CampaignModel;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use Mautic\CoreBundle\Helper\Chart\LineChart;
@@ -22,15 +23,14 @@ use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
-use MauticPlugin\MauticMediaBundle\Helper\BingHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
-use MauticPlugin\MauticMediaBundle\Helper\FacebookHelper;
-use MauticPlugin\MauticMediaBundle\Helper\GoogleHelper;
-use MauticPlugin\MauticMediaBundle\Helper\SnapchatHelper;
+use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\MediaEvents;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\EventDispatcher\Event;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 /**
@@ -59,6 +59,9 @@ class MediaAccountModel extends FormModel
     /** @var CampaignModel */
     protected $campaignModel;
 
+    /** @var Session */
+    protected $session;
+
     /**
      * MediaAccountModel constructor.
      *
@@ -67,6 +70,8 @@ class MediaAccountModel extends FormModel
      * @param TemplatingHelper                   $templating
      * @param EventDispatcherInterface           $dispatcher
      * @param ContactModel                       $contactModel
+     * @param CampaignModel                      $campaignModel
+     * @param Session                            $session
      */
     public function __construct(
         \Mautic\FormBundle\Model\FormModel $formModel,
@@ -74,7 +79,8 @@ class MediaAccountModel extends FormModel
         TemplatingHelper $templating,
         EventDispatcherInterface $dispatcher,
         ContactModel $contactModel,
-        CampaignModel $campaignModel
+        CampaignModel $campaignModel,
+        Session $session
     ) {
         $this->formModel      = $formModel;
         $this->trackableModel = $trackableModel;
@@ -82,6 +88,7 @@ class MediaAccountModel extends FormModel
         $this->dispatcher     = $dispatcher;
         $this->contactModel   = $contactModel;
         $this->campaignModel  = $campaignModel;
+        $this->session        = $session;
     }
 
     /**
@@ -198,6 +205,7 @@ class MediaAccountModel extends FormModel
         $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $unit);
         $unit  = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
+        $sets  = 0;
 
         $params = [
             'media_account_id' => $MediaAccount->getId(),
@@ -263,9 +271,6 @@ class MediaAccountModel extends FormModel
             }
 
             $data = $query->loadAndBuildTimeData($q);
-            if (!$totals) {
-                $totals = $data;
-            }
             foreach ($data as $key => $val) {
                 $totals[$key] += $val;
             }
@@ -275,14 +280,17 @@ class MediaAccountModel extends FormModel
                     break;
                 }
             }
+            ++$sets;
         }
-        foreach ($totals as $val) {
-            if (0 !== $val) {
-                $chart->setDataset(
-                    $this->translator->trans('mautic.media.form.provider.total.'.$MediaAccount->getProvider()),
-                    $totals
-                );
-                break;
+        if ($sets > 1) {
+            foreach ($totals as $val) {
+                if (0 !== $val) {
+                    $chart->setDataset(
+                        $this->translator->trans('mautic.media.form.provider.total.'.$MediaAccount->getProvider()),
+                        $totals
+                    );
+                    break;
+                }
             }
         }
 
@@ -368,69 +376,83 @@ class MediaAccountModel extends FormModel
      * @throws \Exception
      */
     public function pullData(
-        MediaAccount $mediaAccount = null,
+        MediaAccount $mediaAccount,
         \DateTime $dateFrom,
         \DateTime $dateTo,
         OutputInterface $output
     ) {
+        $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
+        if ($helper) {
+            $helper->pullData($dateFrom, $dateTo);
+        }
+    }
+
+    /**
+     * @param MediaAccount         $mediaAccount
+     * @param OutputInterface|null $output
+     * @param EntityManager|null   $em
+     * @param bool                 $includeCampaignSettings
+     *
+     * @return CommonProviderHelper|void
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getProviderHelper(
+        MediaAccount $mediaAccount,
+        OutputInterface $output = null,
+        EntityManager $em = null,
+        $includeCampaignSettings = false
+    ) {
         if (!$mediaAccount) {
             return;
         }
-        $mediaAccountId         = $mediaAccount->getId();
-        $providerAccountId      = $mediaAccount->getAccountId();
-        $providerClientId       = $mediaAccount->getClientId();
-        $providerClientSecret   = $mediaAccount->getClientSecret();
-        $providerToken          = $mediaAccount->getToken();
-        $providerRefreshToken   = $mediaAccount->getRefreshToken();
-        $campaignSettings       = $mediaAccount->getCampaignSettings();
-        $campaignNames          = $this->getCampaignNames();
-        $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
-            $mediaAccountId,
-            $mediaAccount->getProvider()
-        );
-        $campaignSettingsHelper = new CampaignSettingsHelper(
-            $campaignNames,
-            $campaignSettings,
-            $data
-        );
-        switch ($mediaAccount->getProvider()) {
-            case MediaAccount::PROVIDER_FACEBOOK:
-                $helper = new FacebookHelper(
-                    $mediaAccountId,
-                    $providerAccountId,
-                    $providerClientId,
-                    $providerClientSecret,
-                    $providerToken,
-                    $output,
-                    $this->em,
-                    $campaignSettingsHelper
-                );
-                $helper->pullData($dateFrom, $dateTo);
-                break;
-
-            case MediaAccount::PROVIDER_BING:
-                $helper = new BingHelper();
-                break;
-
-            case MediaAccount::PROVIDER_GOOGLE:
-                $helper = new GoogleHelper(
-                    $mediaAccountId,
-                    $providerAccountId,
-                    $providerClientId,
-                    $providerClientSecret,
-                    $providerToken,
-                    $providerRefreshToken,
-                    $output,
-                    $this->em,
-                    $campaignSettingsHelper
-                );
-                $helper->pullData($dateFrom, $dateTo);
-                break;
-
-            case MediaAccount::PROVIDER_SNAPCHAT:
-                $helper = new SnapchatHelper();
-                break;
+        if (!$output) {
+            $output = new NullOutput();
         }
+        if (!$em && $this->em) {
+            $em = $this->em;
+        }
+        $mediaAccountId       = $mediaAccount->getId();
+        $providerAccountId    = $mediaAccount->getAccountId();
+        $providerClientId     = $mediaAccount->getClientId();
+        $providerClientSecret = $mediaAccount->getClientSecret();
+        $providerToken        = $mediaAccount->getToken();
+        $providerRefreshToken = $mediaAccount->getRefreshToken();
+        $campaignSettings     = $mediaAccount->getCampaignSettings();
+        $provider             = $mediaAccount->getProvider();
+        $providerHelper       = 'MauticPlugin\\MauticMediaBundle\\Helper\\'.ucfirst($provider).'Helper';
+        if (!in_array($provider, MediaAccount::getAllProviders()) || !class_exists($providerHelper)) {
+            // Currently unsupported provider.
+            return;
+        }
+        $campaignSettingsHelper = null;
+        if ($mediaAccountId && $includeCampaignSettings) {
+            $campaignNames          = $this->getCampaignNames();
+            $data                   = $this->getStatRepository()->getProviderAccountsWithCampaigns(
+                $mediaAccountId,
+                $mediaAccount->getProvider()
+            );
+            $campaignSettingsHelper = new CampaignSettingsHelper(
+                $campaignNames,
+                $campaignSettings,
+                $data
+            );
+        }
+        /** @var CommonProviderHelper $helper */
+        $helper = new $providerHelper(
+            $mediaAccount,
+            $providerAccountId,
+            $providerClientId,
+            $providerClientSecret,
+            $providerToken,
+            $providerRefreshToken,
+            $this->session,
+            $output,
+            $em,
+            $campaignSettingsHelper
+        );
+
+        return $helper;
     }
 
     /**
@@ -477,6 +499,7 @@ class MediaAccountModel extends FormModel
         switch ($action) {
             case 'pre_save':
                 $name = MediaEvents::PRE_SAVE;
+                CommonProviderHelper::preSaveMediaAccount($this->session, $entity);
                 break;
             case 'post_save':
                 $name = MediaEvents::POST_SAVE;
