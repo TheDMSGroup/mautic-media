@@ -512,7 +512,6 @@ class SnapchatHelper extends CommonProviderHelper
     ) {
         $adStats = [];
         $fields  = [
-            // @todo - Correlate to FB/Google data.
             'impressions',
             'spend',
             'swipes',
@@ -590,50 +589,5 @@ class SnapchatHelper extends CommonProviderHelper
         }
 
         return isset($this->adSquadCache[$campaignId][$adSquadId]) ? $this->adSquadCache[$campaignId][$adSquadId] : null;
-    }
-
-    /**
-     * Pull statistics for an ad within a time frame, paginated, with a callback.
-     *
-     * EX:
-     * https://adsapi.snapchat.com/v1/campaigns/04dd5e26-7156-4e07-b2b8-2911ae3aaccc/stats?granularity=DAY&fields=impressions,spend,conversion_add_cart,conversion_add_cart_swipe_up,conversion_add_cart_view,conversion_purchases,conversion_purchases_swipe_up,conversion_purchases_view&swipe_up_attribution_window=28_DAY&view_attribution_window=7_DAY&start_time=2017-11-10T00:00:00-08:00&end_time=2017-11-12T00:00:00-08:00
-     *
-     * @param           $adId
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     * @param           $callback
-     *
-     * @return array
-     */
-    private function getAdStats(
-        $adId,
-        \DateTime $dateFrom,
-        \DateTime $dateTo,
-        $callback
-    ) {
-        $params = [
-            'granularity'                 => 'HOUR',
-            'fields'                      => implode(
-                ',',
-                [
-                    // @todo - Correlate to FB/Google data.
-                    'impressions',
-                    'spend',
-                    'conversion_add_cart',
-                    'conversion_add_cart_swipe_up',
-                    'conversion_add_cart_view',
-                    'conversion_purchases',
-                    'conversion_purchases_swipe_up',
-                    'conversion_purchases_view',
-                ]
-            ),
-            // We will typically not be pulling data for 28 days in arrears, so pull one day attributions only.
-            'swipe_up_attribution_window' => '1_DAY',
-            'view_attribution_window'     => '1_DAY',
-            'start_time'                  => $dateFrom->format(self::$snapchateDateFormat),
-            'end_time'                    => $dateTo->format(self::$snapchateDateFormat),
-        ];
-
-        return $this->getRequest('/ads/'.$adId.'/stats', 'stats', $params, $callback);
     }
 }
