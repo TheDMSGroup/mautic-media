@@ -80,7 +80,6 @@ class GoogleHelper extends CommonProviderHelper
             'Cost', // In micros
             'AverageCpm', // In micros
             'AverageCpc', // In micros
-            // CPP can be estimated by AverageCpm divided by 1000
             'Ctr',
             'Impressions',
             'Clicks',
@@ -187,9 +186,9 @@ class GoogleHelper extends CommonProviderHelper
 
                                     $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                         (string) $customerId,
-                                        $data['CampaignId'],
+                                        (string) $data['CampaignId'],
                                         (string) $customer->getName(),
-                                        $data['CampaignName']
+                                        (string) $data['CampaignName']
                                     );
                                     if (is_int($campaignId)) {
                                         $stat->setCampaignId($campaignId);
@@ -211,45 +210,22 @@ class GoogleHelper extends CommonProviderHelper
                                     // $stat->setProviderAdId('');
                                     // $stat->setproviderAdName('');
 
+                                    // Definitions:
+                                    // CPM is total cost for 1k impressions.
+                                    //      CPM = cost * 1000 / impressions
+                                    // CPC is the cost per action.
+                                    //      CPC = cost / clicks
+                                    // CTR is the click through rate.
+                                    //      CTR = (clicks / impressions) * 100
                                     $stat->setCurrency($customer->getCurrencyCode());
                                     $stat->setSpend(floatval($data['Cost']) / 1000000);
                                     $stat->setCpm(floatval($data['AverageCpm']) / 1000000);
                                     $stat->setCpc(floatval($data['AverageCpc']) / 1000000);
-                                    $stat->setCpp(floatval($data['AverageCpm']) / 1000000 / 1000);
                                     $stat->setCtr(floatval($data['Ctr']));
                                     $stat->setImpressions(intval($data['Impressions']));
                                     $stat->setClicks(intval($data['Clicks']));
 
-                                    // $stat->setReach(intval($data['reach']));
-
-                                    // Don't bother saving stat records without valuable data.
-                                    if (
-                                        $stat->getSpend()
-                                        || $stat->getCpm()
-                                        || $stat->getCpc()
-                                        || $stat->getCpp()
-                                        || $stat->getCtr()
-                                        // || $stat->getImpressions()
-                                        // || $stat->getClicks()
-                                        // || $stat->getReach()
-                                    ) {
-                                        // Uniqueness to match the unique_by_ad constraint.
-                                        $key               = implode(
-                                            '|',
-                                            [
-                                                $date->getTimestamp(),
-                                                $stat->getProvider(),
-                                                $stat->getMediaAccountId(),
-                                                $stat->getProviderAdsetId(),
-                                                $stat->getProviderAdId(),
-                                            ]
-                                        );
-                                        $this->stats[$key] = $stat;
-                                        if (0 === count($this->stats) % 100) {
-                                            $this->saveQueue();
-                                        }
-                                        $spend += $stat->getSpend();
-                                    }
+                                    $this->addStatToQueue($stat, $spend);
                                 }
                             }
 
@@ -421,7 +397,8 @@ class GoogleHelper extends CommonProviderHelper
                     );
                 } else {
                     throw new \Exception(
-                        'Cannot establish Google session for media account '.$this->mediaAccount->getId().'. '.$e->getMessage()
+                        'Cannot establish Google session for media account '.$this->mediaAccount->getId(
+                        ).'. '.$e->getMessage()
                     );
                 }
             }

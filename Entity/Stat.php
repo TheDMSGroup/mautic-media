@@ -43,9 +43,6 @@ class Stat
     /** @var int $clicks */
     private $clicks = 0;
 
-    /** @var int $reach */
-    private $reach = 0;
-
     /** @var string */
     private $providerCampaignId = '';
 
@@ -60,9 +57,6 @@ class Stat
 
     /** @var string */
     private $providerAccountName = '';
-
-    /** @var float */
-    private $cpp = 0;
 
     /** @var float */
     private $ctr = 0;
@@ -139,11 +133,6 @@ class Stat
             ->scale(4)
             ->build();
 
-        $builder->createField('cpp', 'decimal')
-            ->precision(19)
-            ->scale(4)
-            ->build();
-
         $builder->createField('ctr', 'decimal')
             ->precision(19)
             ->scale(4)
@@ -152,8 +141,6 @@ class Stat
         $builder->addNamedField('impressions', 'integer', 'impressions', false);
 
         $builder->addNamedField('clicks', 'integer', 'clicks', false);
-
-        $builder->addNamedField('reach', 'integer', 'reach', false);
 
         // Presume that Ad IDs are unique for all providers, and if not we must make it so.
         $builder->addUniqueConstraint(
@@ -339,26 +326,6 @@ class Stat
     /**
      * @return int
      */
-    public function getReach()
-    {
-        return $this->reach;
-    }
-
-    /**
-     * @param int $reach
-     *
-     * @return Stat
-     */
-    public function setReach($reach)
-    {
-        $this->reach = $reach;
-
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
     public function getProviderCampaignId()
     {
         return $this->providerCampaignId;
@@ -452,26 +419,6 @@ class Stat
     public function setProvider($provider)
     {
         $this->provider = $provider;
-
-        return $this;
-    }
-
-    /**
-     * @return float
-     */
-    public function getCpp()
-    {
-        return $this->cpp;
-    }
-
-    /**
-     * @param float $cpp
-     *
-     * @return $this
-     */
-    public function setCpp($cpp)
-    {
-        $this->cpp = $cpp;
 
         return $this;
     }

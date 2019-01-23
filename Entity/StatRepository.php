@@ -203,11 +203,9 @@ class StatRepository extends CommonRepository
                 'spend,'.
                 'cpc,'.
                 'cpm,'.
-                'cpp,'.
                 'ctr,'.
                 'impressions,'.
-                'clicks,'.
-                'reach'.
+                'clicks'.
                 ') VALUES ('.implode(
                     '),(',
                     array_fill(
@@ -221,11 +219,9 @@ class StatRepository extends CommonRepository
                 'spend = VALUES(spend), '.
                 'cpc = VALUES(cpc), '.
                 'cpm = VALUES(cpm), '.
-                'cpp = VALUES(cpp), '.
                 'ctr = VALUES(ctr), '.
                 'impressions = VALUES(impressions), '.
-                'clicks = VALUES(clicks), '.
-                'reach = VALUES(reach)'
+                'clicks = VALUES(clicks)'
             );
 
         $count = 0;
@@ -247,11 +243,9 @@ class StatRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getSpend(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpc(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCpm(), Type::FLOAT);
-            $q->bindValue(++$count, $entity->getCpp(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getCtr(), Type::FLOAT);
             $q->bindValue(++$count, $entity->getImpressions(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getClicks(), Type::INTEGER);
-            $q->bindValue(++$count, $entity->getReach(), Type::INTEGER);
         }
 
         $q->execute();

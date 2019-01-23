@@ -208,6 +208,45 @@ class CommonProviderHelper
     }
 
     /**
+     * Given a Stat entity, add it to the queue to be saved.
+     * Save the queue if we have reached a batch level appropriate to do so.
+     * Do not queue any stat records without some usable spend data.
+     * Increment the spend amount if appropriate for logging.
+     *
+     * @param Stat $stat
+     * @param int  $spend
+     */
+    protected function addStatToQueue(Stat $stat, &$spend = 0)
+    {
+        if (
+            $stat->getSpend()
+            || $stat->getCpm()
+            || $stat->getCpc()
+            || $stat->getCtr()
+            // || $stat->getImpressions()
+            // || $stat->getClicks()
+            // || $stat->getReach()
+        ) {
+            // Uniqueness to match the unique_by_ad constraint.
+            $key               = implode(
+                '|',
+                [
+                    $stat->getDateAdded()->getTimestamp(),
+                    $stat->getProvider(),
+                    $stat->getMediaAccountId(),
+                    $stat->getProviderAdsetId(),
+                    $stat->getProviderAdId(),
+                ]
+            );
+            $this->stats[$key] = $stat;
+            if (0 === count($this->stats) % 100) {
+                $this->saveQueue();
+            }
+            $spend += $stat->getSpend();
+        }
+    }
+
+    /**
      * Save all the stat entities in queue.
      */
     protected function saveQueue()

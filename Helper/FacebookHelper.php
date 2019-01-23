@@ -81,11 +81,9 @@ class FacebookHelper extends CommonProviderHelper
                         'spend',
                         'cpm',
                         'cpc',
-                        'cpp', // Always null at ad level?
                         'ctr',
                         'impressions',
                         'clicks',
-                        'reach', // Always null at ad level?
                         // 'actions' Currently excluding CpCo, since we'd need to decide a timeframe.
                     ];
                     $params = [
@@ -151,40 +149,11 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setSpend(floatval($data['spend']));
                             $stat->setCpm(floatval($data['cpm']));
                             $stat->setCpc(floatval($data['cpc']));
-                            $stat->setCpp(floatval($data['cpp']));
                             $stat->setCtr(floatval($data['ctr']));
                             $stat->setImpressions(intval($data['impressions']));
                             $stat->setClicks(intval($data['clicks']));
-                            $stat->setReach(intval($data['reach']));
 
-                            // Don't bother saving stat records without valuable data.
-                            if (
-                                $stat->getSpend()
-                                || $stat->getCpm()
-                                || $stat->getCpc()
-                                || $stat->getCpp()
-                                || $stat->getCtr()
-                                // || $stat->getImpressions()
-                                // || $stat->getClicks()
-                                // || $stat->getReach()
-                            ) {
-                                // Uniqueness to match the unique_by_ad constraint.
-                                $key               = implode(
-                                    '|',
-                                    [
-                                        $date->getTimestamp(),
-                                        $stat->getProvider(),
-                                        $stat->getMediaAccountId(),
-                                        $stat->getProviderAdsetId(),
-                                        $stat->getProviderAdId(),
-                                    ]
-                                );
-                                $this->stats[$key] = $stat;
-                                if (0 === count($this->stats) % 100) {
-                                    $this->saveQueue();
-                                }
-                                $spend += $stat->getSpend();
-                            }
+                            $this->addStatToQueue($stat, $spend);
                         }
                     );
                     $this->output->writeln(' - '.$self['currency'].' '.$spend);
