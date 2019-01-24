@@ -44,6 +44,7 @@ class FacebookHelper extends CommonProviderHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
+        Cursor::setDefaultUseImplicitFetch(true);
         try {
             $this->authenticate();
             $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
@@ -62,13 +63,14 @@ class FacebookHelper extends CommonProviderHelper
                     $timezone = new \DateTimeZone($self['timezone_name']);
                     $since    = clone $date;
                     $until    = clone $date;
+                    // Since we are pulling one day at a time, these can be the same day for this provider.
+                    $since->setTimeZone($timezone);
+                    $until->setTimeZone($timezone);
                     $this->output->write(
                         MediaAccount::PROVIDER_FACEBOOK.' - Pulling hourly data - '.
                         $since->format('Y-m-d').' - '.
                         $self['name']
                     );
-                    $since->setTimeZone($timezone);
-                    $until->setTimeZone($timezone)->add($oneDay);
 
                     // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
                     $fields = [
@@ -84,19 +86,22 @@ class FacebookHelper extends CommonProviderHelper
                         'ctr',
                         'impressions',
                         'clicks',
-                        // 'actions' Currently excluding CpCo, since we'd need to decide a timeframe.
                     ];
                     $params = [
                         'level'      => 'ad',
-                        // 'filtering'  => [
-                        //     [
-                        //         'field'    => 'spend',
-                        //         'operator' => 'GREATER_THAN',
-                        //         'value'    => '0',
-                        //     ],
-                        // ],
+                        'filtering'  => [
+                            [
+                                'field'    => 'spend',
+                                'operator' => 'GREATER_THAN',
+                                'value'    => '0',
+                            ],
+                        ],
                         'breakdowns' => [
                             'hourly_stats_aggregated_by_advertiser_time_zone',
+                        ],
+                        'sort'       => [
+                            // 'date_start_descending',
+                            'hourly_stats_aggregated_by_advertiser_time_zone_descending',
                         ],
                         'time_range' => [
                             'since' => $since->format('Y-m-d'),
@@ -121,10 +126,10 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setDateAdded($date);
 
                             $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                                $self['id'],
-                                $data['campaign_id'],
-                                $self['name'],
-                                $data['campaign_name']
+                                (string) $self['id'],
+                                (string) $data['campaign_id'],
+                                (string) $self['name'],
+                                (string) $data['campaign_name']
                             );
                             if (is_int($campaignId)) {
                                 $stat->setCampaignId($campaignId);
@@ -216,23 +221,8 @@ class FacebookHelper extends CommonProviderHelper
         /* @var AdAccount $account */
         $this->getAdAccounts(
             function ($account) use (&$accounts, $dateTo, $dateFrom) {
-                $spend  = 0;
-                $self   = $account->getData();
-                $fields = [
-                    'campaign_id',
-                    'campaign_name',
-                    'spend',
-                ];
-                $params = [
-                    'level'     => 'account',
-                    'filtering' => [
-                        [
-                            'field'    => 'spend',
-                            'operator' => 'GREATER_THAN',
-                            'value'    => '0',
-                        ],
-                    ],
-                ];
+                $spend = 0;
+                $self  = $account->getData();
                 $this->output->write(
                     MediaAccount::PROVIDER_FACEBOOK.' - Checking for activity - '.
                     $dateFrom->format('Y-m-d').' ~ '.$dateTo->format('Y-m-d').' - '.
@@ -243,10 +233,24 @@ class FacebookHelper extends CommonProviderHelper
                 $until    = clone $dateTo;
                 $since->setTimeZone($timezone);
                 $until->setTimeZone($timezone);
-                // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
-                $params['time_range'] = [
-                    'since' => $since->format('Y-m-d'),
-                    'until' => $until->format('Y-m-d'),
+                $fields = [
+                    'campaign_id',
+                    'campaign_name',
+                    'spend',
+                ];
+                $params = [
+                    'level'      => 'account',
+                    'filtering'  => [
+                        [
+                            'field'    => 'spend',
+                            'operator' => 'GREATER_THAN',
+                            'value'    => '0',
+                        ],
+                    ],
+                    'time_range' => [
+                        'since' => $since->format('Y-m-d'),
+                        'until' => $until->format('Y-m-d'),
+                    ],
                 ];
                 $this->getInsights(
                     $account,
@@ -256,8 +260,8 @@ class FacebookHelper extends CommonProviderHelper
                         $spend += $data['spend'];
                         if ($spend) {
                             $accounts[] = $account;
-
-                            return true;
+                            // I need to see the spend amount, keep spooling for comparison.
+                            // return true;
                         }
                     }
                 );
@@ -332,20 +336,14 @@ class FacebookHelper extends CommonProviderHelper
                 $code = null;
 
                 /** @var \FacebookAds\Cursor $cursor */
-                $cursor = $account->getInsights($fields, $params);
-                $cursor->setUseImplicitFetch(true);
-                $cursor->end();
-
-                // Iterate through insights in reverse order so that we always prioritize new data above old.
-                while ($cursor->valid()) {
-                    $data = $cursor->current()->getData();
+                foreach ($account->getInsights($fields, $params) as $cursor) {
+                    $data = $cursor->getData();
                     if (is_callable($callback)) {
                         if ($callback($data)) {
                             break;
                         }
                     }
                     sleep(self::$betweenOpSleep);
-                    $cursor->prev();
                 }
             } catch (AuthorizationException $e) {
                 $this->errors[] = $e->getMessage();
