@@ -78,7 +78,7 @@ class ChartDataSubscriber extends CommonSubscriber
             $to->modify('+1 day - 1 second');
         }
 
-        $data       = $event->getData();
+        $data = $event->getData();
 
         $statRepo  = $this->model->getStatRepository();
         $spendData = $statRepo->getCampaignSpend(

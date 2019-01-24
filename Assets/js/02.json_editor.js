@@ -498,7 +498,8 @@ JSONEditor.defaults.custom_validators.push(function (schema, value, path) {
                     pollVisibility = setInterval(function () {
                         if (!$input.length) {
                             clearInterval(pollVisibility);
-                        } else if ($input.is(':visible')) {
+                        }
+                        else if ($input.is(':visible')) {
                             clearInterval(pollVisibility);
                             var cm = CodeMirror.fromTextArea($input[0], options);
                             cm.on('change', function (cm) {
@@ -600,11 +601,13 @@ JSONEditor.defaults.custom_validators.push(function (schema, value, path) {
                             changed = false;
                         }
                     });
-                } else {
+                }
+                else {
                     // Need to re-instantiate chosen.
                     $select.trigger('chosen:updated');
                 }
-            } else {
+            }
+            else {
                 // If chosen was previously used drop it.
                 $select.trigger('chosen:updated');
             }

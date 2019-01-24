@@ -12,6 +12,7 @@
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use Doctrine\ORM\EntityManager;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -25,16 +26,19 @@ class CommonProviderHelper
     public static $rateLimitMaxErrors = 60;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = .2;
+    public static $betweenOpSleep = .1;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 60;
+
+    /** @var int Maximum number of items to pull "per page" if the API supports such a feature. */
+    public static $pageLimit = 1000;
 
     /** @var string */
     protected $providerAccountId;
 
     /** @var string */
-    protected $mediaAccountId;
+    protected $mediaAccount;
 
     /** @var OutputInterface */
     protected $output;
@@ -69,7 +73,7 @@ class CommonProviderHelper
     /**
      * ProviderInterface constructor.
      *
-     * @param int                         $mediaAccountId
+     * @param MediaAccount                $mediaAccount
      * @param string                      $providerAccountId
      * @param string                      $providerClientId
      * @param string                      $providerClientSecret
@@ -81,7 +85,7 @@ class CommonProviderHelper
      * @param CampaignSettingsHelper|null $campaignSettingsHelper
      */
     public function __construct(
-        $mediaAccountId = 0,
+        $mediaAccount,
         $providerAccountId = '',
         $providerClientId = '',
         $providerClientSecret = '',
@@ -92,7 +96,7 @@ class CommonProviderHelper
         $em = null,
         $campaignSettingsHelper = null
     ) {
-        $this->mediaAccountId         = $mediaAccountId;
+        $this->mediaAccount           = $mediaAccount;
         $this->providerAccountId      = $providerAccountId;
         $this->providerClientId       = $providerClientId;
         $this->providerClientSecret   = $providerClientSecret;
@@ -102,6 +106,60 @@ class CommonProviderHelper
         $this->output                 = $output;
         $this->em                     = $em;
         $this->campaignSettingsHelper = $campaignSettingsHelper;
+    }
+
+    /**
+     * Update the tokens of a client on pre-save if acquired by this session.
+     *
+     * @param              $session
+     * @param MediaAccount $mediaAccount
+     */
+    public static function preSaveMediaAccount($session, MediaAccount $mediaAccount)
+    {
+        $persist = $session->get('mautic.media.helper.persist', []);
+        if ($persist) {
+            /** @var MediaAccount $account */
+            foreach ($persist as $key => $account) {
+                if (
+                    $account->getProvider() == $mediaAccount->getProvider()
+                    && $account->getAccountId() == $mediaAccount->getAccountId()
+                    && $account->getClientId() == $mediaAccount->getClientId()
+                    && $account->getClientSecret() == $mediaAccount->getClientSecret()
+                ) {
+                    if (
+                        !empty($account->getToken())
+                        && empty($mediaAccount->getToken())
+                    ) {
+                        $mediaAccount->setToken($account->getToken());
+                    }
+                    if (
+                        !empty($account->getRefreshToken())
+                        && empty($mediaAccount->getRefreshToken())
+                    ) {
+                        $mediaAccount->setRefreshToken($account->getRefreshToken());
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Get a unique state to be correlated later.
+     *
+     * @param string $state
+     *
+     * @return int
+     */
+    public static function getMediaAccountIdFromState($state = '')
+    {
+        $result = 0;
+        $parts  = explode('-', $state);
+        if (isset($parts[1]) && is_numeric($parts[1])) {
+            $result = (int) $parts[1];
+        }
+
+        return $result;
     }
 
     /**
@@ -127,6 +185,7 @@ class CommonProviderHelper
 
     /**
      * Get the url required to begin an oAuth2 handshake with the provider.
+     * State should be "mautic_media_<Media Account ID>_<Unique>.
      *
      * @param string $redirectUri
      *
@@ -138,23 +197,123 @@ class CommonProviderHelper
     }
 
     /**
+     * Handle the callback from the provider. Store anything in session that needs to be persisted with the entity.
+     *
+     * @param $params
+     *
+     * @return bool
+     */
+    public function authCallback($params)
+    {
+        return false;
+    }
+
+    /**
+     * Given a Stat entity, add it to the queue to be saved.
+     * Save the queue if we have reached a batch level appropriate to do so.
+     * Do not queue any stat records without some usable spend data.
+     * Increment the spend amount if appropriate for logging.
+     *
+     * @param Stat $stat
+     * @param int  $spend
+     */
+    protected function addStatToQueue(Stat $stat, &$spend = 0)
+    {
+        if (
+            $stat->getSpend()
+            || $stat->getCpm()
+            || $stat->getCpc()
+            || $stat->getCtr()
+            // || $stat->getImpressions()
+            // || $stat->getClicks()
+            // || $stat->getReach()
+        ) {
+            // Uniqueness to match the unique_by_ad constraint.
+            $key               = implode(
+                '|',
+                [
+                    $stat->getDateAdded()->getTimestamp(),
+                    $stat->getProvider(),
+                    $stat->getMediaAccountId(),
+                    $stat->getProviderAdsetId(),
+                    $stat->getProviderAdId(),
+                ]
+            );
+            $this->stats[$key] = $stat;
+            if (0 === count($this->stats) % 100) {
+                $this->saveQueue();
+            }
+            $spend += $stat->getSpend();
+        }
+    }
+
+    /**
      * Save all the stat entities in queue.
      */
     protected function saveQueue()
     {
         if ($this->stats) {
-            if (!$this->em->isOpen()) {
-                $this->em = $this->em->create(
-                    $this->em->getConnection(),
-                    $this->em->getConfiguration(),
-                    $this->em->getEventManager()
-                );
-            }
-            $this->em->getRepository('MauticMediaBundle:Stat')
+            $this->em()
+                ->getRepository('MauticMediaBundle:Stat')
                 ->saveEntities($this->stats);
 
             $this->stats = [];
             $this->em->clear(Stat::class);
         }
+    }
+
+    /**
+     * @return EntityManager|null
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    protected function em()
+    {
+        if (!$this->em->isOpen()) {
+            $this->em = $this->em->create(
+                $this->em->getConnection(),
+                $this->em->getConfiguration(),
+                $this->em->getEventManager()
+            );
+        }
+
+        return $this->em;
+    }
+
+    /**
+     * Save all the stat entities in queue.
+     */
+    protected function saveMediaAccount()
+    {
+        if ($this->mediaAccount && $this->mediaAccount->getId()) {
+            $this->em()
+                ->getRepository('MauticMediaBundle:MediaAccount')
+                ->saveEntity($this->mediaAccount);
+
+            $this->em->clear(MediaAccount::class);
+        }
+        $persist   = $this->session->get('mautic.media.helper.persist', []);
+        $persist[] = $this->mediaAccount;
+        $this->session->set('mautic.media.helper.persist', $persist);
+    }
+
+    /**
+     * Get a unique state to be correlated later.
+     *
+     * @return string
+     */
+    protected function createState()
+    {
+        return uniqid(
+            implode(
+                '-',
+                [
+                    'mautic',
+                    $this->mediaAccount->getId(),
+                    $this->mediaAccount->getProvider(),
+                ]
+            ),
+            true
+        );
     }
 }

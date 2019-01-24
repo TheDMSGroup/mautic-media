@@ -21,7 +21,6 @@ use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 use Symfony\Bundle\FrameworkBundle\Routing\Router;
-use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -140,13 +139,16 @@ class AjaxController extends CommonAjaxController
 
         /** @var MediaAccountModel $model */
         $model = $this->get('mautic.media.model.media');
+
         // Load settings from DB just for a complete entity, if pre-existing.
         if ($mediaAccountId) {
             /** @var MediaAccount $mediaAccount */
             $mediaAccount = $model->getRepository()->getEntity($mediaAccountId);
         } else {
+            // Assume we're talking about the most recent in session.
             $mediaAccount = new MediaAccount();
         }
+
         // Overlay browser session variable values.
         $mediaAccount->setProvider($provider);
         $mediaAccount->setAccountId($providerAccountId);
@@ -155,16 +157,35 @@ class AjaxController extends CommonAjaxController
         $mediaAccount->setToken($providerToken);
         $mediaAccount->setRefreshToken($providerRefreshToken);
 
+        // Store in session for correlation if a new provider entry is being made.
+        $this->request->getSession()->set('mautic.media.auth.'.$provider.'.start', $mediaAccount);
+
+        // Flush out those to persist via this provider to prevent confusion.
+        $persist = $this->request->getSession()->get('mautic.media.helper.persist', []);
+        foreach ($persist as $key => $account) {
+            if (
+                $account->getProvider() == $provider
+                && ((int) $account->getId()) == $mediaAccountId
+            ) {
+                unset($persist[$key]);
+                $this->request->getSession()->set('mautic.media.helper.persist', $persist);
+                break;
+            }
+        }
+
         /** @var CommonProviderHelper $providerHelper */
-        $providerHelper = $model->getProviderHelper($mediaAccount, (new NullOutput()));
+        $providerHelper = $model->getProviderHelper($mediaAccount);
 
         /** @var Router $router */
         $router      = $this->get('router');
         $redirectUri = $router->generate(
-            'mautic_media_auth_callback_secure',
-            ['mediaAccountId' => $mediaAccountId],
+            'mautic_media_auth_callback',
+            ['provider' => $mediaAccount->getProvider()],
             Router::ABSOLUTE_URL
         );
+
+        // @todo - Temporary measure.
+        $redirectUri = str_replace('http://', 'https://', $redirectUri);
 
         return $this->sendJsonResponse(
             [
@@ -172,5 +193,41 @@ class AjaxController extends CommonAjaxController
                 'authUri' => $providerHelper->getAuthUri($redirectUri),
             ]
         );
+    }
+
+    /**
+     * @param Request $request
+     *
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     *
+     * @throws \Exception
+     */
+    protected function getAuthTokensAction(Request $request)
+    {
+        $mediaAccountId = (int) InputHelper::clean($request->request->get('mediaAccountId'));
+        $provider       = (string) InputHelper::clean($request->request->get('provider'));
+        $result         = [
+            'success'        => true,
+            'mediaAccountId' => $mediaAccountId,
+            'provider'       => $provider,
+            'token'          => null,
+            'refreshToken'   => null,
+        ];
+
+        // Flush out those to persist via this provider to prevent confusion.
+        $persist = $this->request->getSession()->get('mautic.media.helper.persist', []);
+        /** @var MediaAccount $account */
+        foreach ($persist as $key => $account) {
+            if (
+                $account->getProvider() == $provider
+                && ((int) $account->getId()) == $mediaAccountId
+            ) {
+                $result['token']        = $account->getToken();
+                $result['refreshToken'] = $account->getRefreshToken();
+                break;
+            }
+        }
+
+        return $this->sendJsonResponse($result);
     }
 }

@@ -7,7 +7,10 @@ Mautic.mediaProvider = function () {
             $clientId = mQuery('input[name="media[client_id]"]:first'),
             $clientSecret = mQuery('input[name="media[client_secret]"]:first'),
             $token = mQuery('input[name="media[token]"]:first'),
-            $refreshToken = mQuery('input[name="media[refresh_token]"]:first');
+            $refreshToken = mQuery('input[name="media[refresh_token]"]:first'),
+            $authButton = mQuery('#authButton:first'),
+            $callbackUri = mQuery('input#media-callback-uri'),
+            callbackUri = $callbackUri.val();
         switch (provider) {
             case 'facebook':
                 // Does not need a refresh token.
@@ -16,6 +19,8 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().addClass('hide');
+                // Does not yet support automatic OAuth.
+                $authButton.addClass('hide');
                 break;
             case 'google':
                 // Does not need account
@@ -24,14 +29,18 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().removeClass('hide');
+                // Does not yet support automatic OAuth.
+                $authButton.addClass('hide');
                 break;
             case 'snapchat':
-                // Needs all.
-                $accountId.parent().removeClass('hide');
+                // Does not need account.
+                $accountId.parent().addClass('hide');
                 $clientId.parent().removeClass('hide');
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().removeClass('hide');
+                // Supports automatic OAuth
+                $authButton.removeClass('hide');
                 break;
             case 'bing':
                 // Does not need account, or refresh token.
@@ -40,6 +49,8 @@ Mautic.mediaProvider = function () {
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
                 $refreshToken.parent().addClass('hide');
+                // Does not yet support automatic OAuth.
+                $authButton.addClass('hide');
                 break;
         }
         // Apply provider specific labels.
@@ -48,5 +59,11 @@ Mautic.mediaProvider = function () {
         $clientSecret.parent().find('label:first').text(Mautic.translate('mautic.media.form.provider.' + provider + '.client_secret'));
         $token.parent().find('label:first').text(Mautic.translate('mautic.media.form.provider.' + provider + '.token'));
         $refreshToken.parent().find('label:first').text(Mautic.translate('mautic.media.form.provider.' + provider + '.refresh_token'));
+
+        // Update the callback URI.
+        var parts = callbackUri.split('/');
+        parts.pop();
+        parts.push(provider);
+        $callbackUri.val(parts.join('/'));
     }).trigger('change');
 };

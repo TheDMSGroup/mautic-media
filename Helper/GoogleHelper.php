@@ -47,7 +47,7 @@ class GoogleHelper extends CommonProviderHelper
     public static $rateLimitSleep = 10;
 
     /** @var int */
-    public static $adWordsPageLimit = 500;
+    public static $pageLimit = 500;
 
     /** @var AdWordsSessionBuilder */
     private $adWordsSessionBuilder;
@@ -80,7 +80,6 @@ class GoogleHelper extends CommonProviderHelper
             'Cost', // In micros
             'AverageCpm', // In micros
             'AverageCpc', // In micros
-            // CPP can be estimated by AverageCpm divided by 1000
             'Ctr',
             'Impressions',
             'Clicks',
@@ -97,7 +96,7 @@ class GoogleHelper extends CommonProviderHelper
             $this->output->writeln(
                 MediaAccount::PROVIDER_GOOGLE.' - Found '.count(
                     $customers
-                ).' accounts active for media account '.$this->mediaAccountId.'.'
+                ).' accounts active for media account '.$this->mediaAccount->getId().'.'
             );
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
@@ -111,7 +110,7 @@ class GoogleHelper extends CommonProviderHelper
                     $since    = clone $date;
                     $until    = clone $date;
                     $since->setTimeZone($timezone);
-                    $until->setTimeZone($timezone)->add($oneDay);
+                    $until->setTimeZone($timezone);
                     $this->output->write(
                         MediaAccount::PROVIDER_GOOGLE.' - Pulling hourly data - '.
                         $since->format('Y-m-d').' - '.
@@ -134,7 +133,6 @@ class GoogleHelper extends CommonProviderHelper
                             ),
                         ]
                     );
-
                     // Sorting is not currently supported for reports.
                     // $selector->setOrdering(
                     //     [
@@ -149,7 +147,9 @@ class GoogleHelper extends CommonProviderHelper
                     $reportDefinition->setReportType(
                         ReportDefinitionReportType::ADGROUP_PERFORMANCE_REPORT
                     );
-                    $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
+                    if (function_exists('gzdecode')) {
+                        $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
+                    }
 
                     // Construct an API session for the specified client customer ID.
                     $session          = $this->getSession($customerId);
@@ -181,15 +181,15 @@ class GoogleHelper extends CommonProviderHelper
                                         $timezone
                                     );
                                     $stat = new Stat();
-                                    $stat->setMediaAccountId($this->mediaAccountId);
+                                    $stat->setMediaAccountId($this->mediaAccount->getId());
 
                                     $stat->setDateAdded($date);
 
                                     $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                         (string) $customerId,
-                                        $data['CampaignId'],
+                                        (string) $data['CampaignId'],
                                         (string) $customer->getName(),
-                                        $data['CampaignName']
+                                        (string) $data['CampaignName']
                                     );
                                     if (is_int($campaignId)) {
                                         $stat->setCampaignId($campaignId);
@@ -211,45 +211,22 @@ class GoogleHelper extends CommonProviderHelper
                                     // $stat->setProviderAdId('');
                                     // $stat->setproviderAdName('');
 
+                                    // Definitions:
+                                    // CPM is total cost for 1k impressions.
+                                    //      CPM = cost * 1000 / impressions
+                                    // CPC is the cost per action.
+                                    //      CPC = cost / clicks
+                                    // CTR is the click through rate.
+                                    //      CTR = (clicks / impressions) * 100
                                     $stat->setCurrency($customer->getCurrencyCode());
                                     $stat->setSpend(floatval($data['Cost']) / 1000000);
                                     $stat->setCpm(floatval($data['AverageCpm']) / 1000000);
                                     $stat->setCpc(floatval($data['AverageCpc']) / 1000000);
-                                    $stat->setCpp(floatval($data['AverageCpm']) / 1000000 / 1000);
                                     $stat->setCtr(floatval($data['Ctr']));
                                     $stat->setImpressions(intval($data['Impressions']));
                                     $stat->setClicks(intval($data['Clicks']));
 
-                                    // $stat->setReach(intval($data['reach']));
-
-                                    // Don't bother saving stat records without valuable data.
-                                    if (
-                                        $stat->getSpend()
-                                        || $stat->getCpm()
-                                        || $stat->getCpc()
-                                        || $stat->getCpp()
-                                        || $stat->getCtr()
-                                        // || $stat->getImpressions()
-                                        // || $stat->getClicks()
-                                        // || $stat->getReach()
-                                    ) {
-                                        // Uniqueness to match the unique_by_ad constraint.
-                                        $key               = implode(
-                                            '|',
-                                            [
-                                                $date->getTimestamp(),
-                                                $stat->getProvider(),
-                                                $stat->getMediaAccountId(),
-                                                $stat->getProviderAdsetId(),
-                                                $stat->getProviderAdId(),
-                                            ]
-                                        );
-                                        $this->stats[$key] = $stat;
-                                        if (0 === count($this->stats) % 100) {
-                                            $this->saveQueue();
-                                        }
-                                        $spend += $stat->getSpend();
-                                    }
+                                    $this->addStatToQueue($stat, $spend);
                                 }
                             }
 
@@ -296,7 +273,7 @@ class GoogleHelper extends CommonProviderHelper
         );
         $selector               = new Selector();
         $selector->setFields(['CustomerId', 'CurrencyCode', 'DateTimeZone', 'Name']);
-        $selector->setPaging(new Paging(0, self::$adWordsPageLimit));
+        $selector->setPaging(new Paging(0, self::$pageLimit));
         $selector->setPredicates(
             [
                 new Predicate(
@@ -316,7 +293,7 @@ class GoogleHelper extends CommonProviderHelper
                 }
             }
             $selector->getPaging()->setStartIndex(
-                $selector->getPaging()->getStartIndex() + self::$adWordsPageLimit
+                $selector->getPaging()->getStartIndex() + self::$pageLimit
             );
         } while ($selector->getPaging()->getStartIndex() < $totalNumEntries);
 
@@ -389,7 +366,7 @@ class GoogleHelper extends CommonProviderHelper
                 || !$this->adWordsConfiguration->getConfiguration('refreshToken', 'OAUTH2')
             ) {
                 throw new \Exception(
-                    'Missing credentials for this media account '.$this->mediaAccountId.'.'
+                    'Missing credentials for this media account '.$this->mediaAccount->getId().'.'
                 );
             }
 
@@ -417,11 +394,12 @@ class GoogleHelper extends CommonProviderHelper
             } catch (\Exception $e) {
                 if ($e instanceof \InvalidArgumentException) {
                     throw new \Exception(
-                        'Missing credentials for this media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                        'Missing credentials for this media account '.$this->mediaAccount->getId().'. '.$e->getMessage()
                     );
                 } else {
                     throw new \Exception(
-                        'Cannot establish Google session for media account '.$this->mediaAccountId.'. '.$e->getMessage()
+                        'Cannot establish Google session for media account '.$this->mediaAccount->getId(
+                        ).'. '.$e->getMessage()
                     );
                 }
             }
