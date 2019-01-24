@@ -62,11 +62,6 @@ class AuthController extends FormController
             'uri'   => $request->getRequestUri(),
         ];
 
-        // @todo - temporary measure
-        $response->headers->setCookie(
-            new Cookie('mauticMediaAuthChange', time(), '+1 minute', '/', null, false, false)
-        );
-
         /** @var MediaAccountModel $model */
         $model          = $this->get('mautic.media.model.media');
         $mediaAccountId = CommonProviderHelper::getMediaAccountIdFromState($state);

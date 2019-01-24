@@ -108,7 +108,7 @@ class SnapchatHelper extends CommonProviderHelper
      */
     public function authCallback($params)
     {
-        $result = false;
+        $success = false;
         if (
             !empty($this->providerClientId)
             && !empty($this->providerClientSecret)
@@ -116,10 +116,10 @@ class SnapchatHelper extends CommonProviderHelper
             && !empty($params['state'])
             && $params['state'] == $this->session->get('mautic.media.helper.snapchat.state')
         ) {
-            $result = $this->refreshToken($params['code']);
+            $success = $this->refreshToken($params['code']);
         }
 
-        return $result;
+        return $success;
     }
 
     /**
@@ -171,9 +171,11 @@ class SnapchatHelper extends CommonProviderHelper
                         $this->mediaAccount->setRefreshToken($this->providerRefreshToken);
                         $success = true;
                     }
-                    $this->saveMediaAccount();
+                    if ($success) {
+                        $this->saveMediaAccount();
+                    }
                 } catch (\Exception $e) {
-                    $this->errors[] = $e->getMepullDatassage();
+                    $this->errors[] = $e->getMessage();
                 }
             }
         }
