@@ -59,6 +59,7 @@ class AuthController extends FormController
         $params   = [
             'code'  => $code,
             'state' => $state,
+            'uri'   => $request->getRequestUri(),
         ];
 
         // @todo - temporary measure

@@ -43,14 +43,14 @@ Mautic.mediaProvider = function () {
                 $authButton.removeClass('hide');
                 break;
             case 'bing':
-                // Does not need account, or refresh token.
+                // Does not need account.
                 $accountId.parent().addClass('hide');
                 $clientId.parent().removeClass('hide');
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
-                $refreshToken.parent().addClass('hide');
-                // Does not yet support automatic OAuth.
-                $authButton.addClass('hide');
+                $refreshToken.parent().removeClass('hide');
+                // Supports automatic OAuth
+                $authButton.removeClass('hide');
                 break;
         }
         // Apply provider specific labels.
