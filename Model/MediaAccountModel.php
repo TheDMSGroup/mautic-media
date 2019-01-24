@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManager;
 use Mautic\CampaignBundle\Model\CampaignModel;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use Mautic\CoreBundle\Helper\Chart\LineChart;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\CoreBundle\Helper\TemplatingHelper;
 use Mautic\CoreBundle\Model\FormModel;
 use Mautic\LeadBundle\Model\LeadModel as ContactModel;
@@ -62,6 +63,9 @@ class MediaAccountModel extends FormModel
     /** @var Session */
     protected $session;
 
+    /** @var CoreParametersHelper */
+    protected $coreParametersHelper;
+
     /**
      * MediaAccountModel constructor.
      *
@@ -72,6 +76,7 @@ class MediaAccountModel extends FormModel
      * @param ContactModel                       $contactModel
      * @param CampaignModel                      $campaignModel
      * @param Session                            $session
+     * @param CoreParametersHelper               $coreParametersHelper
      */
     public function __construct(
         \Mautic\FormBundle\Model\FormModel $formModel,
@@ -80,15 +85,17 @@ class MediaAccountModel extends FormModel
         EventDispatcherInterface $dispatcher,
         ContactModel $contactModel,
         CampaignModel $campaignModel,
-        Session $session
+        Session $session,
+        CoreParametersHelper $coreParametersHelper
     ) {
-        $this->formModel      = $formModel;
-        $this->trackableModel = $trackableModel;
-        $this->templating     = $templating;
-        $this->dispatcher     = $dispatcher;
-        $this->contactModel   = $contactModel;
-        $this->campaignModel  = $campaignModel;
-        $this->session        = $session;
+        $this->formModel            = $formModel;
+        $this->trackableModel       = $trackableModel;
+        $this->templating           = $templating;
+        $this->dispatcher           = $dispatcher;
+        $this->contactModel         = $contactModel;
+        $this->campaignModel        = $campaignModel;
+        $this->session              = $session;
+        $this->coreParametersHelper = $coreParametersHelper;
     }
 
     /**
@@ -383,6 +390,16 @@ class MediaAccountModel extends FormModel
     ) {
         $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
         if ($helper) {
+            $timezone = new \DateTimeZone(
+                $this->coreParametersHelper->getParameter(
+                    'default_timezone',
+                    date_default_timezone_get()
+                )
+            );
+            $dateFrom->setTimezone($timezone);
+            $dateTo->setTimezone($timezone);
+            $dateFrom->setTime(0, 0, 0, 0);
+            $dateTo->setTime(0, 0, 0, 0);
             $helper->pullData($dateFrom, $dateTo);
         }
     }

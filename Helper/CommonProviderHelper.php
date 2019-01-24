@@ -26,11 +26,12 @@ class CommonProviderHelper
     public static $rateLimitMaxErrors = 60;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = .2;
+    public static $betweenOpSleep = .1;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 60;
 
+    /** @var int Maximum number of items to pull "per page" if the API supports such a feature. */
     public static $pageLimit = 1000;
 
     /** @var string */

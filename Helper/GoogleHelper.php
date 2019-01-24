@@ -110,7 +110,7 @@ class GoogleHelper extends CommonProviderHelper
                     $since    = clone $date;
                     $until    = clone $date;
                     $since->setTimeZone($timezone);
-                    $until->setTimeZone($timezone)->add($oneDay);
+                    $until->setTimeZone($timezone);
                     $this->output->write(
                         MediaAccount::PROVIDER_GOOGLE.' - Pulling hourly data - '.
                         $since->format('Y-m-d').' - '.
@@ -133,7 +133,6 @@ class GoogleHelper extends CommonProviderHelper
                             ),
                         ]
                     );
-
                     // Sorting is not currently supported for reports.
                     // $selector->setOrdering(
                     //     [
@@ -148,7 +147,9 @@ class GoogleHelper extends CommonProviderHelper
                     $reportDefinition->setReportType(
                         ReportDefinitionReportType::ADGROUP_PERFORMANCE_REPORT
                     );
-                    $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
+                    if (function_exists('gzdecode')) {
+                        $reportDefinition->setDownloadFormat(DownloadFormat::GZIPPED_CSV);
+                    }
 
                     // Construct an API session for the specified client customer ID.
                     $session          = $this->getSession($customerId);

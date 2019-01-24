@@ -105,6 +105,7 @@ return [
                     'mautic.lead.model.lead',
                     'mautic.campaign.model.campaign',
                     'session',
+                    'mautic.helper.core_parameters',
                 ],
             ],
         ],

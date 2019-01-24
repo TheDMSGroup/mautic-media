@@ -497,18 +497,20 @@ class SnapchatHelper extends CommonProviderHelper
     }
 
     /**
-     * Get all Active Ad accounts.
+     * Get hourly campaign statistics down to the ad level.
      *
      * @param $campaignId
-     * @param $dateFrom
-     * @param $dateTo
+     * @param $since
+     * @param $until
      *
      * @return array
+     *
+     * @throws \Exception
      */
     private function getCampaignStats(
         $campaignId,
-        $dateFrom,
-        $dateTo
+        $since,
+        $until
     ) {
         $adStats = [];
         $fields  = [
@@ -529,8 +531,8 @@ class SnapchatHelper extends CommonProviderHelper
             // We will typically not be pulling data for 28 days in arrears, so pull one day attributions only.
             'swipe_up_attribution_window' => '1_DAY',
             'view_attribution_window'     => '1_DAY',
-            'start_time'                  => $dateFrom->format(self::$snapchateDateFormat),
-            'end_time'                    => $dateTo->format(self::$snapchateDateFormat),
+            'start_time'                  => $since->format(self::$snapchateDateFormat),
+            'end_time'                    => $until->format(self::$snapchateDateFormat),
         ];
 
         // Stats come back in an odd shape compared to other entities, let's flatten that down to a light weight array.
