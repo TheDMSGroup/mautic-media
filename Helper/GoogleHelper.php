@@ -141,9 +141,7 @@ class GoogleHelper extends CommonProviderHelper
                     //     ]
                     // );
                     $reportDefinition->setSelector($selector);
-                    $reportDefinition->setReportName(
-                        'Mautic auto-generated report #'.uniqid()
-                    );
+                    $reportDefinition->setReportName($this->getReportName());
                     $reportDefinition->setReportType(
                         ReportDefinitionReportType::ADGROUP_PERFORMANCE_REPORT
                     );

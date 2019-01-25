@@ -80,7 +80,7 @@ class SnapchatHelper extends CommonProviderHelper
     public function getAuthUri($redirectUri = '')
     {
         $result = '';
-        $state  = $this->session->get('mautic.media.helper.snapchat.state', $this->createState());
+        $state  = $this->session->get('mautic.media.helper.snapchat.state', $this->getState());
         if (
             $state
             && $redirectUri
