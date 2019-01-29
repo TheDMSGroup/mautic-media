@@ -339,6 +339,7 @@ class BingHelper extends CommonProviderHelper
             // /** @var OAuthWebAuthCodeGrant $authentication */
             $authentication = (new OAuthWebAuthCodeGrant())
                 ->withClientId($this->providerClientId)
+                ->withRefreshToken($this->providerRefreshToken)
                 ->withClientSecret($this->providerClientSecret)
                 ->withEnvironment(ApiEnvironment::Production);
 
@@ -348,16 +349,16 @@ class BingHelper extends CommonProviderHelper
             //     ->withEnvironment(ApiEnvironment::Production);
 
             /** @var OAuthDesktopMobileAuthCodeGrant $authentication */
-            $authentication = (new OAuthDesktopMobileAuthCodeGrant())
-                ->withClientId($this->providerClientId)
-                ->withRefreshToken($this->providerRefreshToken)
-                ->withClientSecret($this->providerClientSecret)
-                ->withEnvironment(ApiEnvironment::Production);
+            // $authentication = (new OAuthDesktopMobileAuthCodeGrant())
+            //     ->withClientId($this->providerClientId)
+            //     ->withRefreshToken($this->providerRefreshToken)
+            //     ->withClientSecret($this->providerClientSecret)
+            //     ->withEnvironment(ApiEnvironment::Production);
 
             /** @var AuthorizationData $authorization */
             $authorization = (new AuthorizationData())
                 ->withAuthentication($authentication)
-                ->withDeveloperToken($this->providerToken);
+                ->withDeveloperToken($this->providerAccountId);
 
             /* @var AuthorizationData $authorization */
             $tokens = $authorization->Authentication->RequestOAuthTokensByRefreshToken($this->providerRefreshToken);
@@ -573,7 +574,7 @@ class BingHelper extends CommonProviderHelper
             /** @var AuthorizationData $authorization */
             $authorization = (new AuthorizationData())
                 ->withAuthentication($authentication)
-                ->withDeveloperToken($this->providerToken);
+                ->withDeveloperToken($this->providerAccountId);
 
             $this->session->set('mautic.media.helper.bing.auth', $authorization);
             $this->session->set('mautic.media.helper.bing.state', $authorization->Authentication->State);

@@ -43,8 +43,8 @@ Mautic.mediaProvider = function () {
                 $authButton.removeClass('hide');
                 break;
             case 'bing':
-                // Does not need account.
-                $accountId.parent().addClass('hide');
+                // Needs all the things.
+                $accountId.parent().removeClass('hide');
                 $clientId.parent().removeClass('hide');
                 $clientSecret.parent().removeClass('hide');
                 $token.parent().removeClass('hide');
