@@ -14,7 +14,6 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 use Guzzle\Http\Client;
 use Microsoft\BingAds\Auth\ApiEnvironment;
 use Microsoft\BingAds\Auth\AuthorizationData;
-use Microsoft\BingAds\Auth\OAuthDesktopMobileAuthCodeGrant;
 use Microsoft\BingAds\Auth\OAuthTokens;
 use Microsoft\BingAds\Auth\OAuthWebAuthCodeGrant;
 use Microsoft\BingAds\Auth\ServiceClient;
@@ -42,7 +41,7 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
 class BingHelper extends CommonProviderHelper
 {
     /** @var ServiceClient AKA ReportingProxy */
-    private $bingServiceClient;
+    // private $bingServiceClient;
 
     /** @var array */
     private $bingServices = [];
@@ -55,8 +54,25 @@ class BingHelper extends CommonProviderHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        // @todo - If a failure, refresh.
-        // $this->refreshToken();
+
+        // $proxy = new ServiceClient(
+        //     ServiceClientType::CustomerManagementVersion12,
+        //     $this->getAuthData(),
+        //     'Production'
+        // );
+        //
+        // $proxy->SetAuthorizationData($this->getAuthData());
+        //
+        //
+        // $request = new GetUserRequest();
+        //
+        // $request->UserId                  = null;
+        // $request->IncludeLinkedAccountIds = true;
+        //
+        // $tmp = $proxy->GetService()->GetUser($request);
+        //
+        // // @todo - If a failure, refresh.
+        // // $this->refreshToken();
 
         // @todo - Get active accounts.
         $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
@@ -172,6 +188,15 @@ class BingHelper extends CommonProviderHelper
     {
         $user = $this->getUser();
 
+        //
+        // $request = new FindAccountsRequest();
+        //
+        // $request->CustomerId = $customerId;
+        // $request->AccountFilter = $accountFilter;
+        // $request->TopN = $topN;
+        //
+        // return $GLOBALS['CustomerManagementProxy']->GetService()->FindAccounts($request);
+
         // @todo - Use the example to get all accounts from the primary user. With Pagination support.
         return;
         // $campaignClient = $this->getServiceClient(ServiceClientType::CampaignManagementVersion12);
@@ -231,10 +256,93 @@ class BingHelper extends CommonProviderHelper
         $request = new GetUserRequest();
 
         // Get self, and all linked accounts.
-        $request->UserId                  = null;
+        // $request->UserId                  = null;
         $request->IncludeLinkedAccountIds = true;
+        //
+        // $authorization = $this->getAuthData();
+        // if (isset($authorization->Authentication->OAuthTokens->ResponseFragments['user_id'])) {
+        //     $request->UserId = $authorization->Authentication->OAuthTokens->ResponseFragments['user_id'];
+        // }
 
         return $this->attemptRequest(ServiceClientType::CustomerManagementVersion12, 'GetUser', $request);
+    }
+
+    /**
+     * @throws \Exception
+     */
+    private function getAuthData()
+    {
+        $authorization = $this->session->get('mautic.media.helper.bing.auth');
+        if (!$authorization && $this->refreshToken()) {
+            $authorization = $this->session->get('mautic.media.helper.bing.auth');
+        }
+        if (!$authorization) {
+            throw new \Exception('Unable to get a fresh Refresh Token.');
+        }
+
+        return $authorization;
+    }
+
+    /**
+     * @param null $code
+     * @param bool $force
+     *
+     * @return bool
+     */
+    private function refreshToken()
+    {
+        $success = false;
+        if (
+            !empty($this->providerAccountId)
+            && !empty($this->providerClientId)
+            && !empty($this->providerClientSecret)
+            && !empty($this->providerRefreshToken)
+        ) {
+            /** @var OAuthWebAuthCodeGrant $authentication */
+            $authentication = (new OAuthWebAuthCodeGrant())
+                ->withClientId($this->providerClientId)
+                ->withClientSecret($this->providerClientSecret)
+                ->withEnvironment(ApiEnvironment::Production);
+
+            /** @var AuthorizationData $authorization */
+            $authorization = (new AuthorizationData())
+                ->withAuthentication($authentication)
+                ->withDeveloperToken($this->providerAccountId);
+
+            /* @var AuthorizationData $authorization */
+            $tokens = $authorization->Authentication->RequestOAuthTokensByRefreshToken($this->providerRefreshToken);
+            if ($tokens) {
+                $this->session->set('mautic.media.helper.bing.auth', $authorization);
+                $success = $this->saveTokens($tokens);
+            }
+        }
+
+        return $success;
+    }
+
+    /**
+     * @param $tokens
+     *
+     * @return bool
+     */
+    private function saveTokens(OAuthTokens $tokens)
+    {
+        $success = false;
+        if (!empty($tokens->AccessToken) && $tokens->AccessToken !== $this->providerToken) {
+            $this->providerToken = $tokens->AccessToken;
+            $this->mediaAccount->setToken($this->providerToken);
+            $success = true;
+        }
+        if (!empty($tokens->RefreshToken) && $tokens->RefreshToken !== $this->providerRefreshToken) {
+            $this->providerRefreshToken = $tokens->RefreshToken;
+            $this->mediaAccount->setRefreshToken($this->providerRefreshToken);
+            $success = true;
+        }
+        if ($success) {
+            $this->saveMediaAccount();
+        }
+
+        return $success;
     }
 
     /**
@@ -251,11 +359,9 @@ class BingHelper extends CommonProviderHelper
         $result = null;
         do {
             try {
-                $attempt = $this->getServiceClient($serviceType)
-                    ->GetService()
-                    ->{$method}(
-                        $request
-                    );
+                /** @var ServiceClient $proxy */
+                $proxy   = $this->getServiceClient($serviceType);
+                $attempt = $proxy->GetService()->{$method}($request);
                 if ($attempt) {
                     $result = $attempt;
                 }
@@ -293,107 +399,18 @@ class BingHelper extends CommonProviderHelper
      */
     private function getServiceClient($type)
     {
+        $authorization = $this->getAuthData();
         if (!isset($this->bingServices[$type])) {
             $this->bingServices[$type] = new ServiceClient(
                 $type,
-                $this->getAuthData(),
-                ApiEnvironment::Production
+                $authorization,
+                $authorization->Authentication->Environment
             );
         } else {
-            $this->bingServices[$type]->SetAuthorizationData($this->getAuthData());
+            $this->bingServices[$type]->SetAuthorizationData($authorization);
         }
 
         return $this->bingServices[$type];
-    }
-
-    /**
-     * @throws \Exception
-     */
-    private function getAuthData()
-    {
-        $authorization = $this->session->get('mautic.media.helper.bing.auth');
-        if (!$authorization && $this->refreshToken()) {
-            $authorization = $this->session->get('mautic.media.helper.bing.auth');
-        }
-        if (!$authorization) {
-            throw new \Exception('Unable to get a fresh Refresh Token.');
-        }
-
-        return $authorization;
-    }
-
-    /**
-     * @param null $code
-     * @param bool $force
-     *
-     * @return bool
-     */
-    private function refreshToken()
-    {
-        $success = false;
-        if (
-            !empty($this->providerClientId)
-            && !empty($this->providerClientSecret)
-            && !empty($this->providerRefreshToken)
-        ) {
-            // /** @var OAuthWebAuthCodeGrant $authentication */
-            $authentication = (new OAuthWebAuthCodeGrant())
-                ->withClientId($this->providerClientId)
-                ->withRefreshToken($this->providerRefreshToken)
-                ->withClientSecret($this->providerClientSecret)
-                ->withEnvironment(ApiEnvironment::Production);
-
-            // $authentication = (new OAuthWebAuthCodeGrant())
-            //     ->withClientId($this->providerClientId)
-            //     ->withClientSecret($this->providerClientSecret)
-            //     ->withEnvironment(ApiEnvironment::Production);
-
-            /** @var OAuthDesktopMobileAuthCodeGrant $authentication */
-            // $authentication = (new OAuthDesktopMobileAuthCodeGrant())
-            //     ->withClientId($this->providerClientId)
-            //     ->withRefreshToken($this->providerRefreshToken)
-            //     ->withClientSecret($this->providerClientSecret)
-            //     ->withEnvironment(ApiEnvironment::Production);
-
-            /** @var AuthorizationData $authorization */
-            $authorization = (new AuthorizationData())
-                ->withAuthentication($authentication)
-                ->withDeveloperToken($this->providerAccountId);
-
-            /* @var AuthorizationData $authorization */
-            $tokens = $authorization->Authentication->RequestOAuthTokensByRefreshToken($this->providerRefreshToken);
-            if ($tokens) {
-                $this->session->set('mautic.media.helper.bing.auth', $authorization);
-                $success = $this->saveTokens($tokens);
-            }
-        }
-
-        return $success;
-    }
-
-    /**
-     * @param $tokens
-     *
-     * @return bool
-     */
-    private function saveTokens(OAuthTokens $tokens)
-    {
-        $success = false;
-        if (!empty($tokens->AccessToken) && $tokens->AccessToken !== $this->providerToken) {
-            $this->providerToken = $tokens->AccessToken;
-            $this->mediaAccount->setToken($this->providerToken);
-            $success = true;
-        }
-        if (!empty($tokens->RefreshToken) && $tokens->RefreshToken !== $this->providerRefreshToken) {
-            $this->providerRefreshToken = $tokens->RefreshToken;
-            $this->mediaAccount->setRefreshToken($tokens->RefreshToken);
-            $success = true;
-        }
-        if ($success) {
-            $this->saveMediaAccount();
-        }
-
-        return $success;
     }
 
     /**
@@ -604,8 +621,11 @@ class BingHelper extends CommonProviderHelper
             && ($authorization = $this->session->get('mautic.media.helper.bing.auth'))
         ) {
             try {
-                $tokens  = $authorization->Authentication->RequestOAuthTokensByResponseUri($params['uri']);
-                $success = $this->saveTokens($tokens);
+                $tokens = $authorization->Authentication->RequestOAuthTokensByResponseUri($params['uri']);
+                if ($tokens) {
+                    $this->session->set('mautic.media.helper.bing.auth', $authorization);
+                    $success = $this->saveTokens($tokens);
+                }
             } catch (\Exception $e) {
                 $this->errors[] = $e->getMessage();
             }
