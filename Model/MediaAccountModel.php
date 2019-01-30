@@ -279,6 +279,9 @@ class MediaAccountModel extends FormModel
 
             $data = $query->loadAndBuildTimeData($q);
             foreach ($data as $key => $val) {
+                if (!isset($totals[$key])) {
+                    $totals[$key] = 0;
+                }
                 $totals[$key] += $val;
             }
             foreach ($data as $key => $val) {
