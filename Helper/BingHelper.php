@@ -53,31 +53,39 @@ class BingHelper extends CommonProviderHelper
     private $bingAccountId;
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
+     * For debugging only.
      *
-     * @return $this|array
+     * @return $this
+     *
+     * @throws \Exception
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullDataOneDayAtATime(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        try {
-            $currencyCode = '';
-            $customers    = $this->getAllManagedCustomers();
+        $customers = $this->getAllManagedCustomers();
+        $date      = clone $dateTo;
+        $oneDay    = new \DateInterval('P1D');
+        // Pull one day at a time so microsock doesn't fall over.
+        while ($date >= $dateFrom) {
             foreach ($customers as $customerId => $accounts) {
                 $this->bingCustomerId = $customerId;
                 foreach ($accounts as $accountId => $account) {
-                    $spend               = 0;
+                    $currencyCode = 'USD';
+                    $spend        = 0;
+                    $timezone     = new \DateTimeZone('UTC');
+                    $since        = clone $date;
+                    $until        = clone $date;
+                    $since->setTimeZone($timezone);
+                    $until->setTimeZone($timezone);
                     $this->bingAccountId = $accountId;
                     // $account              = $this->getAccount($accountId);
                     $this->output->write(
                         MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-                        $dateFrom->format('Y-m-d').' ~ '.
-                        $dateTo->format('Y-m-d').' - '.
+                        $date->format('Y-m-d').' - '.
                         (isset($account->Name) ? $account->Name : 'NA')
                     );
                     $this->getAdPerformanceReportRequest(
-                        $dateFrom,
-                        $dateTo,
+                        $since,
+                        $until,
                         [$accountId],
                         function ($adStat) use (&$spend, &$currencyCode) {
                             if (!$adStat) {
@@ -150,14 +158,8 @@ class BingHelper extends CommonProviderHelper
                     $this->output->writeln(' - '.$currencyCode.' '.$spend);
                 }
             }
-        } catch (\Exception $e) {
-            $this->errors[] = $e->getMessage();
-            $this->output->writeln('');
-            foreach ($this->errors as $message) {
-                $this->output->writeln('<error>'.MediaAccount::PROVIDER_BING.' - '.$message.'</error>');
-            }
+            $date->sub($oneDay);
         }
-        $this->saveQueue();
 
         return $this;
     }
@@ -400,16 +402,16 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     * @param array     $accountIds
-     * @param callable  $callback
+     * @param \DateTime $since
+     * @param \DateTime $until
+     * @param           $accountIds
+     * @param           $callback
      *
      * @return array|false|null
      *
      * @throws \Exception
      */
-    private function getAdPerformanceReportRequest(\DateTime $dateFrom, \DateTime $dateTo, $accountIds, $callback)
+    private function getAdPerformanceReportRequest(\DateTime $since, \DateTime $until, $accountIds, $callback)
     {
         $columns = [
             AdPerformanceReportColumn::TimePeriod,
@@ -431,13 +433,14 @@ class BingHelper extends CommonProviderHelper
         ];
 
         /** @var AdPerformanceReportRequest $request */
-        $report                         = new AdPerformanceReportRequest();
-        $report->Format                 = ReportFormat::Csv;
-        $report->ReportName             = $this->getReportName();
-        $report->ExcludeColumnHeaders   = true;
-        $report->ExcludeReportHeader    = true;
-        $report->ExcludeReportFooter    = true;
-        $report->ReturnOnlyCompleteData = true;
+        $report                       = new AdPerformanceReportRequest();
+        $report->Format               = ReportFormat::Csv;
+        $report->ReportName           = $this->getReportName();
+        $report->ExcludeColumnHeaders = true;
+        $report->ExcludeReportHeader  = true;
+        $report->ExcludeReportFooter  = true;
+        // We will allow incomplete data (for current date).
+        $report->ReturnOnlyCompleteData = false;
         $report->Aggregation            = ReportAggregation::Hourly;
         $report->Columns                = $columns;
         //  $report->Filter = new AccountPerformanceReportFilter();
@@ -452,13 +455,13 @@ class BingHelper extends CommonProviderHelper
 
         $report->Time                              = new ReportTime();
         $report->Time->CustomDateRangeStart        = new Date();
-        $report->Time->CustomDateRangeStart->Year  = (int) $dateFrom->format('Y');
-        $report->Time->CustomDateRangeStart->Month = (int) $dateFrom->format('m');
-        $report->Time->CustomDateRangeStart->Day   = (int) $dateFrom->format('d');
+        $report->Time->CustomDateRangeStart->Year  = (int) $since->format('Y');
+        $report->Time->CustomDateRangeStart->Month = (int) $since->format('m');
+        $report->Time->CustomDateRangeStart->Day   = (int) $since->format('d');
         $report->Time->CustomDateRangeEnd          = new Date();
-        $report->Time->CustomDateRangeEnd->Year    = (int) $dateTo->format('Y');
-        $report->Time->CustomDateRangeEnd->Month   = (int) $dateTo->format('m');
-        $report->Time->CustomDateRangeEnd->Day     = (int) $dateTo->format('d');
+        $report->Time->CustomDateRangeEnd->Year    = (int) $until->format('Y');
+        $report->Time->CustomDateRangeEnd->Month   = (int) $until->format('m');
+        $report->Time->CustomDateRangeEnd->Day     = (int) $until->format('d');
 
         // microspark invented their own timezone names. how inventive.
         $report->Time->ReportTimeZone = ReportTimeZone::GreenwichMeanTimeDublinEdinburghLisbonLondon;
@@ -501,13 +504,13 @@ class BingHelper extends CommonProviderHelper
             $reportRequest
         );
 
-        // Poll for up to 5 minutes, till either the report is provided or until we fail in misery and defeat.
+        // Poll for a few minutes, till either the report is provided or until we fail in misery and defeat.
         if (!empty($reportSubmission->ReportRequestId)) {
             $request                  = new PollGenerateReportRequest();
             $request->ReportRequestId = $reportSubmission->ReportRequestId;
 
             $start            = time();
-            $maxTimeInSeconds = 60 * 5;
+            $maxTimeInSeconds = 60 * 30;
             do {
                 $reportStatus = $this->attemptRequest(
                     ServiceClientType::ReportingVersion12,
@@ -519,12 +522,12 @@ class BingHelper extends CommonProviderHelper
                     || !isset($reportStatus->ReportRequestStatus->Status)
                 ) {
                     $this->errors[] = 'Could not get report status';
-                    // $this->output->write('.');
-                    sleep(self::$rateLimitSleep / 30);
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep / 15);
                 } elseif (ReportRequestStatusType::Pending == $reportStatus->ReportRequestStatus->Status) {
                     // Report is being generated, hang on for a while.
-                    // $this->output->write('.');
-                    sleep(self::$rateLimitSleep / 30);
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep / 15);
                 } elseif (ReportRequestStatusType::Error == $reportStatus->ReportRequestStatus->Status) {
                     $this->errors[] = 'Report had an error on the provider side';
                     sleep(self::$betweenOpSleep);
@@ -642,6 +645,136 @@ class BingHelper extends CommonProviderHelper
             }
             rmdir($dir);
         }
+    }
+
+    /**
+     * @param \DateTime $dateFrom
+     * @param \DateTime $dateTo
+     *
+     * @return $this|array
+     */
+    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    {
+        try {
+            // Batching many accounts together is faster, in general.
+            $this->pullDataInBatches($dateFrom, $dateTo);
+            // $this->pullDataOneDayAtATime($dateFrom, $dateTo);
+        } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+            $this->outputErrors(MediaAccount::PROVIDER_BING);
+        }
+        $this->saveQueue();
+        $this->outputErrors(MediaAccount::PROVIDER_BING);
+
+        return $this;
+    }
+
+    /**
+     * Pull reports in batches by customer ID.
+     *
+     * @return $this
+     *
+     * @throws \Exception
+     */
+    public function pullDataInBatches(\DateTime $dateFrom, \DateTime $dateTo)
+    {
+        $customers = $this->getAllManagedCustomers();
+        foreach ($customers as $customerId => $accounts) {
+            $this->bingCustomerId = $customerId;
+
+            $accountNames = [];
+            foreach ($accounts as $accountId => $account) {
+                $accountNames[] = $account->Name;
+            }
+            $currencyCode = 'USD';
+            $spend        = 0;
+            $timezone     = new \DateTimeZone('UTC');
+            $since        = clone $dateFrom;
+            $until        = clone $dateTo;
+            $since->setTimeZone($timezone);
+            $until->setTimeZone($timezone);
+            $this->output->write(
+                MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
+                $dateFrom->format('Y-m-d').' ~ '.
+                $dateTo->format('Y-m-d').' - '.
+                implode(', ', $accountNames)
+            );
+            $this->getAdPerformanceReportRequest(
+                $since,
+                $until,
+                array_keys($accounts),
+                function ($adStat) use (&$spend, &$currencyCode) {
+                    if (!$adStat) {
+                        return;
+                    }
+                    $stat = new Stat();
+                    $stat->setMediaAccountId($this->mediaAccount->getId());
+
+                    // microsham invented their own date format for this. It's wonderful.
+                    $dateAdded = \DateTime::createFromFormat(
+                        'n/j/Y 12:00:00 \A\M\|G',
+                        $adStat->TimePeriod
+                    );
+                    if (!$dateAdded) {
+                        throw new \Exception('Unparsable date: '.$adStat->TimePeriod);
+                    }
+                    $stat->setDateAdded($dateAdded);
+
+                    $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                        $adStat->AccountId,
+                        $adStat->CampaignId,
+                        $adStat->AccountName,
+                        $adStat->CampaignName
+                    );
+                    if (is_int($campaignId)) {
+                        $stat->setCampaignId($campaignId);
+                    }
+
+                    $provider = MediaAccount::PROVIDER_BING;
+                    $stat->setProvider($provider);
+
+                    $stat->setProviderAccountId($adStat->AccountId);
+                    $stat->setproviderAccountName($adStat->AccountName);
+
+                    $stat->setProviderCampaignId($adStat->CampaignId);
+                    $stat->setProviderCampaignName($adStat->CampaignName);
+
+                    $stat->setProviderAdsetId($adStat->AdGroupId);
+                    $stat->setproviderAdsetName($adStat->AdGroupName);
+
+                    $stat->setProviderAdId($adStat->AdId);
+                    $stat->setproviderAdName($adStat->AdTitle);
+
+                    // Definitions:
+                    // CPM is total cost for 1k impressions.
+                    //      CPM = cost * 1000 / impressions
+                    // CPC is the cost per action.
+                    //      CPC = cost / clicks
+                    // CTR is the click through rate.
+                    //      CTR = (clicks / impressions) * 100
+                    // For our purposes we are considering swipes as clicks for Snapchat.
+                    $clicks      = intval($adStat->Clicks);
+                    $impressions = intval($adStat->Impressions);
+                    $cost        = floatval($adStat->Spend);
+                    $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
+                    $stat->setCpm($cpm);
+                    $stat->setCpc(floatval($adStat->CostPerConversion));
+                    $stat->setCtr(floatval($adStat->Ctr));
+                    $stat->setClicks($clicks);
+                    if (!empty($adStat->CurrencyCode)) {
+                        $currencyCode = $adStat->CurrencyCode;
+                    }
+                    $stat->setCurrency($adStat->CurrencyCode);
+                    $stat->setSpend($cost);
+                    $stat->setImpressions($impressions);
+
+                    $this->addStatToQueue($stat, $spend);
+                }
+            );
+            $this->output->writeln(' - '.$currencyCode.' '.$spend);
+        }
+
+        return $this;
     }
 
     /**

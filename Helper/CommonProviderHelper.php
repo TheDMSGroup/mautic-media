@@ -345,4 +345,15 @@ class CommonProviderHelper
 
         return $this->reportName;
     }
+
+    /**
+     * @param $provider
+     */
+    protected function outputErrors($provider)
+    {
+        $this->output->writeln('');
+        foreach ($this->errors as $message) {
+            $this->output->writeln('<error>'.$provider.' - '.$message.'</error>');
+        }
+    }
 }
