@@ -12,6 +12,8 @@
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use Guzzle\Http\Client;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
+use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Microsoft\BingAds\Auth\ApiEnvironment;
 use Microsoft\BingAds\Auth\AuthorizationData;
 use Microsoft\BingAds\Auth\OAuthTokens;
@@ -19,7 +21,9 @@ use Microsoft\BingAds\Auth\OAuthWebAuthCodeGrant;
 use Microsoft\BingAds\Auth\ServiceClient;
 use Microsoft\BingAds\Auth\ServiceClientType;
 use Microsoft\BingAds\V12\Bulk\Date;
+use Microsoft\BingAds\V12\CustomerManagement\GetAccountRequest;
 use Microsoft\BingAds\V12\CustomerManagement\GetUserRequest;
+use Microsoft\BingAds\V12\Reporting\AccountReportScope;
 use Microsoft\BingAds\V12\Reporting\AdPerformanceReportColumn;
 use Microsoft\BingAds\V12\Reporting\AdPerformanceReportRequest;
 use Microsoft\BingAds\V12\Reporting\PollGenerateReportRequest;
@@ -33,18 +37,19 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
 /**
  * Class BingHelper.
  *
- * Requires ClientId, ClientSecret, Token (Developer Token)
- *
  * https://docs.microsoft.com/en-us/bingads/reporting-service/reporting-service-reference?view=bingads-12
  * https://github.com/BingAds/BingAds-PHP-SDK
  */
 class BingHelper extends CommonProviderHelper
 {
-    /** @var ServiceClient AKA ReportingProxy */
-    // private $bingServiceClient;
-
     /** @var array */
     private $bingServices = [];
+
+    /** @var int */
+    private $bingCustomerId;
+
+    /** @var int */
+    private $bingAccountId;
 
     /**
      * @param \DateTime $dateFrom
@@ -54,217 +59,245 @@ class BingHelper extends CommonProviderHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
+        try {
+            $customers = $this->getAllManagedCustomers();
+            foreach ($customers as $customerId => $accounts) {
+                foreach ($accounts as $accountId) {
+                    $spend                = 0;
+                    $this->bingAccountId  = $accountId;
+                    $this->bingCustomerId = $customerId;
+                    $account              = $this->getAccount($accountId);
+                    $this->output->write(
+                        MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
+                        $dateFrom->format('Y-m-d').' ~ '.
+                        $dateTo->format('Y-m-d').' - '.
+                        (isset($account->Account->Name) ? $account->Account->Name : 'NA')
+                    );
+                    $this->getAdPerformanceReportRequest(
+                        $dateFrom,
+                        $dateTo,
+                        [$accountId],
+                        function ($adStat) use ($spend) {
+                            if (!$adStat) {
+                                return;
+                            }
+                            $stat = new Stat();
+                            $stat->setMediaAccountId($this->mediaAccount->getId());
 
-        // $proxy = new ServiceClient(
-        //     ServiceClientType::CustomerManagementVersion12,
-        //     $this->getAuthData(),
-        //     'Production'
-        // );
-        //
-        // $proxy->SetAuthorizationData($this->getAuthData());
-        //
-        //
-        // $request = new GetUserRequest();
-        //
-        // $request->UserId                  = null;
-        // $request->IncludeLinkedAccountIds = true;
-        //
-        // $tmp = $proxy->GetService()->GetUser($request);
-        //
-        // // @todo - If a failure, refresh.
-        // // $this->refreshToken();
+                            // microsham invented their own date format for this. It's wonderful.
+                            $dateAdded = \DateTime::createFromFormat(
+                                'n/j/Y 12:00:00 \A\M\|G',
+                                $adStat->TimePeriod
+                            );
+                            if (!$dateAdded) {
+                                throw new \Exception('Unparsable date: '.$adStat->TimePeriod);
+                            }
+                            $stat->setDateAdded($dateAdded);
 
-        // @todo - Get active accounts.
-        $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
+                            $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                                $adStat->AccountId,
+                                $adStat->CampaignId,
+                                $adStat->AccountName,
+                                $adStat->CampaignName
+                            );
+                            if (is_int($campaignId)) {
+                                $stat->setCampaignId($campaignId);
+                            }
 
-        // @todo - For each account get campaigns.
+                            $provider = MediaAccount::PROVIDER_BING;
+                            $stat->setProvider($provider);
 
-        // @todo - For each campaign, pull hourly ad data.
+                            $stat->setProviderAccountId($adStat->AccountId);
+                            $stat->setproviderAccountName($adStat->AccountName);
 
-        $data = $this->getAdPerformanceReportRequest($dateFrom, $dateTo);
+                            $stat->setProviderCampaignId($adStat->CampaignId);
+                            $stat->setProviderCampaignName($adStat->CampaignName);
 
-        // $accounts = $this->getAllActiveAccounts($dateFrom, $dateTo);
-        // $this->output->writeln(
-        //     MediaAccount::PROVIDER_BING.' - Found '.count(
-        //         $accounts
-        //     ).' active accounts in media account '.$this->mediaAccount->getId().'.'
-        // );
-        //
+                            $stat->setProviderAdsetId($adStat->AdGroupId);
+                            $stat->setproviderAdsetName($adStat->AdGroupName);
 
-        //
-        // $date   = clone $dateTo;
-        // $oneDay = new \DateInterval('P1D');
-        // while ($date >= $dateFrom) {
-        //     /** @var AdAccount $account */
-        //     foreach ($accounts as $account) {
-        //         $spend    = 0;
-        //         $timezone = new \DateTimeZone($account->timezone);
-        //         $since    = clone $date;
-        //         $until    = clone $date;
-        //         $this->output->write(
-        //             MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-        //             $since->format('Y-m-d').' - '.
-        //             $account->name
-        //         );
-        //         $since->setTimeZone($timezone);
-        //         $until->setTimeZone($timezone)->add($oneDay);
-        //         foreach ($this->getActiveCampaigns($account->id, $dateFrom, $dateTo) as $campaign) {
-        //             $adStats = $this->getCampaignStats($campaign->id, $since, $until);
-        //             foreach ($adStats as $adStat) {
-        //                 if (!$adStat) {
-        //                     continue;
-        //                 }
-        //                 $stat = new Stat();
-        //                 $stat->setMediaAccountId($this->mediaAccount->getId());
-        //
-        //                 $stat->setDateAdded((new \DateTime($adStat->start_time)));
-        //
-        //                 $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-        //                     (string) $account->id,
-        //                     (string) $campaign->id,
-        //                     (string) $account->name,
-        //                     (string) $campaign->name
-        //                 );
-        //                 if (is_int($campaignId)) {
-        //                     $stat->setCampaignId($campaignId);
-        //                 }
-        //
-        //                 $provider = MediaAccount::PROVIDER_SNAPCHAT;
-        //                 $stat->setProvider($provider);
-        //
-        //                 $stat->setProviderAccountId($account->id);
-        //                 $stat->setproviderAccountName($account->name);
-        //
-        //                 $stat->setProviderCampaignId($campaign->id);
-        //                 $stat->setProviderCampaignName($campaign->name);
-        //
-        //                 // Since the stats API doesn't contain other data, we need to pull names sepperately.
-        //                 $adDetails = $this->getAdDetails($account->id, $adStat->id);
-        //                 if (isset($adDetails->ad_squad_id)) {
-        //                     $stat->setProviderAdsetId($adDetails->ad_squad_id);
-        //                     $adSquadDetails = $this->getAdSquadDetails($campaign->id, $adDetails->ad_squad_id);
-        //                     if (isset($adSquadDetails->name)) {
-        //                         $stat->setproviderAdsetName($adSquadDetails->name);
-        //                     }
-        //                 }
-        //
-        //                 $stat->setProviderAdId($adStat->id);
-        //                 if (isset($adDetails->name)) {
-        //                     $stat->setproviderAdName($adDetails->name);
-        //                 }
-        //
-        //                 // Definitions:
-        //                 // CPM is total cost for 1k impressions.
-        //                 //      CPM = cost * 1000 / impressions
-        //                 // CPC is the cost per action.
-        //                 //      CPC = cost / clicks
-        //                 // CTR is the click through rate.
-        //                 //      CTR = (clicks / impressions) * 100
-        //                 // For our purposes we are considering swipes as clicks for Snapchat.
-        //                 $clicks      = isset($adStat->swipes) ? $adStat->swipes : 0;
-        //                 $impressions = intval($adStat->impressions);
-        //                 $cost        = floatval($adStat->spend) / 1000000;
-        //                 $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
-        //                 $cpc         = $clicks ? ($cost / $clicks) : 0;
-        //                 $ctr         = $impressions ? (($clicks / $impressions) * 100) : 0;
-        //                 $stat->setCurrency($account->currency);
-        //                 $stat->setSpend($cost);
-        //                 $stat->setCpm($cpm);
-        //                 $stat->setCpc($cpc);
-        //                 $stat->setCtr($ctr);
-        //                 $stat->setImpressions($impressions);
-        //                 $stat->setClicks($clicks);
-        //
-        //                 $this->addStatToQueue($stat, $spend);
-        //             }
-        //         }
-        //         $this->output->writeln(' - '.$account->currency.' '.$spend);
-        //     }
-        //     $date->sub($oneDay);
-        // }
-    }
+                            $stat->setProviderAdId($adStat->AdId);
+                            $stat->setproviderAdName($adStat->AdTitle);
 
-    private function getActiveAccounts(\DateTime $dateFrom, \DateTime $dateTo)
-    {
-        $user = $this->getUser();
+                            // Definitions:
+                            // CPM is total cost for 1k impressions.
+                            //      CPM = cost * 1000 / impressions
+                            // CPC is the cost per action.
+                            //      CPC = cost / clicks
+                            // CTR is the click through rate.
+                            //      CTR = (clicks / impressions) * 100
+                            // For our purposes we are considering swipes as clicks for Snapchat.
+                            $clicks      = intval($adStat->Clicks);
+                            $impressions = intval($adStat->Impressions);
+                            $cost        = floatval($adStat->Spend);
+                            $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
+                            $stat->setCpm($cpm);
+                            $stat->setCpc(floatval($adStat->CostPerConversion));
+                            $stat->setCtr(floatval($adStat->Ctr));
+                            $stat->setClicks($clicks);
+                            $stat->setCurrency($adStat->CurrencyCode);
+                            $stat->setSpend($cost);
+                            $stat->setImpressions($impressions);
 
-        //
-        // $request = new FindAccountsRequest();
-        //
-        // $request->CustomerId = $customerId;
-        // $request->AccountFilter = $accountFilter;
-        // $request->TopN = $topN;
-        //
-        // return $GLOBALS['CustomerManagementProxy']->GetService()->FindAccounts($request);
+                            $this->addStatToQueue($stat, $spend);
+                        }
+                    );
+                    $this->output->writeln(
+                        ' - '.
+                        (isset($account->Account->CurrencyCode) ? $account->Account->CurrencyCode : '').' '.
+                        $spend
+                    );
+                }
+            }
+        } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+            $this->output->writeln('');
+            $this->output->writeln('<error>'.MediaAccount::PROVIDER_BING.' - '.$e->getMessage().'</error>');
+        }
+        $this->saveQueue();
 
-        // @todo - Use the example to get all accounts from the primary user. With Pagination support.
-        return;
-        // $campaignClient = $this->getServiceClient(ServiceClientType::CampaignManagementVersion12);
-        //
-        //
-        // // Set the GetUser request parameter to an empty user identifier to get the current
-        // // authenticated Bing Ads user, and then search for all accounts the user may access.
-        //
-        // $user = CustomerManagementExampleHelper::GetUser(null, true)->User;
-        //
-        // // Search for the Bing Ads accounts that the user can access.
-        //
-        // $pageInfo        = new Paging();
-        // $pageInfo->Index = 0;    // The first page
-        // $pageInfo->Size  = 100;   // The first 100 accounts for this page of results
-        //
-        // $predicate           = new Predicate();
-        // $predicate->Field    = "UserId";
-        // $predicate->Operator = PredicateOperator::Equals;
-        // $predicate->Value    = $user->Id;
-        //
-        // $accounts = CustomerManagementExampleHelper::SearchAccounts(
-        //     [$predicate],
-        //     null,
-        //     $pageInfo
-        // )->Accounts;
-        //
-        // foreach ($accounts->AdvertiserAccount as $account) {
-        //     $GLOBALS['AuthorizationData']->AccountId  = $account->Id;
-        //     $GLOBALS['AuthorizationData']->CustomerId = $account->ParentCustomerId;
-        //
-        //     CustomerManagementExampleHelper::OutputAdvertiserAccount($account);
-        //
-        //     // Optionally you can find out which pilot features the customer is able to use.
-        //     // Each account could belong to a different customer, so use the customer ID in each account.
-        //     $featurePilotFlags = CustomerManagementExampleHelper::GetCustomerPilotFeatures(
-        //         $account->ParentCustomerId
-        //     )->FeaturePilotFlags;
-        //     print "Customer Pilot Flags:\n";
-        //     CustomerManagementExampleHelper::OutputArrayOfInt($featurePilotFlags);
-        //     $getCampaignsByAccountIdResponse = CampaignManagementExampleHelper::GetCampaignsByAccountId(
-        //         $account->Id,
-        //         AuthHelper::CampaignTypes,
-        //         CampaignAdditionalField::ExperimentId
-        //     );
-        //     CampaignManagementExampleHelper::OutputArrayOfCampaign($getCampaignsByAccountIdResponse->Campaigns);
-        // }
+        return $this->stats;
     }
 
     /**
-     * @return mixed
+     * Authenticates the user and returns an array of managed customers and linked accounts.
+     * $customers[<customerId>] = [<accountId>,<accountId>].
      *
      * @throws \Exception
      */
-    private function getUser()
+    private function getAllManagedCustomers()
     {
-        $request = new GetUserRequest();
+        $accountCount = 0;
+        $customers    = [];
 
-        // Get self, and all linked accounts.
-        // $request->UserId                  = null;
-        $request->IncludeLinkedAccountIds = true;
-        //
-        // $authorization = $this->getAuthData();
-        // if (isset($authorization->Authentication->OAuthTokens->ResponseFragments['user_id'])) {
-        //     $request->UserId = $authorization->Authentication->OAuthTokens->ResponseFragments['user_id'];
-        // }
+        // Authenticate as a user and also pull in linked accounts.
+        $user = $this->getUser(true);
+        if (!$user || !isset($user->User->Name->FirstName)) {
+            throw new \Exception(
+                'Could not authenticate as a user in Bing. Make sure the account has access to Bing ads.'
+            );
+        }
+        $this->output->writeln(
+            'Logged in to Bing as '.strip_tags($user->User->Name->FirstName).
+            ' '.strip_tags($user->User->Name->LastName).
+            ' ('.strip_tags($user->User->UserName).')'
+        );
+        if (isset($user->CustomerRoles->CustomerRole)) {
+            foreach ($user->CustomerRoles->CustomerRole as $role) {
+                // Get linked accounts.
+                if (
+                    isset($role->CustomerId)
+                    && isset($role->LinkedAccountIds->long)
+                ) {
+                    $customers[$role->CustomerId] = $role->LinkedAccountIds->long;
+                    $accountCount += count($role->LinkedAccountIds->long);
+                }
+                // Add personal accounts as well (not tested in real world).
+                if (
+                    isset($role->CustomerId)
+                    && isset($role->AccountIds->long)
+                ) {
+                    if (!isset($customers[$role->CustomerId])) {
+                        $customers[$role->CustomerId] = [];
+                    }
+                    $customers[$role->CustomerId] = array_merge($customers[$role->CustomerId], $role->AccountIds->long);
+                    $accountCount += count($role->AccountIds->long);
+                }
+            }
+        }
+        if (!$customers) {
+            throw new \Exception(
+                'No Bing Ads customer accounts accessible by media account '.$this->providerAccountId.'.'
+            );
+        }
+        $this->output->writeln(
+            MediaAccount::PROVIDER_BING.' - Found '.$accountCount.
+            ' active accounts in media account '.$this->mediaAccount->getId().'.'
+        );
+
+        return $customers;
+    }
+
+    /**
+     * @param bool $includeLinkedAccounts
+     *
+     * @return |null
+     */
+    private function getUser($includeLinkedAccounts = true)
+    {
+        $request                          = new GetUserRequest();
+        $request->IncludeLinkedAccountIds = $includeLinkedAccounts;
 
         return $this->attemptRequest(ServiceClientType::CustomerManagementVersion12, 'GetUser', $request);
+    }
+
+    /**
+     * @param $serviceType
+     * @param $method
+     * @param $request
+     *
+     * @return mixed
+     */
+    private function attemptRequest($serviceType, $method, $request)
+    {
+        ini_set('soap.wsdl_cache_enabled', '0');
+        ini_set('soap.wsdl_cache_ttl', '0');
+        $result = null;
+        do {
+            try {
+                /** @var ServiceClient $proxy */
+                $proxy   = $this->getServiceClient($serviceType);
+                $attempt = $proxy->GetService()->{$method}($request);
+                if ($attempt) {
+                    $result = $attempt;
+                }
+            } catch (\Exception $e) {
+                if (
+                    $e instanceof \SoapFault
+                    && isset($e->detail->AdApiFaultDetail->Errors->AdApiError->Message)
+                ) {
+                    $this->errors[] = $e->detail->AdApiFaultDetail->Errors->AdApiError->Message;
+                } else {
+                    $this->errors[] = $e->getMessage();
+                }
+                if (
+                    isset($e->detail->AdApiFaultDetail->Errors->AdApiError->Code)
+                    && '105' == $e->detail->AdApiFaultDetail->Errors->AdApiError->Code
+                ) {
+                    // Failed authentication, let's try to refresh our token before trying again.
+                    $this->session->set('mautic.media.helper.bing.auth', null);
+                }
+            }
+        } while (
+            !$result
+            && count($this->errors) < self::$rateLimitMaxErrors
+        );
+
+        return $result;
+    }
+
+    /**
+     * @param $type
+     *
+     * @return ServiceClient
+     *
+     * @throws \Exception
+     */
+    private function getServiceClient($type)
+    {
+        $authorization = $this->getAuthData();
+        if (!isset($this->bingServices[$type])) {
+            $this->bingServices[$type] = new ServiceClient(
+                $type,
+                $authorization,
+                $authorization->Authentication->Environment
+            );
+        } else {
+            /* ServiceClient $this->bingServices[$type] */
+            $this->bingServices[$type]->SetAuthorizationData($authorization);
+        }
+
+        return $this->bingServices[$type];
     }
 
     /**
@@ -272,12 +305,19 @@ class BingHelper extends CommonProviderHelper
      */
     private function getAuthData()
     {
+        /** @var AuthorizationData $authorization */
         $authorization = $this->session->get('mautic.media.helper.bing.auth');
         if (!$authorization && $this->refreshToken()) {
             $authorization = $this->session->get('mautic.media.helper.bing.auth');
         }
         if (!$authorization) {
             throw new \Exception('Unable to get a fresh Refresh Token.');
+        }
+        if ($this->bingAccountId) {
+            $authorization->AccountId = $this->bingAccountId;
+        }
+        if ($this->bingCustomerId) {
+            $authorization->CustomerId = $this->bingCustomerId;
         }
 
         return $authorization;
@@ -346,93 +386,32 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param $serviceType
-     * @param $method
-     * @param $request
+     * @param $accountId
      *
-     * @return |null
+     * @return mixed
      */
-    private function attemptRequest($serviceType, $method, $request)
+    private function getAccount($accountId)
     {
-        ini_set('soap.wsdl_cache_enabled', '0');
-        ini_set('soap.wsdl_cache_ttl', '0');
-        $result = null;
-        do {
-            try {
-                /** @var ServiceClient $proxy */
-                $proxy   = $this->getServiceClient($serviceType);
-                $attempt = $proxy->GetService()->{$method}($request);
-                if ($attempt) {
-                    $result = $attempt;
-                }
-            } catch (\Exception $e) {
-                if (
-                    $e instanceof \SoapFault
-                    && isset($e->detail->AdApiFaultDetail->Errors->AdApiError->Message)
-                ) {
-                    $this->errors[] = $e->detail->AdApiFaultDetail->Errors->AdApiError->Message;
-                } else {
-                    $this->errors[] = $e->getMessage();
-                }
-                if (
-                    isset($e->detail->AdApiFaultDetail->Errors->AdApiError->Code)
-                    && '105' == $e->detail->AdApiFaultDetail->Errors->AdApiError->Code
-                ) {
-                    // Failed authentication, let's try to refresh our token before trying again.
-                    $this->session->set('mautic.media.helper.bing.auth', null);
-                }
-            }
-        } while (
-            !$result
-            && count($this->errors) < self::$rateLimitMaxErrors
-        );
+        $request            = new GetAccountRequest();
+        $request->AccountId = $accountId;
 
-        return $result;
-    }
-
-    /**
-     * @param $type
-     *
-     * @return ServiceClient
-     *
-     * @throws \Exception
-     */
-    private function getServiceClient($type)
-    {
-        $authorization = $this->getAuthData();
-        if (!isset($this->bingServices[$type])) {
-            $this->bingServices[$type] = new ServiceClient(
-                $type,
-                $authorization,
-                $authorization->Authentication->Environment
-            );
-        } else {
-            $this->bingServices[$type]->SetAuthorizationData($authorization);
-        }
-
-        return $this->bingServices[$type];
+        return $this->attemptRequest(ServiceClientType::CustomerManagementVersion12, 'GetAccount', $request);
     }
 
     /**
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
+     * @param array     $accountIds
+     * @param callable  $callback
      *
-     * @return mixed
+     * @return array|false|null
      *
      * @throws \Exception
      */
-    private function getAdPerformanceReportRequest(\DateTime $dateFrom, \DateTime $dateTo)
+    private function getAdPerformanceReportRequest(\DateTime $dateFrom, \DateTime $dateTo, $accountIds, $callback)
     {
-        /** @var AdPerformanceReportRequest $request */
-        $report                         = new AdPerformanceReportRequest();
-        $report->Format                 = ReportFormat::Csv;
-        $report->ReportName             = $this->getReportName();
-        $report->ExcludeColumnHeaders   = true;
-        $report->ExcludeReportHeader    = true;
-        $report->ExcludeReportFooter    = true;
-        $report->ReturnOnlyCompleteData = true;
-        $report->Aggregation            = ReportAggregation::Hourly;
-        $report->Columns                = [
+        $columns = [
+            AdPerformanceReportColumn::TimePeriod,
             AdPerformanceReportColumn::AccountId,
             AdPerformanceReportColumn::AccountName,
             AdPerformanceReportColumn::CampaignId,
@@ -445,19 +424,31 @@ class BingHelper extends CommonProviderHelper
             AdPerformanceReportColumn::Spend,
             AdPerformanceReportColumn::CostPerConversion,
             // Cpm is not provided.
-            // AdPerformanceReportColumn::Cpm,
             AdPerformanceReportColumn::Ctr,
             AdPerformanceReportColumn::Impressions,
             AdPerformanceReportColumn::Clicks,
         ];
+
+        /** @var AdPerformanceReportRequest $request */
+        $report                         = new AdPerformanceReportRequest();
+        $report->Format                 = ReportFormat::Csv;
+        $report->ReportName             = $this->getReportName();
+        $report->ExcludeColumnHeaders   = true;
+        $report->ExcludeReportHeader    = true;
+        $report->ExcludeReportFooter    = true;
+        $report->ReturnOnlyCompleteData = true;
+        $report->Aggregation            = ReportAggregation::Hourly;
+        $report->Columns                = $columns;
         //  $report->Filter = new AccountPerformanceReportFilter();
         //  $report->Filter->DeviceType = array (
         //      DeviceTypeReportFilter::Computer,
         //      DeviceTypeReportFilter::SmartPhone
         //  );
-        // $report->Scope               = new AccountReportScope();
-        // $report->Scope->AccountIds   = [];
-        // $report->Scope->AccountIds[] = $this->providerAccountId;
+        if ($accountIds) {
+            $report->Scope             = new AccountReportScope();
+            $report->Scope->AccountIds = $accountIds;
+        }
+
         $report->Time                              = new ReportTime();
         $report->Time->CustomDateRangeStart        = new Date();
         $report->Time->CustomDateRangeStart->Year  = $dateFrom->format('Y');
@@ -467,9 +458,11 @@ class BingHelper extends CommonProviderHelper
         $report->Time->CustomDateRangeEnd->Year    = $dateTo->format('Y');
         $report->Time->CustomDateRangeEnd->Month   = $dateTo->format('m');
         $report->Time->CustomDateRangeEnd->Day     = $dateTo->format('d');
-        // Default to UTC because Microsoft is weird.
+
+        // microspark invented their own timezone names. how inventive.
         $report->Time->ReportTimeZone = ReportTimeZone::GreenwichMeanTimeDublinEdinburghLisbonLondon;
 
+        // Sorting? What do you think this is, literally any other report generator? You'll get your zips and like em.
         // $report->Sort = [];
         // $keywordPerformanceReportSort = new KeywordPerformanceReportSort();
         // $keywordPerformanceReportSort->SortColumn = KeywordPerformanceReportColumn::Clicks;
@@ -483,31 +476,31 @@ class BingHelper extends CommonProviderHelper
             $this->getServiceClient(ServiceClientType::ReportingVersion12)->GetNamespace()
         );
 
-        $result = $this->submitReportAndDownloadWhenDone($report);
-
-        return $result;
+        return $this->submitReportAndDownloadWhenDone($report, $columns, $callback);
     }
 
     /**
-     * @param $report
+     * @param \SoapVar $report
+     * @param array    $columns
+     * @param callable $callback
      *
-     * @return mixed
+     * @return array|false|null
      *
      * @throws \Exception
      */
-    private function submitReportAndDownloadWhenDone(\SoapVar $report)
+    private function submitReportAndDownloadWhenDone(\SoapVar $report, $columns, $callback)
     {
+        // microshaft must create the report offline then provide us a link (maybe). it's super convenient.
         $result                       = null;
-        $reportSubmission             = null;
         $reportRequest                = new SubmitGenerateReportRequest();
         $reportRequest->ReportRequest = $report;
-
-        $reportSubmission = $this->attemptRequest(
+        $reportSubmission             = $this->attemptRequest(
             ServiceClientType::ReportingVersion12,
             'SubmitGenerateReport',
             $reportRequest
         );
 
+        // Poll for up to 5 minutes, till either the report is provided or until we fail in misery and defeat.
         if (!empty($reportSubmission->ReportRequestId)) {
             $request                  = new PollGenerateReportRequest();
             $request->ReportRequestId = $reportSubmission->ReportRequestId;
@@ -520,26 +513,41 @@ class BingHelper extends CommonProviderHelper
                     'PollGenerateReport',
                     $request
                 );
-                if (!$reportStatus) {
+                if (
+                    !$reportStatus
+                    || !isset($reportStatus->ReportRequestStatus->Status)
+                ) {
                     $this->errors[] = 'Could not get report status';
-                } elseif (ReportRequestStatusType::Error != $reportStatus->Status) {
-                    $this->errors[] = 'Report status came back as an error';
-                } elseif (ReportRequestStatusType::Success != $reportStatus->Status) {
-                    if (isset($reportStatus->ReportDownloadUrl)) {
-                        if (null == $reportStatus->ReportDownloadUrl) {
-                            $this->errors[] = 'Report URL not returned by status call';
-                        } else {
-                            $result = $this->downloadReport($reportStatus->ReportDownloadUrl);
-                            if (!$result) {
-                                $this->errors[] = 'Report download failed';
-                            }
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep / 30);
+                } elseif (ReportRequestStatusType::Pending == $reportStatus->ReportRequestStatus->Status) {
+                    // Report is being generated, hang on for a while.
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep / 30);
+                } elseif (ReportRequestStatusType::Error == $reportStatus->ReportRequestStatus->Status) {
+                    $this->errors[] = 'Report had an error on the provider side';
+                    sleep(self::$betweenOpSleep);
+                } elseif (ReportRequestStatusType::Success == $reportStatus->ReportRequestStatus->Status) {
+                    if (!empty($reportStatus->ReportRequestStatus->ReportDownloadUrl)) {
+                        $result = $this->downloadReport(
+                            $reportStatus->ReportRequestStatus->ReportDownloadUrl,
+                            $columns,
+                            $callback
+                        );
+                        if (!$result) {
+                            $this->errors[] = 'Report download failed';
                         }
+                    } else {
+                        // There was no data to report, and thus no report to download.
+                        $result = [];
                     }
+                } else {
+                    // This API is a disgrace to it's ancestors.
+                    $this->errors[] = 'Unexpected report status.';
+                    sleep(self::$betweenOpSleep);
                 }
-                echo '.';
-                sleep(self::$rateLimitSleep / 60);
             } while (
-                !$result
+                null === $result
                 && count($this->errors) < self::$rateLimitMaxErrors
                 && time() - $start < $maxTimeInSeconds
             );
@@ -549,20 +557,90 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param $reportUrl
+     * @param string   $reportUrl
+     * @param array    $columns
+     * @param callable $callback
      *
-     * @return \Guzzle\Http\EntityBodyInterface|null
+     * @return array|false|null
+     *
+     * @throws \Exception
      */
-    private function downloadReport($reportUrl)
+    private function downloadReport($reportUrl, $columns, $callback)
     {
-        $data     = null;
-        $client   = new Client();
-        $response = $client->get($reportUrl);
-        if ('200' == $response->getResponse()->getStatusCode()) {
-            $data = $response->getResponseBody();
+        $success = false;
+        // microslug gives us a zip file that must be saved before decompression. it's lovely.
+        $zipFile = tempnam(sys_get_temp_dir(), 'mautic-bing-download');
+        $handle  = fopen($zipFile, 'w');
+        $client  = new Client(
+            '', [
+                Client::CURL_OPTIONS => [
+                    'CURLOPT_RETURNTRANSFER' => true,
+                    'CURLOPT_FILE'           => $handle,
+                ],
+            ]
+        );
+        if (!$client->get($reportUrl)->send()) {
+            throw new \Exception('Could not download zip from Bing.');
+        }
+        fclose($handle);
+
+        // microscar gives us a zip file that contains an unpredictable file contents. it's perfect.
+        $destPath = $zipFile.'.unzipped';
+        $zip      = new \ZipArchive();
+        $file     = $zip->open($zipFile);
+        if (true === $file) {
+            if (!$zip->extractTo($destPath)) {
+                throw new \Exception('Could not extract zip downloaded from Bing.');
+            }
+            $zip->close();
+            // Should find one or more CSV files in here...
+            foreach (scandir($destPath) as $file) {
+                if (!is_dir($file)) {
+                    if (false !== ($csv = fopen($destPath.'/'.$file, 'r'))) {
+                        while (false !== ($data = fgetcsv($csv))) {
+                            $adStat = new \stdClass();
+                            foreach ($columns as $i => $column) {
+                                // microshirt has inserted utf8 data in here for some reason. it's neat.
+                                $adStat->{$column} = isset($data[$i]) ? trim(utf8_decode($data[$i]), '"?') : '';
+                            }
+                            $callback($adStat);
+                        }
+                        fclose($csv);
+                    }
+                }
+            }
+            $success = true;
+        } else {
+            throw new \Exception('Could not open zip downloaded from Bing.');
         }
 
-        return $data;
+        // No longer need temporary files.
+        unlink($zipFile);
+        $this->rrmdir($destPath);
+
+        return $success;
+    }
+
+    /**
+     * Hide all traces that we had to download files from microspit.
+     *
+     * @param $dir
+     */
+    private function rrmdir($dir)
+    {
+        if (is_dir($dir)) {
+            $objects = scandir($dir);
+            foreach ($objects as $object) {
+                if ('.' != $object && '..' != $object) {
+                    if (is_dir($dir.'/'.$object)) {
+                        $this->rrmdir($dir.'/'.$object);
+                    } else {
+                        unlink($dir.'/'.$object);
+                    }
+                }
+            }
+            rmdir($dir);
+        }
     }
 
     /**

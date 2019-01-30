@@ -293,7 +293,7 @@ class SnapchatHelper extends CommonProviderHelper
                         // CTR is the click through rate.
                         //      CTR = (clicks / impressions) * 100
                         // For our purposes we are considering swipes as clicks for Snapchat.
-                        $clicks      = isset($adStat->swipes) ? $adStat->swipes : 0;
+                        $clicks      = isset($adStat->swipes) ? intval($adStat->swipes) : 0;
                         $impressions = intval($adStat->impressions);
                         $cost        = floatval($adStat->spend) / 1000000;
                         $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
