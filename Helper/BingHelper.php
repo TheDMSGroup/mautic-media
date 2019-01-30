@@ -21,6 +21,7 @@ use Microsoft\BingAds\Auth\OAuthWebAuthCodeGrant;
 use Microsoft\BingAds\Auth\ServiceClient;
 use Microsoft\BingAds\Auth\ServiceClientType;
 use Microsoft\BingAds\V12\Bulk\Date;
+use Microsoft\BingAds\V12\CustomerManagement\FindAccountsRequest;
 use Microsoft\BingAds\V12\CustomerManagement\GetAccountRequest;
 use Microsoft\BingAds\V12\CustomerManagement\GetUserRequest;
 use Microsoft\BingAds\V12\Reporting\AccountReportScope;
@@ -60,24 +61,25 @@ class BingHelper extends CommonProviderHelper
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
         try {
-            $customers = $this->getAllManagedCustomers();
+            $currencyCode = '';
+            $customers    = $this->getAllManagedCustomers();
             foreach ($customers as $customerId => $accounts) {
-                foreach ($accounts as $accountId) {
-                    $spend                = 0;
-                    $this->bingAccountId  = $accountId;
-                    $this->bingCustomerId = $customerId;
-                    $account              = $this->getAccount($accountId);
+                $this->bingCustomerId = $customerId;
+                foreach ($accounts as $accountId => $account) {
+                    $spend               = 0;
+                    $this->bingAccountId = $accountId;
+                    // $account              = $this->getAccount($accountId);
                     $this->output->write(
                         MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
                         $dateFrom->format('Y-m-d').' ~ '.
                         $dateTo->format('Y-m-d').' - '.
-                        (isset($account->Account->Name) ? $account->Account->Name : 'NA')
+                        (isset($account->Name) ? $account->Name : 'NA')
                     );
                     $this->getAdPerformanceReportRequest(
                         $dateFrom,
                         $dateTo,
                         [$accountId],
-                        function ($adStat) use ($spend) {
+                        function ($adStat) use (&$spend, &$currencyCode) {
                             if (!$adStat) {
                                 return;
                             }
@@ -135,6 +137,9 @@ class BingHelper extends CommonProviderHelper
                             $stat->setCpc(floatval($adStat->CostPerConversion));
                             $stat->setCtr(floatval($adStat->Ctr));
                             $stat->setClicks($clicks);
+                            if (!empty($adStat->CurrencyCode)) {
+                                $currencyCode = $adStat->CurrencyCode;
+                            }
                             $stat->setCurrency($adStat->CurrencyCode);
                             $stat->setSpend($cost);
                             $stat->setImpressions($impressions);
@@ -142,11 +147,7 @@ class BingHelper extends CommonProviderHelper
                             $this->addStatToQueue($stat, $spend);
                         }
                     );
-                    $this->output->writeln(
-                        ' - '.
-                        (isset($account->Account->CurrencyCode) ? $account->Account->CurrencyCode : '').' '.
-                        $spend
-                    );
+                    $this->output->writeln(' - '.$currencyCode.' '.$spend);
                 }
             }
         } catch (\Exception $e) {
@@ -182,26 +183,16 @@ class BingHelper extends CommonProviderHelper
             ' '.strip_tags($user->User->Name->LastName).
             ' ('.strip_tags($user->User->UserName).')'
         );
+        // microsong gives us only linked accounts with a role assignment, so we must search to get the rest. how fun.
         if (isset($user->CustomerRoles->CustomerRole)) {
             foreach ($user->CustomerRoles->CustomerRole as $role) {
                 // Get linked accounts.
-                if (
-                    isset($role->CustomerId)
-                    && isset($role->LinkedAccountIds->long)
-                ) {
-                    $customers[$role->CustomerId] = $role->LinkedAccountIds->long;
-                    $accountCount += count($role->LinkedAccountIds->long);
-                }
-                // Add personal accounts as well (not tested in real world).
-                if (
-                    isset($role->CustomerId)
-                    && isset($role->AccountIds->long)
-                ) {
-                    if (!isset($customers[$role->CustomerId])) {
-                        $customers[$role->CustomerId] = [];
+                if (isset($role->CustomerId)) {
+                    $accounts = $this->getAllActiveAccounts($role->CustomerId);
+                    if ($accounts) {
+                        $customers[$role->CustomerId] = $accounts;
+                        $accountCount += count($accounts);
                     }
-                    $customers[$role->CustomerId] = array_merge($customers[$role->CustomerId], $role->AccountIds->long);
-                    $accountCount += count($role->AccountIds->long);
                 }
             }
         }
@@ -223,7 +214,7 @@ class BingHelper extends CommonProviderHelper
      *
      * @return |null
      */
-    private function getUser($includeLinkedAccounts = true)
+    private function getUser($includeLinkedAccounts = false)
     {
         $request                          = new GetUserRequest();
         $request->IncludeLinkedAccountIds = $includeLinkedAccounts;
@@ -386,16 +377,24 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param $accountId
-     *
      * @return mixed
      */
-    private function getAccount($accountId)
+    private function getAllActiveAccounts($customerId)
     {
-        $request            = new GetAccountRequest();
-        $request->AccountId = $accountId;
+        $accounts            = [];
+        $request             = new FindAccountsRequest();
+        $request->CustomerId = $customerId;
+        $request->TopN       = 5000;
 
-        return $this->attemptRequest(ServiceClientType::CustomerManagementVersion12, 'GetAccount', $request);
+        // microsobs doesn't give us a way to get the active accounts based on a date range, so we must get them all.
+        $data = $this->attemptRequest(ServiceClientType::CustomerManagementVersion12, 'FindAccounts', $request);
+        if (isset($data->AccountsInfo->AccountInfo)) {
+            foreach ($data->AccountsInfo->AccountInfo as $account) {
+                $accounts[$account->Id] = $account;
+            }
+        }
+
+        return $accounts;
     }
 
     /**
@@ -518,11 +517,11 @@ class BingHelper extends CommonProviderHelper
                     || !isset($reportStatus->ReportRequestStatus->Status)
                 ) {
                     $this->errors[] = 'Could not get report status';
-                    $this->output->write('.');
+                    // $this->output->write('.');
                     sleep(self::$rateLimitSleep / 30);
                 } elseif (ReportRequestStatusType::Pending == $reportStatus->ReportRequestStatus->Status) {
                     // Report is being generated, hang on for a while.
-                    $this->output->write('.');
+                    // $this->output->write('.');
                     sleep(self::$rateLimitSleep / 30);
                 } elseif (ReportRequestStatusType::Error == $reportStatus->ReportRequestStatus->Status) {
                     $this->errors[] = 'Report had an error on the provider side';
@@ -710,5 +709,18 @@ class BingHelper extends CommonProviderHelper
         }
 
         return $success;
+    }
+
+    /**
+     * @param $accountId
+     *
+     * @return mixed
+     */
+    private function getAccount($accountId)
+    {
+        $request            = new GetAccountRequest();
+        $request->AccountId = $accountId;
+
+        return $this->attemptRequest(ServiceClientType::CustomerManagementVersion12, 'GetAccount', $request);
     }
 }
