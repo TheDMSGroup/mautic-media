@@ -211,7 +211,7 @@ class SnapchatHelper extends CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array
+     * @return $this|array
      *
      * @throws \Exception
      */
@@ -314,6 +314,8 @@ class SnapchatHelper extends CommonProviderHelper
             }
             $date->sub($oneDay);
         }
+
+        return $this;
     }
 
     /**

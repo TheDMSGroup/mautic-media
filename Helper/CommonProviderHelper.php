@@ -173,13 +173,11 @@ class CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array
-     *
-     * @throws \Exception
+     * @return $this
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        return [];
+        return $this;
     }
 
     /**

@@ -38,9 +38,7 @@ class FacebookHelper extends CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array
-     *
-     * @throws \Exception
+     * @return $this|array
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
@@ -166,12 +164,15 @@ class FacebookHelper extends CommonProviderHelper
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
             $this->output->writeln('');
-            $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.' - '.$e->getMessage().'</error>');
+            foreach ($this->errors as $message) {
+                $this->output->writeln('<error>'.MediaAccount::PROVIDER_FACEBOOK.' - '.$message.'</error>');
+            }
         }
         $this->saveQueue();
 
-        return $this->stats;
+        return $this;
     }
 
     /**

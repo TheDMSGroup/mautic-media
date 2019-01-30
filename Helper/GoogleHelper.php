@@ -62,9 +62,7 @@ class GoogleHelper extends CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array
-     *
-     * @throws \Exception
+     * @return $this
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
@@ -247,11 +245,13 @@ class GoogleHelper extends CommonProviderHelper
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
             $this->output->writeln('');
-            $this->output->writeln('<error>'.MediaAccount::PROVIDER_GOOGLE.' - '.$e->getMessage().'</error>');
+            foreach ($this->errors as $message) {
+                $this->output->writeln('<error>'.MediaAccount::PROVIDER_GOOGLE.' - '.$message.'</error>');
+            }
         }
         $this->saveQueue();
 
-        return $this->stats;
+        return $this;
     }
 
     /**

@@ -56,7 +56,7 @@ class BingHelper extends CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array|void
+     * @return $this|array
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
@@ -153,11 +153,13 @@ class BingHelper extends CommonProviderHelper
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
             $this->output->writeln('');
-            $this->output->writeln('<error>'.MediaAccount::PROVIDER_BING.' - '.$e->getMessage().'</error>');
+            foreach ($this->errors as $message) {
+                $this->output->writeln('<error>'.MediaAccount::PROVIDER_BING.' - '.$message.'</error>');
+            }
         }
         $this->saveQueue();
 
-        return $this->stats;
+        return $this;
     }
 
     /**
@@ -450,13 +452,13 @@ class BingHelper extends CommonProviderHelper
 
         $report->Time                              = new ReportTime();
         $report->Time->CustomDateRangeStart        = new Date();
-        $report->Time->CustomDateRangeStart->Year  = $dateFrom->format('Y');
-        $report->Time->CustomDateRangeStart->Month = $dateFrom->format('m');
-        $report->Time->CustomDateRangeStart->Day   = $dateFrom->format('d');
+        $report->Time->CustomDateRangeStart->Year  = (int) $dateFrom->format('Y');
+        $report->Time->CustomDateRangeStart->Month = (int) $dateFrom->format('m');
+        $report->Time->CustomDateRangeStart->Day   = (int) $dateFrom->format('d');
         $report->Time->CustomDateRangeEnd          = new Date();
-        $report->Time->CustomDateRangeEnd->Year    = $dateTo->format('Y');
-        $report->Time->CustomDateRangeEnd->Month   = $dateTo->format('m');
-        $report->Time->CustomDateRangeEnd->Day     = $dateTo->format('d');
+        $report->Time->CustomDateRangeEnd->Year    = (int) $dateTo->format('Y');
+        $report->Time->CustomDateRangeEnd->Month   = (int) $dateTo->format('m');
+        $report->Time->CustomDateRangeEnd->Day     = (int) $dateTo->format('d');
 
         // microspark invented their own timezone names. how inventive.
         $report->Time->ReportTimeZone = ReportTimeZone::GreenwichMeanTimeDublinEdinburghLisbonLondon;
