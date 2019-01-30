@@ -239,7 +239,6 @@ class CommonProviderHelper
                 [
                     $stat->getDateAdded()->getTimestamp(),
                     $stat->getProvider(),
-                    $stat->getMediaAccountId(),
                     $stat->getProviderAdsetId(),
                     $stat->getProviderAdId(),
                 ]

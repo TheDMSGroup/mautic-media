@@ -23,6 +23,8 @@ use Mautic\CoreBundle\Entity\CommonRepository;
 class StatRepository extends CommonRepository
 {
     /**
+     * To be Deprecated.
+     *
      * Fetch the base stat data from the database.
      *
      * @param      $mediaAccountId
@@ -40,7 +42,6 @@ class StatRepository extends CommonRepository
         //     $q->expr()->eq('IDENTITY(s.media_account_id)', (int) $mediaAccountId),
         //     $q->expr()->eq('s.type', ':type')
         // );
-
         $alias = 's';
         $query = $this->slaveQueryBuilder();
         $query->select($alias.'.provider_account_id, '.$alias.'.provider_account_name');
@@ -93,15 +94,13 @@ class StatRepository extends CommonRepository
         // Only provide accounts with recent activity.
         $fromDate = new \DateTime('-30 days');
 
-        // Query structured to use the unique_by_ad unique index.
+        // Query structured to use the campaign_mapping index.
         $query->add(
             'where',
             $query->expr()->andX(
                 $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
-                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
-                $query->expr()->isNotNull($alias.'.provider_adset_id'),
-                $query->expr()->isNotNull($alias.'.provider_ad_id')
+                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId)
             )
         );
         $query->setParameter('provider', $provider);
@@ -138,15 +137,13 @@ class StatRepository extends CommonRepository
         // Only provide accounts with recent activity.
         $fromDate = new \DateTime('-30 days');
 
-        // Query structured to use the unique_by_ad unique index.
+        // Query structured to use the campaign_mapping index.
         $query->add(
             'where',
             $query->expr()->andX(
                 $query->expr()->gte($alias.'.date_added', 'FROM_UNIXTIME(:fromDate)'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
-                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
-                $query->expr()->isNotNull($alias.'.provider_adset_id'),
-                $query->expr()->isNotNull($alias.'.provider_ad_id')
+                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId)
             )
         );
         $query->setParameter('provider', $provider);
