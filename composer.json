@@ -12,7 +12,9 @@
     "mautic/composer-plugin": "^1.0",
     "googleads/googleads-php-lib": "^38.0",
     "microsoft/bingads": "v0.12.0.2",
-    "facebook/php-business-sdk": "^3.2"
+    "facebook/php-business-sdk": "^3.2",
+    "ext-json": "*",
+    "ext-soap": "*"
   },
   "license": "GPL-3.0-only",
   "authors": [

@@ -2,6 +2,7 @@
 ![marketing cost by Iris Li from the Noun Project](./Assets/img/media.png)
 
 Pulls cost data from media advertising services for campaign correlation.
+Currently fills a table called media_account_stats with this data for use by other plugins.
 
 ## Installation & Usage
 
@@ -16,12 +17,13 @@ If you have success/issues with other versions please report.
 ## Providers Supported/Planned
 
 * Facebook Ads - Supported. You need to configure your own Facebook App via the developer portal to get API credentials.
-* Google Ads - In progress
-* Snapchat Ads - TBD
-* Bing Ads - TBD
+* Google Ads - Supported. You need to get your oauth tokens manually.
+* Snapchat Ads - Supported, with oauth login.
+* Bing Ads - Supported, with oauth login.
+* Media Alpha Ads - TBD
 
 ## Cron task
 
 Pull/update the last 24 hours of data, every hour:
 
-0 * * * * php /path/to/mautic/app/console mautic:media:pull --date-from="-1 day"
+0 * * * * php /path/to/mautic/app/console mautic:media:pull

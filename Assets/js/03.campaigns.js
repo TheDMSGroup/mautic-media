@@ -138,6 +138,9 @@ Mautic.mediaCampaigns = function () {
                                     case 'snapchat':
                                         mQuery(this).html('<a href="https://ads.snapchat.com/' + providerAccount + '/" target="_blank">Snapchat Account ' + providerAccount + '</a>');
                                         break;
+                                    case 'bing':
+                                        mQuery(this).html('<a href="https://ui.bingads.microsoft.com/campaign/Campaigns.m?aid=' + providerAccount + '/" target="_blank">Bing Account ' + providerAccount + '</a>');
+                                        break;
                                 }
                                 var providerCampaignIds = 0;
                                 $pppp.find('div[data-schemapath$=".providerCampaignId"] .control-label').each(function () {
@@ -152,6 +155,9 @@ Mautic.mediaCampaigns = function () {
                                             break;
                                         case 'snapchat':
                                             mQuery(this).html('<a href="https://ads.snapchat.com/' + providerAccount + '/campaigns/' + providerCampaign + '" target="_blank">Snapchat Campaign ' + providerCampaign + '</a>');
+                                            break;
+                                        case 'bing':
+                                            mQuery(this).html('<a href="https://ui.bingads.microsoft.com/campaign/Campaigns.m?aid=' + providerAccount + '&cid=' + providerCampaign + '" target="_blank">Bing Campaign ' + providerCampaign + '</a>');
                                             break;
                                     }
                                 });

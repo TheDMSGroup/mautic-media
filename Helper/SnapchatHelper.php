@@ -80,7 +80,7 @@ class SnapchatHelper extends CommonProviderHelper
     public function getAuthUri($redirectUri = '')
     {
         $result = '';
-        $state  = $this->session->get('mautic.media.helper.snapchat.state', $this->createState());
+        $state  = $this->session->get('mautic.media.helper.snapchat.state', $this->getState());
         if (
             $state
             && $redirectUri
@@ -108,7 +108,7 @@ class SnapchatHelper extends CommonProviderHelper
      */
     public function authCallback($params)
     {
-        $result = false;
+        $success = false;
         if (
             !empty($this->providerClientId)
             && !empty($this->providerClientSecret)
@@ -116,10 +116,10 @@ class SnapchatHelper extends CommonProviderHelper
             && !empty($params['state'])
             && $params['state'] == $this->session->get('mautic.media.helper.snapchat.state')
         ) {
-            $result = $this->refreshToken($params['code']);
+            $success = $this->refreshToken($params['code']);
         }
 
-        return $result;
+        return $success;
     }
 
     /**
@@ -171,9 +171,11 @@ class SnapchatHelper extends CommonProviderHelper
                         $this->mediaAccount->setRefreshToken($this->providerRefreshToken);
                         $success = true;
                     }
-                    $this->saveMediaAccount();
+                    if ($success) {
+                        $this->saveMediaAccount();
+                    }
                 } catch (\Exception $e) {
-                    $this->errors[] = $e->getMepullDatassage();
+                    $this->errors[] = $e->getMessage();
                 }
             }
         }
@@ -209,7 +211,7 @@ class SnapchatHelper extends CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array
+     * @return $this|array
      *
      * @throws \Exception
      */
@@ -291,7 +293,7 @@ class SnapchatHelper extends CommonProviderHelper
                         // CTR is the click through rate.
                         //      CTR = (clicks / impressions) * 100
                         // For our purposes we are considering swipes as clicks for Snapchat.
-                        $clicks      = isset($adStat->swipes) ? $adStat->swipes : 0;
+                        $clicks      = isset($adStat->swipes) ? intval($adStat->swipes) : 0;
                         $impressions = intval($adStat->impressions);
                         $cost        = floatval($adStat->spend) / 1000000;
                         $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
@@ -312,6 +314,8 @@ class SnapchatHelper extends CommonProviderHelper
             }
             $date->sub($oneDay);
         }
+
+        return $this;
     }
 
     /**

@@ -147,11 +147,27 @@ class Stat
             [
                 'date_added',
                 'provider',
-                'media_account_id',
                 'provider_adset_id',
                 'provider_ad_id',
             ],
             'unique_by_ad'
+        );
+
+        $builder->addIndex(
+            [
+                'campaign_id',
+                'date_added',
+            ],
+            'campaign_search'
+        );
+
+        $builder->addIndex(
+            [
+                'date_added',
+                'provider',
+                'media_account_id',
+            ],
+            'campaign_mapping'
         );
     }
 

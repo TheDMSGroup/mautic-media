@@ -13,6 +13,7 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
+use MauticPlugin\MauticMediaBundle\Entity\MediaAccountRepository;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -69,6 +70,12 @@ class CommonProviderHelper
 
     /** @var Session */
     protected $session;
+
+    /** @var string */
+    protected $state = '';
+
+    /** @var string */
+    protected $reportName = '';
 
     /**
      * ProviderInterface constructor.
@@ -166,13 +173,11 @@ class CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return array
-     *
-     * @throws \Exception
+     * @return $this
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        return [];
+        return $this;
     }
 
     /**
@@ -234,7 +239,6 @@ class CommonProviderHelper
                 [
                     $stat->getDateAdded()->getTimestamp(),
                     $stat->getProvider(),
-                    $stat->getMediaAccountId(),
                     $stat->getProviderAdsetId(),
                     $stat->getProviderAdId(),
                 ]
@@ -285,16 +289,14 @@ class CommonProviderHelper
      */
     protected function saveMediaAccount()
     {
-        if ($this->mediaAccount && $this->mediaAccount->getId()) {
-            $this->em()
-                ->getRepository('MauticMediaBundle:MediaAccount')
-                ->saveEntity($this->mediaAccount);
-
-            $this->em->clear(MediaAccount::class);
-        }
         $persist   = $this->session->get('mautic.media.helper.persist', []);
         $persist[] = $this->mediaAccount;
         $this->session->set('mautic.media.helper.persist', $persist);
+        if ($this->mediaAccount && $this->mediaAccount->getId()) {
+            /** @var MediaAccountRepository $repo */
+            $repo = $this->em()->getRepository('MauticMediaBundle:MediaAccount');
+            $repo->saveEntity($this->mediaAccount, false);
+        }
     }
 
     /**
@@ -302,18 +304,55 @@ class CommonProviderHelper
      *
      * @return string
      */
-    protected function createState()
+    protected function getState()
     {
-        return uniqid(
-            implode(
-                '-',
-                [
-                    'mautic',
-                    $this->mediaAccount->getId(),
-                    $this->mediaAccount->getProvider(),
-                ]
-            ),
-            true
-        );
+        if (!$this->state) {
+            $this->state = uniqid(
+                implode(
+                    '-',
+                    [
+                        'mautic',
+                        $this->mediaAccount->getId(),
+                        $this->mediaAccount->getProvider(),
+                    ]
+                ),
+                true
+            );
+        }
+
+        return $this->state;
+    }
+
+    /**
+     * @return string
+     */
+    protected function getReportName()
+    {
+        if (!$this->reportName) {
+            $this->reportName = uniqid(
+                implode(
+                    '',
+                    [
+                        'Mautic auto-generated report ',
+                        $this->mediaAccount->getId(),
+                        $this->mediaAccount->getProvider(),
+                    ]
+                ),
+                true
+            );
+        }
+
+        return $this->reportName;
+    }
+
+    /**
+     * @param $provider
+     */
+    protected function outputErrors($provider)
+    {
+        $this->output->writeln('');
+        foreach ($this->errors as $message) {
+            $this->output->writeln('<error>'.$provider.' - '.$message.'</error>');
+        }
     }
 }
