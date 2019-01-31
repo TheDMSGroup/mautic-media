@@ -44,7 +44,7 @@ class MediaCommand extends ModeratedCommand
                 '',
                 InputOption::VALUE_OPTIONAL,
                 'Oldest date to pull spend data for. Leave blank for the last day.',
-                '-1 day'
+                'today'
             )
             ->addOption(
                 'date-to',
