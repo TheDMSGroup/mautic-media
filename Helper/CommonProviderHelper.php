@@ -113,6 +113,7 @@ class CommonProviderHelper
         $this->output                 = $output;
         $this->em                     = $em;
         $this->campaignSettingsHelper = $campaignSettingsHelper;
+        ini_set('max_execution_time', 0);
     }
 
     /**

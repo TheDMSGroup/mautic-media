@@ -12,7 +12,6 @@
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
 use FacebookAds\Api;
-use FacebookAds\Cursor;
 use FacebookAds\Http\Exception\AuthorizationException;
 use FacebookAds\Object\AdAccount;
 use FacebookAds\Object\AdAccountUser;
@@ -28,11 +27,26 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
  */
 class FacebookHelper extends CommonProviderHelper
 {
+    /** @var int Number of rate limit errors after which we abort. */
+    public static $rateLimitMaxErrors = 100;
+
+    /** @var int Number of seconds to sleep between looping API operations. */
+    public static $betweenOpSleep = .25;
+
+    /** @var int Number of seconds to sleep when we hit API rate limits. */
+    public static $rateLimitSleep = 60;
+
     /** @var Api */
     private $facebookApi;
 
     /** @var User */
     private $facebookUser;
+
+    /** @var array */
+    private $facebookInsightJobs = [];
+
+    /** @var array */
+    private $facebookInsightAccounts = [];
 
     /**
      * @param \DateTime $dateFrom
@@ -42,7 +56,7 @@ class FacebookHelper extends CommonProviderHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        Cursor::setDefaultUseImplicitFetch(true);
+        // Cursor::setDefaultUseImplicitFetch(true);
         try {
             $this->authenticate();
             $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
@@ -106,8 +120,10 @@ class FacebookHelper extends CommonProviderHelper
                             'until' => $until->format('Y-m-d'),
                         ],
                     ];
+                    $this->applyPresetDateRanges($params, $timezone);
                     $this->getInsights(
                         $account,
+                        $self['account_id'],
                         $fields,
                         $params,
                         function ($data) use (&$spend, $timezone, $self) {
@@ -157,12 +173,15 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setClicks(intval($data['clicks']));
 
                             $this->addStatToQueue($stat, $spend);
-                        }
+                        },
+                        true
                     );
                     $this->output->writeln(' - '.$self['currency'].' '.$spend);
                 }
                 $date->sub($oneDay);
             }
+
+            $this->processInsightJobs();
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
             $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
@@ -189,7 +208,6 @@ class FacebookHelper extends CommonProviderHelper
             Api::init($this->providerClientId, $this->providerClientSecret, $this->providerToken);
             $this->facebookApi = Api::instance();
             // $this->facebookApi->setLogger(new \FacebookAds\Logger\CurlLogger());
-            Cursor::setDefaultUseImplicitFetch(true);
 
             // Authenticate and get the primary user ID in the same call.
             $me = $this->facebookApi->call('/me')->getContent();
@@ -219,6 +237,7 @@ class FacebookHelper extends CommonProviderHelper
         /* @var AdAccount $account */
         $this->getAdAccounts(
             function ($account) use (&$accounts, $dateTo, $dateFrom) {
+                // For each account, do a quick search for spend activity in the global date range.
                 $spend = 0;
                 $self  = $account->getData();
                 $this->output->write(
@@ -250,18 +269,19 @@ class FacebookHelper extends CommonProviderHelper
                         'until' => $until->format('Y-m-d'),
                     ],
                 ];
+                $this->applyPresetDateRanges($params, $timezone);
                 $this->getInsights(
                     $account,
+                    $self['account_id'],
                     $fields,
                     $params,
                     function ($data) use (&$spend, $account, &$accounts) {
-                        $spend += $data['spend'];
-                        if ($spend) {
+                        if (!empty($data['spend'])) {
+                            $spend += $data['spend'];
                             $accounts[] = $account;
-                            // I need to see the spend amount, keep spooling for comparison.
-                            // return true;
                         }
-                    }
+                    },
+                    false
                 );
                 $this->output->writeln(' - '.$self['currency'].' '.$spend);
             }
@@ -278,11 +298,16 @@ class FacebookHelper extends CommonProviderHelper
     /**
      * @param $callback
      *
+     * @return $this
+     *
      * @throws \Exception
      */
     private function getAdAccounts($callback)
     {
-        $code   = null;
+        if (!is_callable($callback)) {
+            throw new \Exception('Callback is not callable.');
+        }
+        $cursor = null;
         $fields = [
             'id',
             'timezone_name',
@@ -293,68 +318,310 @@ class FacebookHelper extends CommonProviderHelper
 
         do {
             try {
-                $code = null;
-                foreach ($this->facebookUser->getAdAccounts($fields, $params) as $account) {
-                    if (is_callable($callback)) {
-                        if ($callback($account)) {
-                            break;
-                        }
+                if (!$cursor) {
+                    /** @var \FacebookAds\Cursor $cursor */
+                    $cursor = $this->facebookUser->getAdAccounts($fields, $params);
+                    $cursor->setUseImplicitFetch(true);
+                }
+
+                $data = $cursor->current();
+                if ($data && $data->getData()) {
+                    if ($callback($data)) {
+                        $cursor->next();
+                        sleep(self::$betweenOpSleep);
+                        break;
                     }
-                    sleep(self::$betweenOpSleep);
                 }
-            } catch (AuthorizationException $e) {
-                $this->errors[] = $e->getMessage();
+                sleep(self::$betweenOpSleep);
+                $cursor->next();
+            } catch (\Exception $e) {
                 $code           = $e->getCode();
+                $this->errors[] = $e->getMessage();
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
-                    throw new \Exception('Too many request errors. '.$e->getMessage());
+                    throw new \Exception('Too many request errors.');
                 }
-                if (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code) {
-                    $this->output->write('⌛');
+                if (
+                    $e instanceof AuthorizationException
+                    && ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code
+                ) {
+                    $this->output->write('.');
                     sleep(self::$rateLimitSleep);
                 }
             }
-        } while (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code);
+        } while (!$cursor || $cursor->valid());
+
+        return $this;
+    }
+
+    /**
+     * Convert appropriate custom time ranges to the preset date ranges that facebook provides if we find a match.
+     * This makes the API calls less costly in terms of rate limiting.
+     *
+     * @param $params
+     * @param $timezone
+     *
+     * @throws \Exception
+     */
+    private function applyPresetDateRanges(&$params, $timezone)
+    {
+        // Use date_presets if available.
+        if (
+            isset($params['time_range'])
+            && isset($params['time_range']['since'])
+            && isset($params['time_range']['until'])
+        ) {
+            $today     = (new \DateTime('today', $timezone))->format('Y-m-d');
+            $yesterday = (new \DateTime('yesterday', $timezone))->format('Y-m-d');
+            if (
+                $params['time_range']['since'] === $params['time_range']['until']
+                && $params['time_range']['until'] === $today
+            ) {
+                $params['date_preset'] = 'today';
+            } elseif (
+                $params['time_range']['since'] === $params['time_range']['until']
+                && $params['time_range']['until'] === $yesterday
+            ) {
+                $params['date_preset'] = 'yesterday';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-1 sunday', $timezone))
+                        ->format('Y-m-d'))
+                && $params['time_range']['until'] === $today
+            ) {
+                $params['date_preset'] = 'this_week_sun_today';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('last monday', $timezone))
+                        ->format('Y-m-d'))
+                && $params['time_range']['until'] === $today
+            ) {
+                $params['date_preset'] = 'this_week_mon_today';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-2 sunday', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('last saturday', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_week_sun_sat';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-2 monday', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('last sunday', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_week_mon_sun';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('this month midnight', $timezone))
+                        ->format('Y-m-d'))
+                && $params['time_range']['until'] === $today
+            ) {
+                $params['date_preset'] = 'this_month';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('last month midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('last day of last month midnight', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_month';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-3 days midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_3d';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-7 days midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_7d';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-14 days midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_14d';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-28 days midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_28d';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-30 days midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_30d';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('-90 days midnight', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_90d';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('january 1', $timezone))
+                        ->format('Y-m-d'))
+                && $params['time_range']['until'] === $today
+            ) {
+                $params['date_preset'] = 'this_year';
+            } elseif (
+                ($params['time_range']['since'] === (new \DateTime('january 1 last year', $timezone))
+                        ->format('Y-m-d'))
+                && ($params['time_range']['until'] === (new \DateTime('january 1 -1 day', $timezone))
+                        ->format('Y-m-d'))
+            ) {
+                $params['date_preset'] = 'last_year';
+            }
+            if (isset($params['date_preset'])) {
+                unset($params['time_range']);
+            }
+        }
+    }
+
+    /**
+     * @param AdAccount $account
+     * @param           $accountId
+     * @param           $fields
+     * @param           $params
+     * @param           $callback
+     * @param bool      $queueJobs
+     *
+     * @return $this|FacebookHelper
+     *
+     * @throws \Exception
+     */
+    private function getInsights(
+        AdAccount $account,
+        $accountId,
+        $fields,
+        $params,
+        $callback,
+        $queueJobs = false
+    ) {
+        if (!is_callable($callback)) {
+            throw new \Exception('Callback is not callable.');
+        }
+
+        if (
+            $queueJobs
+            && isset($this->facebookInsightJobs[$accountId])
+        ) {
+            // We've already hit the rate limit for this account.
+            // Wait till we hit the end of the queue to pick this up later.
+            return $this->queueInsightJob($account, $accountId, $fields, $params, $callback);
+        }
+
+        $cursor = null;
+        do {
+            try {
+                if (!$cursor) {
+                    /** @var \FacebookAds\Cursor $cursor */
+                    $cursor = $account->getInsights($fields, $params);
+                    $cursor->setUseImplicitFetch(true);
+                }
+                $data = $cursor->current();
+                if ($data) {
+                    $data = $data->getData();
+                    if ($data) {
+                        if ($callback($data)) {
+                            $cursor->next();
+                            sleep(self::$betweenOpSleep);
+                            break;
+                        }
+                    }
+                }
+                sleep(self::$betweenOpSleep);
+                $cursor->next();
+            } catch (\Exception $e) {
+                $code           = $e->getCode();
+                $this->errors[] = $e->getMessage();
+                if (
+                    $e instanceof AuthorizationException
+                    && ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code
+                ) {
+                    if ($queueJobs) {
+                        // We'll nope out till we come back to the queue later.
+                        // $this->output->write('.');
+                        return $this->queueInsightJob($account, $accountId, $fields, $params, $callback);
+                    } else {
+                        // We've already been rate limited once, let's add delays now.
+                        $this->saveQueue();
+                        $this->output->write('.');
+                        sleep(self::$rateLimitSleep);
+                    }
+                }
+                if (count($this->errors) > self::$rateLimitMaxErrors) {
+                    throw new \Exception('Too many request errors.');
+                }
+            }
+        } while (!$cursor || $cursor->valid());
+
+        return $this;
     }
 
     /**
      * @param $account
+     * @param $accountId
      * @param $fields
      * @param $params
+     * @param $callback
      *
-     * @return array
+     * @return $this
+     */
+    private function queueInsightJob($account, $accountId, $fields, $params, $callback)
+    {
+        if (!$accountId) {
+            return;
+        }
+
+        // Queue this request to be made later after all non-limited requests are done.
+        if (!isset($this->facebookInsightJobs[$accountId])) {
+            $this->output->write(' (rate limited) ');
+            $this->output->writeln('');
+            $this->facebookInsightJobs[$accountId] = [];
+        }
+        if (!isset($this->facebookInsightAccounts[$accountId])) {
+            $this->facebookInsightAccounts[$accountId] = $account;
+        }
+        $job                                     = new \stdClass();
+        $job->fields                             = $fields;
+        $job->params                             = $params;
+        $job->callback                           = $callback;
+        $this->facebookInsightJobs[$accountId][] = $job;
+
+        return $this;
+    }
+
+    /**
+     * Process job queue that was populated by hitting rate limits on a per-account basis.
      *
      * @throws \Exception
      */
-    private function getInsights(AdAccount $account, $fields, $params, $callback)
+    private function processInsightJobs()
     {
-        $code = null;
-
-        do {
-            try {
-                $code = null;
-
-                /** @var \FacebookAds\Cursor $cursor */
-                foreach ($account->getInsights($fields, $params) as $cursor) {
-                    $data = $cursor->getData();
-                    if (is_callable($callback)) {
-                        if ($callback($data)) {
-                            break;
-                        }
-                    }
-                    sleep(self::$betweenOpSleep);
-                }
-            } catch (AuthorizationException $e) {
-                $this->errors[] = $e->getMessage();
-                $code           = $e->getCode();
-                if (count($this->errors) > self::$rateLimitMaxErrors) {
-                    throw new \Exception('Too many request errors.');
-                }
-                if (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code) {
-                    $this->output->write('.');
-                    $this->saveQueue();
-                    sleep(self::$rateLimitSleep);
+        if (!empty($this->facebookInsightJobs)) {
+            $this->output->write(
+                MediaAccount::PROVIDER_FACEBOOK.' - Processing all requests that had to be queued due to rate limits.'
+            );
+            foreach ($this->facebookInsightJobs as $accountId => $jobs) {
+                foreach ($jobs as $id => $job) {
+                    $j = clone $job;
+                    unset($this->facebookInsightJobs[$accountId][$id]);
+                    $this->getInsights(
+                        $this->facebookInsightAccounts[$accountId],
+                        $accountId,
+                        $j->fields,
+                        $j->params,
+                        $j->callback,
+                        false
+                    );
                 }
             }
-        } while (ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code);
+        }
     }
 }

@@ -212,7 +212,6 @@ class MediaAccountModel extends FormModel
         $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $unit);
         $unit  = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
-        $sets  = 0;
 
         $params = [
             'media_account_id' => $MediaAccount->getId(),
@@ -279,26 +278,8 @@ class MediaAccountModel extends FormModel
 
             $data = $query->loadAndBuildTimeData($q);
             foreach ($data as $key => $val) {
-                if (!isset($totals[$key])) {
-                    $totals[$key] = 0;
-                }
-                $totals[$key] += $val;
-            }
-            foreach ($data as $key => $val) {
                 if (0 !== $val) {
                     $chart->setDataset($providerAccountName, $data);
-                    break;
-                }
-            }
-            ++$sets;
-        }
-        if ($sets > 1) {
-            foreach ($totals as $val) {
-                if (0 !== $val) {
-                    $chart->setDataset(
-                        $this->translator->trans('mautic.media.form.provider.total.'.$MediaAccount->getProvider()),
-                        $totals
-                    );
                     break;
                 }
             }
@@ -378,17 +359,17 @@ class MediaAccountModel extends FormModel
     }
 
     /**
-     * @param MediaAccount|null $mediaAccount
-     * @param \DateTime         $dateFrom
-     * @param \DateTime         $dateTo
-     * @param OutputInterface   $output
+     * @param MediaAccount    $mediaAccount
+     * @param string          $dateFromString
+     * @param string          $dateToString
+     * @param OutputInterface $output
      *
-     * @throws \Exception
+     * @throws \Doctrine\ORM\ORMException
      */
     public function pullData(
         MediaAccount $mediaAccount,
-        \DateTime $dateFrom,
-        \DateTime $dateTo,
+        $dateFromString,
+        $dateToString,
         OutputInterface $output
     ) {
         $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
@@ -399,8 +380,8 @@ class MediaAccountModel extends FormModel
                     date_default_timezone_get()
                 )
             );
-            $dateFrom->setTimezone($timezone);
-            $dateTo->setTimezone($timezone);
+            $dateFrom = new \DateTime($dateFromString, $timezone);
+            $dateTo   = new \DateTime($dateToString, $timezone);
             $dateFrom->setTime(0, 0, 0, 0);
             $dateTo->setTime(0, 0, 0, 0);
             $helper->pullData($dateFrom, $dateTo);
