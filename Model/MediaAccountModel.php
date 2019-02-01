@@ -378,17 +378,17 @@ class MediaAccountModel extends FormModel
     }
 
     /**
-     * @param MediaAccount|null $mediaAccount
-     * @param \DateTime         $dateFrom
-     * @param \DateTime         $dateTo
-     * @param OutputInterface   $output
+     * @param MediaAccount    $mediaAccount
+     * @param string          $dateFromString
+     * @param string          $dateToString
+     * @param OutputInterface $output
      *
-     * @throws \Exception
+     * @throws \Doctrine\ORM\ORMException
      */
     public function pullData(
         MediaAccount $mediaAccount,
-        \DateTime $dateFrom,
-        \DateTime $dateTo,
+        $dateFromString,
+        $dateToString,
         OutputInterface $output
     ) {
         $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
@@ -399,8 +399,8 @@ class MediaAccountModel extends FormModel
                     date_default_timezone_get()
                 )
             );
-            $dateFrom->setTimezone($timezone);
-            $dateTo->setTimezone($timezone);
+            $dateFrom = new \DateTime($dateFromString, $timezone);
+            $dateTo   = new \DateTime($dateToString, $timezone);
             $dateFrom->setTime(0, 0, 0, 0);
             $dateTo->setTime(0, 0, 0, 0);
             $helper->pullData($dateFrom, $dateTo);
