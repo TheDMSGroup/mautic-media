@@ -212,7 +212,6 @@ class MediaAccountModel extends FormModel
         $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $unit);
         $unit  = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
-        $sets  = 0;
 
         $params = [
             'media_account_id' => $MediaAccount->getId(),
@@ -279,26 +278,8 @@ class MediaAccountModel extends FormModel
 
             $data = $query->loadAndBuildTimeData($q);
             foreach ($data as $key => $val) {
-                if (!isset($totals[$key])) {
-                    $totals[$key] = 0;
-                }
-                $totals[$key] += $val;
-            }
-            foreach ($data as $key => $val) {
                 if (0 !== $val) {
                     $chart->setDataset($providerAccountName, $data);
-                    break;
-                }
-            }
-            ++$sets;
-        }
-        if ($sets > 1) {
-            foreach ($totals as $val) {
-                if (0 !== $val) {
-                    $chart->setDataset(
-                        $this->translator->trans('mautic.media.form.provider.total.'.$MediaAccount->getProvider()),
-                        $totals
-                    );
                     break;
                 }
             }
