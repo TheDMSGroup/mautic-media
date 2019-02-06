@@ -249,19 +249,20 @@ class StatRepository extends CommonRepository
     }
 
     /**
-     * @param int        $campaignId
-     * @param \DateTime  $from
-     * @param \DateTime  $to
+     * @param int       $campaignId
+     * @param \DateTime $from
+     * @param \DateTime $to
      * @param null/array $args
      *
-     * @return array
+     * @return mixed
+     * @throws \Exception
      */
     public function getCampaignSpend($campaignId, $from, $to, $args = null)
     {
         $q = $this->getEntityManager()->getConnection()->createQueryBuilder()
             ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
             ->select(
-                'DATE_FORMAT(s.date_added, "'.$args['dbunit'].'") AS spendDate, s.campaign_id, SUM(s.spend) AS spend'
+                'DATE_FORMAT(DATE_SUB(s.date_added, INTERVAL :interval HOUR), :dbUnit) as spendDate, s.campaign_id, SUM(s.spend) AS spend'
             );
 
         $expr = $q->expr()->andX(
@@ -269,11 +270,13 @@ class StatRepository extends CommonRepository
             $q->expr()->gte('s.date_added', 'FROM_UNIXTIME(:fromDate)'),
             $q->expr()->lte('s.date_added', 'FROM_UNIXTIME(:toDate)')
         );
+        $q->setParameter('interval', (int) abs((new \DateTime())->getOffset() / 3600));
+        $q->setParameter('dbUnit', $args['dbunit']);
         $q->setParameter('fromDate', (int) $from->getTimestamp());
         $q->setParameter('toDate', (int) $to->getTimestamp());
 
         $q->where($expr);
-        $q->addGroupBy('DATE_FORMAT(s.date_added, "'.$args['dbunit'].'")');
+        $q->addGroupBy('spendDate');
 
         return $q->execute()->fetchAll();
     }
