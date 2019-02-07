@@ -249,12 +249,13 @@ class StatRepository extends CommonRepository
     }
 
     /**
-     * @param int       $campaignId
-     * @param \DateTime $from
-     * @param \DateTime $to
+     * @param int        $campaignId
+     * @param \DateTime  $from
+     * @param \DateTime  $to
      * @param null/array $args
      *
      * @return mixed
+     *
      * @throws \Exception
      */
     public function getCampaignSpend($campaignId, $from, $to, $args = null)
