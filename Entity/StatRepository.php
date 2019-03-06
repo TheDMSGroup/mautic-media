@@ -213,6 +213,10 @@ class StatRepository extends CommonRepository
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
                 'campaign_id = VALUES(campaign_id), '.
+                'provider_account_name = VALUES(provider_account_name), '.
+                'provider_campaign_name = VALUES(provider_campaign_name), '.
+                'provider_adset_name = VALUES(provider_adset_name), '.
+                'provider_ad_name = VALUES(provider_ad_name), '.
                 'spend = VALUES(spend), '.
                 'cpc = VALUES(cpc), '.
                 'cpm = VALUES(cpm), '.
