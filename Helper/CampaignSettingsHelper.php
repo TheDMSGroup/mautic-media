@@ -153,7 +153,7 @@ class CampaignSettingsHelper
             }
         }
 
-        return $result;
+        return is_numeric($result) ? intval($result) : $result;
     }
 
     /**
