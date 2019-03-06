@@ -159,7 +159,7 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setProviderCampaignName($data['campaign_name']);
 
                             $stat->setProviderAdsetId($data['adset_id']);
-                            $stat->setproviderAdsetName($data['ad_name']);
+                            $stat->setproviderAdsetName($data['adset_name']);
 
                             $stat->setProviderAdId($data['ad_id']);
                             $stat->setproviderAdName($data['ad_name']);
