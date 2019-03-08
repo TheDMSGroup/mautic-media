@@ -31,7 +31,7 @@ class FacebookHelper extends CommonProviderHelper
     public static $rateLimitMaxErrors = 100;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = .25;
+    public static $betweenOpSleep = .5;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 60;
@@ -52,7 +52,9 @@ class FacebookHelper extends CommonProviderHelper
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
-     * @return $this|array
+     * @return $this|array|CommonProviderHelper
+     *
+     * @throws \Exception
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
@@ -123,7 +125,7 @@ class FacebookHelper extends CommonProviderHelper
                     $this->applyPresetDateRanges($params, $timezone);
                     $this->getInsights(
                         $account,
-                        $self['account_id'],
+                        $self['id'],
                         $fields,
                         $params,
                         function ($data) use (&$spend, $timezone, $self) {
@@ -176,17 +178,16 @@ class FacebookHelper extends CommonProviderHelper
                         },
                         true
                     );
-                    $this->output->writeln(' - '.$self['currency'].' '.$spend);
+                    $this->output->writeln(' - '.$self['currency'].' '.round($spend, 2));
                 }
                 $date->sub($oneDay);
             }
-
-            $this->processInsightJobs();
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
             $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
         }
         $this->saveQueue();
+        $this->processInsightJobs();
 
         return $this;
     }
@@ -272,7 +273,7 @@ class FacebookHelper extends CommonProviderHelper
                 $this->applyPresetDateRanges($params, $timezone);
                 $this->getInsights(
                     $account,
-                    $self['account_id'],
+                    $self['id'],
                     $fields,
                     $params,
                     function ($data) use (&$spend, $account, &$accounts) {
@@ -325,7 +326,7 @@ class FacebookHelper extends CommonProviderHelper
                 }
 
                 $data = $cursor->current();
-                if ($data && $data->getData()) {
+                if ($data && $data->getData() && 'act_482299181976321' == $data->getData()['id']) {
                     if ($callback($data)) {
                         $cursor->next();
                         sleep(self::$betweenOpSleep);
@@ -490,6 +491,7 @@ class FacebookHelper extends CommonProviderHelper
      * @param           $params
      * @param           $callback
      * @param bool      $queueJobs
+     * @param null      $cursor
      *
      * @return $this|FacebookHelper
      *
@@ -501,7 +503,8 @@ class FacebookHelper extends CommonProviderHelper
         $fields,
         $params,
         $callback,
-        $queueJobs = false
+        $queueJobs = false,
+        $cursor = null
     ) {
         if (!is_callable($callback)) {
             throw new \Exception('Callback is not callable.');
@@ -516,7 +519,6 @@ class FacebookHelper extends CommonProviderHelper
             return $this->queueInsightJob($account, $accountId, $fields, $params, $callback);
         }
 
-        $cursor = null;
         do {
             try {
                 if (!$cursor) {
@@ -527,6 +529,7 @@ class FacebookHelper extends CommonProviderHelper
                 $data = $cursor->current();
                 if ($data) {
                     $data = $data->getData();
+                    // echo $data['date_start'].' '.$data['hourly_stats_aggregated_by_advertiser_time_zone'].' --- '.$data['adset_name'].PHP_EOL;
                     if ($data) {
                         if ($callback($data)) {
                             $cursor->next();
@@ -546,10 +549,9 @@ class FacebookHelper extends CommonProviderHelper
                 ) {
                     if ($queueJobs) {
                         // We'll nope out till we come back to the queue later.
-                        // $this->output->write('.');
-                        return $this->queueInsightJob($account, $accountId, $fields, $params, $callback);
+                        return $this->queueInsightJob($account, $accountId, $fields, $params, $callback, $cursor);
                     } else {
-                        // We've already been rate limited once, let's add delays now.
+                        // We've already been rate limited, let's add delays now so that we don't miss our cursor.
                         $this->saveQueue();
                         $this->output->write('.');
                         sleep(self::$rateLimitSleep);
@@ -565,18 +567,21 @@ class FacebookHelper extends CommonProviderHelper
     }
 
     /**
-     * @param $account
-     * @param $accountId
-     * @param $fields
-     * @param $params
-     * @param $callback
+     * @param      $account
+     * @param      $accountId
+     * @param      $fields
+     * @param      $params
+     * @param      $callback
+     * @param null $cursor
      *
      * @return $this
      */
-    private function queueInsightJob($account, $accountId, $fields, $params, $callback)
+    private function queueInsightJob($account, $accountId, $fields, $params, $callback, $cursor = null)
     {
         if (!$accountId) {
-            return;
+            $this->output->writeln('Account ID missing.');
+
+            return $this;
         }
 
         // Queue this request to be made later after all non-limited requests are done.
@@ -592,6 +597,7 @@ class FacebookHelper extends CommonProviderHelper
         $job->fields                             = $fields;
         $job->params                             = $params;
         $job->callback                           = $callback;
+        $job->cursor                             = clone $cursor;
         $this->facebookInsightJobs[$accountId][] = $job;
 
         return $this;
@@ -618,7 +624,8 @@ class FacebookHelper extends CommonProviderHelper
                         $j->fields,
                         $j->params,
                         $j->callback,
-                        false
+                        false,
+                        $j->cursor
                     );
                 }
             }
