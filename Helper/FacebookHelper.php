@@ -326,7 +326,7 @@ class FacebookHelper extends CommonProviderHelper
                 }
 
                 $data = $cursor->current();
-                if ($data && $data->getData() && 'act_482299181976321' == $data->getData()['id']) {
+                if ($data && $data->getData()) {
                     if ($callback($data)) {
                         $cursor->next();
                         sleep(self::$betweenOpSleep);
