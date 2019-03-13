@@ -516,7 +516,7 @@ class FacebookHelper extends CommonProviderHelper
         ) {
             // We've already hit the rate limit for this account.
             // Wait till we hit the end of the queue to pick this up later.
-            return $this->queueInsightJob($account, $accountId, $fields, $params, $callback);
+            return $this->queueInsightJob($account, $accountId, $fields, $params, $callback, $cursor);
         }
 
         do {
@@ -597,7 +597,7 @@ class FacebookHelper extends CommonProviderHelper
         $job->fields                             = $fields;
         $job->params                             = $params;
         $job->callback                           = $callback;
-        $job->cursor                             = clone $cursor;
+        $job->cursor                             = $cursor ? clone $cursor : null;
         $this->facebookInsightJobs[$accountId][] = $job;
 
         return $this;
