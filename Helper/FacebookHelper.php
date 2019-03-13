@@ -34,7 +34,7 @@ class FacebookHelper extends CommonProviderHelper
     public static $betweenOpSleep = .5;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    public static $rateLimitSleep = 60;
+    public static $rateLimitSleep = 300;
 
     /** @var Api */
     private $facebookApi;
