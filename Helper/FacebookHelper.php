@@ -34,7 +34,7 @@ class FacebookHelper extends CommonProviderHelper
     public static $betweenOpSleep = .5;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    public static $rateLimitSleep = 60;
+    public static $rateLimitSleep = 300;
 
     /** @var Api */
     private $facebookApi;
@@ -326,7 +326,7 @@ class FacebookHelper extends CommonProviderHelper
                 }
 
                 $data = $cursor->current();
-                if ($data && $data->getData() && 'act_482299181976321' == $data->getData()['id']) {
+                if ($data && $data->getData()) {
                     if ($callback($data)) {
                         $cursor->next();
                         sleep(self::$betweenOpSleep);
@@ -516,7 +516,7 @@ class FacebookHelper extends CommonProviderHelper
         ) {
             // We've already hit the rate limit for this account.
             // Wait till we hit the end of the queue to pick this up later.
-            return $this->queueInsightJob($account, $accountId, $fields, $params, $callback);
+            return $this->queueInsightJob($account, $accountId, $fields, $params, $callback, $cursor);
         }
 
         do {
@@ -597,7 +597,7 @@ class FacebookHelper extends CommonProviderHelper
         $job->fields                             = $fields;
         $job->params                             = $params;
         $job->callback                           = $callback;
-        $job->cursor                             = clone $cursor;
+        $job->cursor                             = $cursor ? clone $cursor : null;
         $this->facebookInsightJobs[$accountId][] = $job;
 
         return $this;
