@@ -28,10 +28,10 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
 class FacebookHelper extends CommonProviderHelper
 {
     /** @var int Number of rate limit errors after which we abort. */
-    public static $rateLimitMaxErrors = 100;
+    public static $rateLimitMaxErrors = 200;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = .5;
+    public static $betweenOpSleep = 1;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 300;
