@@ -28,13 +28,13 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
 class FacebookHelper extends CommonProviderHelper
 {
     /** @var int Number of rate limit errors after which we abort. */
-    public static $rateLimitMaxErrors = 200;
+    public static $rateLimitMaxErrors = 100000;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = 1;
+    public static $betweenOpSleep = .5;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    public static $rateLimitSleep = 300;
+    public static $rateLimitSleep = 60;
 
     /** @var Api */
     private $facebookApi;
@@ -184,6 +184,8 @@ class FacebookHelper extends CommonProviderHelper
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
+            // Unexpected error.
+            sleep(self::$rateLimitSleep);
         }
         $this->saveQueue();
         $this->processInsightJobs();
@@ -346,6 +348,10 @@ class FacebookHelper extends CommonProviderHelper
                     && ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code
                 ) {
                     $this->output->write('.');
+                    sleep(self::$rateLimitSleep);
+                } else {
+                    // Unexpected error
+                    $this->output->write('!');
                     sleep(self::$rateLimitSleep);
                 }
             }
