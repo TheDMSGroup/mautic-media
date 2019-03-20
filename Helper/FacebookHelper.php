@@ -184,10 +184,10 @@ class FacebookHelper extends CommonProviderHelper
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
-            $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
         }
         $this->saveQueue();
         $this->processInsightJobs();
+        $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
 
         return $this;
     }

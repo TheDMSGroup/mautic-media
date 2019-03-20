@@ -661,7 +661,6 @@ class BingHelper extends CommonProviderHelper
             // $this->pullDataOneDayAtATime($dateFrom, $dateTo);
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
-            $this->outputErrors(MediaAccount::PROVIDER_BING);
         }
         $this->saveQueue();
         $this->outputErrors(MediaAccount::PROVIDER_BING);

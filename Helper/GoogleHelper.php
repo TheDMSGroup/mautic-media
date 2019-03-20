@@ -244,9 +244,9 @@ class GoogleHelper extends CommonProviderHelper
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
-            $this->outputErrors(MediaAccount::PROVIDER_GOOGLE);
         }
         $this->saveQueue();
+        $this->outputErrors(MediaAccount::PROVIDER_GOOGLE);
 
         return $this;
     }
