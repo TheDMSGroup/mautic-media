@@ -446,6 +446,4 @@ class Summary
 
         return $this;
     }
-
-
 }

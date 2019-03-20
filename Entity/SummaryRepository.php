@@ -19,7 +19,6 @@ use Mautic\CoreBundle\Entity\CommonRepository;
  */
 class SummaryRepository extends CommonRepository
 {
-
     /**
      * Insert or update batches.
      *
