@@ -12,7 +12,7 @@
 return [
     'name'        => 'Media',
     'description' => 'Pulls cost data from media advertising services for campaign correlation.',
-    'version'     => '1.0',
+    'version'     => '1.1',
     'author'      => 'Mautic',
 
     'routes'   => [

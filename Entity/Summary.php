@@ -15,9 +15,9 @@ use Doctrine\ORM\Mapping as ORM;
 use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
 
 /**
- * Class Stat.
+ * Class Summary.
  */
-class Stat
+class Summary
 {
     /** @var int $id */
     private $id;
@@ -28,6 +28,9 @@ class Stat
     /** @var \DateTime $dateAdded */
     private $dateAdded;
 
+    /** @var \DateTime $dateModified */
+    private $dateModified;
+
     /** @var float $spend */
     private $spend = 0;
 
@@ -37,17 +40,8 @@ class Stat
     /** @var float $cpc */
     private $cpc = 0;
 
-    /** @var int $campaignId */
-    private $campaignId = 0;
-
     /** @var int $clicks */
     private $clicks = 0;
-
-    /** @var string */
-    private $providerCampaignId = '';
-
-    /** @var string */
-    private $providerCampaignName = '';
 
     /** @var string */
     private $providerAccountId = '';
@@ -65,19 +59,13 @@ class Stat
     private $impressions = 0;
 
     /** @var string */
-    private $providerAdId = '';
-
-    /** @var string */
-    private $providerAdName = '';
-
-    /** @var string */
-    private $providerAdsetName = '';
-
-    /** @var string */
-    private $providerAdsetId = '';
-
-    /** @var string */
     private $currency = 'USD';
+
+    /** @var bool */
+    private $complete = false;
+
+    /** @var bool */
+    private $final = false;
 
     /**
      * @param ORM\ClassMetadata $metadata
@@ -86,15 +74,13 @@ class Stat
     {
         $builder = new ClassMetadataBuilder($metadata);
 
-        $builder->setTable('media_account_stats')
-            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\StatRepository')
-            ->addIndex(['campaign_id', 'date_added'], 'campaign_id_date_added'); // For getting total spend by date.
+        $builder->setTable('media_account_stats');
 
         $builder->addId();
 
         $builder->addDateAdded();
 
-        $builder->addNamedField('campaignId', 'integer', 'campaign_id', false);
+        $builder->addNamedField('dateModified', 'datetime', 'date_modified', false);
 
         $builder->addNamedField('provider', 'string', 'provider', false);
 
@@ -103,18 +89,6 @@ class Stat
         $builder->addNamedField('providerAccountId', 'string', 'provider_account_id', false);
 
         $builder->addNamedField('providerAccountName', 'string', 'provider_account_name', false);
-
-        $builder->addNamedField('providerCampaignId', 'string', 'provider_campaign_id', false);
-
-        $builder->addNamedField('providerCampaignName', 'string', 'provider_campaign_name', false);
-
-        $builder->addNamedField('providerAdsetId', 'string', 'provider_adset_id', false);
-
-        $builder->addNamedField('providerAdsetName', 'string', 'provider_adset_name', false);
-
-        $builder->addNamedField('providerAdId', 'string', 'provider_ad_id', false);
-
-        $builder->addNamedField('providerAdName', 'string', 'provider_ad_name', false);
 
         $builder->addNamedField('currency', 'string', 'currency', false);
 
@@ -142,23 +116,17 @@ class Stat
 
         $builder->addNamedField('clicks', 'integer', 'clicks', false);
 
-        // Presume that Ad IDs are unique for all providers, and if not we must make it so.
+        $builder->addNamedField('complete', 'boolean', 'complete', false);
+
+        $builder->addNamedField('final', 'boolean', 'final', false);
+
         $builder->addUniqueConstraint(
             [
                 'date_added',
                 'provider',
-                'provider_adset_id',
-                'provider_ad_id',
+                'provider_account_id',
             ],
-            'unique_by_ad'
-        );
-
-        $builder->addIndex(
-            [
-                'campaign_id',
-                'date_added',
-            ],
-            'campaign_search'
+            'unique_by_account'
         );
 
         $builder->addIndex(
@@ -250,11 +218,31 @@ class Stat
     /**
      * @param mixed $dateAdded
      *
-     * @return Stat
+     * @return Summary
      */
     public function setDateAdded($dateAdded)
     {
         $this->dateAdded = $dateAdded;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getDateModified()
+    {
+        return $this->dateModified;
+    }
+
+    /**
+     * @param mixed $dateModified
+     *
+     * @return Summary
+     */
+    public function setDateModified($dateModified)
+    {
+        $this->dateModified = $dateModified;
 
         return $this;
     }
@@ -282,26 +270,6 @@ class Stat
     /**
      * @return int
      */
-    public function getCampaignId()
-    {
-        return $this->campaignId;
-    }
-
-    /**
-     * @param int $campaignId
-     *
-     * @return Stat
-     */
-    public function setCampaignId($campaignId)
-    {
-        $this->campaignId = $campaignId;
-
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
     public function getClicks()
     {
         return $this->clicks;
@@ -310,7 +278,7 @@ class Stat
     /**
      * @param int $clicks
      *
-     * @return Stat
+     * @return Summary
      */
     public function setClicks($clicks)
     {
@@ -330,51 +298,11 @@ class Stat
     /**
      * @param int $impressions
      *
-     * @return Stat
+     * @return Summary
      */
     public function setImpressions($impressions)
     {
         $this->impressions = $impressions;
-
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
-    public function getProviderCampaignId()
-    {
-        return $this->providerCampaignId;
-    }
-
-    /**
-     * @param int $providerCampaignId
-     *
-     * @return Stat
-     */
-    public function setProviderCampaignId($providerCampaignId)
-    {
-        $this->providerCampaignId = $providerCampaignId;
-
-        return $this;
-    }
-
-    /**
-     * @return int
-     */
-    public function getProviderCampaignName()
-    {
-        return $this->providerCampaignName;
-    }
-
-    /**
-     * @param int $providerCampaignName
-     *
-     * @return Stat
-     */
-    public function setProviderCampaignName($providerCampaignName)
-    {
-        $this->providerCampaignName = $providerCampaignName;
 
         return $this;
     }
@@ -390,7 +318,7 @@ class Stat
     /**
      * @param int $providerAccountId
      *
-     * @return Stat
+     * @return Summary
      */
     public function setProviderAccountId($providerAccountId)
     {
@@ -460,86 +388,6 @@ class Stat
     }
 
     /**
-     * @return float
-     */
-    public function getProviderAdId()
-    {
-        return $this->providerAdId;
-    }
-
-    /**
-     * @param string $providerAdId
-     *
-     * @return $this
-     */
-    public function setProviderAdId($providerAdId)
-    {
-        $this->providerAdId = $providerAdId;
-
-        return $this;
-    }
-
-    /**
-     * @return float
-     */
-    public function getProviderAdName()
-    {
-        return $this->providerAdName;
-    }
-
-    /**
-     * @param string $providerAdName
-     *
-     * @return Stat
-     */
-    public function setProviderAdName($providerAdName)
-    {
-        $this->providerAdName = $providerAdName;
-
-        return $this;
-    }
-
-    /**
-     * @return float
-     */
-    public function getProviderAdsetName()
-    {
-        return $this->providerAdsetName;
-    }
-
-    /**
-     * @param string $providerAdsetName
-     *
-     * @return $this
-     */
-    public function setProviderAdsetName($providerAdsetName)
-    {
-        $this->providerAdsetName = $providerAdsetName;
-
-        return $this;
-    }
-
-    /**
-     * @return float
-     */
-    public function getProviderAdsetId()
-    {
-        return $this->providerAdsetId;
-    }
-
-    /**
-     * @param string $providerAdsetId
-     *
-     * @return $this
-     */
-    public function setProviderAdsetId($providerAdsetId)
-    {
-        $this->providerAdsetId = $providerAdsetId;
-
-        return $this;
-    }
-
-    /**
      * @return string
      */
     public function getCurrency()
@@ -558,4 +406,46 @@ class Stat
 
         return $this;
     }
+
+    /**
+     * @return bool
+     */
+    public function getComplete()
+    {
+        return $this->complete;
+    }
+
+    /**
+     * @param $complete
+     *
+     * @return $this
+     */
+    public function setComplete($complete)
+    {
+        $this->complete = $complete;
+
+        return $this;
+    }
+
+    /**
+     * @return bool
+     */
+    public function getFinal()
+    {
+        return $this->complete;
+    }
+
+    /**
+     * @param $final
+     *
+     * @return $this
+     */
+    public function setFinal($final)
+    {
+        $this->final = $final;
+
+        return $this;
+    }
+
+
 }

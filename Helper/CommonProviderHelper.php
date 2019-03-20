@@ -15,6 +15,7 @@ use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccountRepository;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Entity\Summary;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpFoundation\Session\Session;
 
@@ -49,6 +50,9 @@ class CommonProviderHelper
 
     /** @var array */
     protected $stats = [];
+
+    /** @var array */
+    protected $summaries = [];
 
     /** @var EntityManager */
     protected $em;
@@ -246,7 +250,7 @@ class CommonProviderHelper
             );
             $this->stats[$key] = $stat;
             if (0 === count($this->stats) % 100) {
-                $this->saveQueue();
+                $this->saveStatQueue();
             }
             $spend += $stat->getSpend();
         }
@@ -255,7 +259,7 @@ class CommonProviderHelper
     /**
      * Save all the stat entities in queue.
      */
-    protected function saveQueue()
+    protected function saveStatQueue()
     {
         if ($this->stats) {
             $this->em()
@@ -283,6 +287,49 @@ class CommonProviderHelper
         }
 
         return $this->em;
+    }
+
+    /**
+     * @param Summary $summary
+     */
+    protected function addSummaryToQueue(Summary $summary)
+    {
+        $key                   = implode(
+            '|',
+            [
+                $summary->getDateAdded()->getTimestamp(),
+                $summary->getProvider(),
+                $summary->getProviderAccountId(),
+            ]
+        );
+        $this->summaries[$key] = $summary;
+        if (0 === count($this->summaries) % 100) {
+            $this->saveSummaryQueue();
+        }
+    }
+
+    /**
+     * Save all the summary entities in queue.
+     */
+    protected function saveSummaryQueue()
+    {
+        if ($this->summaries) {
+            $this->em()
+                ->getRepository('MauticMediaBundle:Summary')
+                ->saveEntities($this->summaries);
+
+            $this->summaries = [];
+            $this->em->clear(Summary::class);
+        }
+    }
+
+    /**
+     * Save all the entities in queue.
+     */
+    protected function saveQueue()
+    {
+        $this->saveSummaryQueue();
+        $this->saveStatQueue();
     }
 
     /**
@@ -355,5 +402,6 @@ class CommonProviderHelper
         foreach ($this->errors as $message) {
             $this->output->writeln('<error>'.$provider.' - '.$message.'</error>');
         }
+        $this->errors = [];
     }
 }
