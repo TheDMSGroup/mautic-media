@@ -45,9 +45,9 @@ class SummaryRepository extends CommonRepository
                 'cpm,'.
                 'ctr,'.
                 'impressions,'.
-                'clicks'.
+                'clicks,'.
                 'complete,'.
-                'final,'.
+                'final'.
                 ') VALUES ('.implode(
                     '),(',
                     array_fill(

@@ -74,7 +74,8 @@ class Summary
     {
         $builder = new ClassMetadataBuilder($metadata);
 
-        $builder->setTable('media_account_stats');
+        $builder->setTable('media_account_summary')
+            ->setCustomRepositoryClass('MauticPlugin\MauticMediaBundle\Entity\SummaryRepository');
 
         $builder->addId();
 
