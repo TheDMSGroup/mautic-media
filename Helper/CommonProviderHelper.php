@@ -36,6 +36,11 @@ class CommonProviderHelper
     /** @var int Maximum number of items to pull "per page" if the API supports such a feature. */
     public static $pageLimit = 1000;
 
+    /** @var string If the data is older than this time string, then we consider the data final (if complete)
+     *              Data will not need to be pulled again unless the data is incomplete due to an error
+     */
+    public static $ageDataIsFinal = '-2 hour';
+
     /** @var string */
     protected $providerAccountId;
 
