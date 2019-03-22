@@ -69,7 +69,6 @@ class StatRepository extends CommonRepository
         /** @var Connection $connection */
         $connection = $this->getEntityManager()->getConnection();
         if ($connection instanceof MasterSlaveConnection) {
-            // Prefer a slave connection if available.
             $connection->connect('slave');
         }
 

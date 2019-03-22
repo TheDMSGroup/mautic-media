@@ -11,6 +11,7 @@
 
 namespace MauticPlugin\MauticMediaBundle\Entity;
 
+use Doctrine\DBAL\Connections\MasterSlaveConnection;
 use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Types\Type;
 use Mautic\CoreBundle\Entity\CommonRepository;
@@ -48,13 +49,15 @@ class SummaryRepository extends CommonRepository
                 'impressions,'.
                 'clicks,'.
                 'complete,'.
-                'final'.
+                'final,'.
+                'final_date,'.
+                'provider_date'.
                 ') VALUES ('.implode(
                     '),(',
                     array_fill(
                         0,
                         count($entities),
-                        'FROM_UNIXTIME(?),FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?'
+                        'FROM_UNIXTIME(?),FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,FROM_UNIXTIME(?),?'
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
@@ -67,7 +70,9 @@ class SummaryRepository extends CommonRepository
                 'impressions = VALUES(impressions), '.
                 'clicks = VALUES(clicks), '.
                 'complete = VALUES(complete), '.
-                'final = VALUES(final)'
+                'final = VALUES(final), '.
+                'final_date = VALUES(final_date), '.
+                'provider_date = VALUES(provider_date)'
             );
 
         $count = 0;
@@ -89,26 +94,29 @@ class SummaryRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getClicks(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getComplete(), Type::BOOLEAN);
             $q->bindValue(++$count, $entity->getFinal(), Type::BOOLEAN);
+            $q->bindValue(++$count, $entity->getFinalDate()->getTimestamp(), Type::INTEGER);
+            $q->bindValue(++$count, $entity->getProviderDate(), Type::STRING);
         }
 
         $q->execute();
     }
 
     /**
-     * @param $mediaAccountId
-     * @param $provider
+     * @param int           $mediaAccountId
+     * @param string        $provider
+     * @param \DateTimeZone $timezone
      *
      * @return array
      *
      * @throws \Exception
      */
-    public function getDatesNeedingFinalization($mediaAccountId, $provider, $timezone)
+    public function getDatesNeedingFinalization($mediaAccountId, $provider, \DateTimeZone $timezone)
     {
         $dates = [];
         $alias = 's';
         $query = $this->slaveQueryBuilder();
         $query->select(
-            'UNIX_TIMESTAMP('.$alias.'.date_added) as date_added'
+            $alias.'.provider_date'
         );
         $query->from(MAUTIC_TABLE_PREFIX.$this->getTableName(), $alias);
 
@@ -116,21 +124,21 @@ class SummaryRepository extends CommonRepository
         $query->add(
             'where',
             $query->expr()->andX(
+                $query->expr()->lte($alias.'.final_date', 'NOW()'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
                 $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
                 $query->expr()->eq($alias.'.final', 0)
             )
         );
         $query->setParameter('provider', $provider);
-        $query->groupBy($alias.'.date_added');
-        $query->orderBy($alias.'.date_added', 'DESC');
+        $query->groupBy($alias.'.final_date, '.$alias.'.provider_date');
+        // Start with the newest and go backward. We always care more about recent data accuracy.
+        $query->orderBy($alias.'.final_date', 'DESC');
         $query->setMaxResults(90);
 
         foreach ($query->execute()->fetchAll() as $row) {
             // Recall these as local timezones for the pullData method.
-            $date = new \DateTime('@'.$row['date_added']);
-            $date->setTimezone($timezone);
-            $dates[$date->format('Y-m-d')] = $date;
+            $dates[] = $row['provider_date'];
         }
 
         return $dates;
@@ -146,7 +154,6 @@ class SummaryRepository extends CommonRepository
         /** @var Connection $connection */
         $connection = $this->getEntityManager()->getConnection();
         if ($connection instanceof MasterSlaveConnection) {
-            // Prefer a slave connection if available.
             $connection->connect('slave');
         }
 

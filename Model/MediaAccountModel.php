@@ -385,7 +385,10 @@ class MediaAccountModel extends FormModel
             $dateTo   = new \DateTime($dateToString, $timezone);
             $dateFrom->setTime(0, 0, 0, 0);
             $dateTo->setTime(0, 0, 0, 0);
-            $helper->pullData($dateFrom, $dateTo);
+            $helper->setDateFrom($dateFrom)
+                ->setDateTo($dateTo)
+                ->setProviderDate($dateFromString)
+                ->pullData();
         }
     }
 
@@ -494,6 +497,7 @@ class MediaAccountModel extends FormModel
         MediaAccount $mediaAccount,
         OutputInterface $output
     ) {
+        /** @var CommonProviderHelper $helper */
         $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
         if ($helper) {
             $timezone = new \DateTimeZone(
@@ -509,11 +513,8 @@ class MediaAccountModel extends FormModel
             if ($dates) {
                 $output->writeLn('Found '.count($dates).' days needing finalization');
                 foreach ($dates as $date) {
-                    $dateFrom = clone $date;
-                    $dateTo   = clone $date;
-                    $dateFrom->setTime(0, 0, 0, 0);
-                    $dateTo->setTime(0, 0, 0, 0);
-                    $helper->pullData($dateFrom, $dateTo);
+                    $helper->setProviderDate($date)
+                        ->pullData();
                 }
             }
         }

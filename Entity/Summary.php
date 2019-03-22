@@ -19,6 +19,9 @@ use Mautic\CoreBundle\Doctrine\Mapping\ClassMetadataBuilder;
  */
 class Summary
 {
+    /** @var string */
+    protected $providerDate;
+
     /** @var int $id */
     private $id;
 
@@ -66,6 +69,9 @@ class Summary
 
     /** @var bool */
     private $final = false;
+
+    /** @var \DateTime $finalDate */
+    private $finalDate;
 
     /**
      * @param ORM\ClassMetadata $metadata
@@ -121,6 +127,10 @@ class Summary
 
         $builder->addNamedField('final', 'boolean', 'final', false);
 
+        $builder->addNamedField('finalDate', 'datetime', 'final_date', false);
+
+        $builder->addNamedField('providerDate', 'string', 'provider_date', false);
+
         $builder->addUniqueConstraint(
             [
                 'date_added',
@@ -132,11 +142,12 @@ class Summary
 
         $builder->addIndex(
             [
-                'date_added',
+                'final_date',
                 'provider',
                 'media_account_id',
+                'final',
             ],
-            'campaign_mapping'
+            'finalization'
         );
     }
 
@@ -164,6 +175,26 @@ class Summary
     public function setCpm($cpm)
     {
         $this->cpm = $cpm;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getProviderDate()
+    {
+        return $this->providerDate;
+    }
+
+    /**
+     * @param $providerDate
+     *
+     * @return $this
+     */
+    public function setProviderDate($providerDate)
+    {
+        $this->providerDate = $providerDate;
 
         return $this;
     }
@@ -209,7 +240,7 @@ class Summary
     }
 
     /**
-     * @return mixed
+     * @return \DateTime
      */
     public function getDateAdded()
     {
@@ -217,7 +248,7 @@ class Summary
     }
 
     /**
-     * @param mixed $dateAdded
+     * @param \DateTime $dateAdded
      *
      * @return Summary
      */
@@ -229,7 +260,7 @@ class Summary
     }
 
     /**
-     * @return mixed
+     * @return \DateTime
      */
     public function getDateModified()
     {
@@ -237,7 +268,7 @@ class Summary
     }
 
     /**
-     * @param mixed $dateModified
+     * @param \DateTime $dateModified
      *
      * @return Summary
      */
@@ -444,6 +475,26 @@ class Summary
     public function setFinal($final)
     {
         $this->final = $final;
+
+        return $this;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getFinalDate()
+    {
+        return $this->finalDate;
+    }
+
+    /**
+     * @param \DateTime $finalDate
+     *
+     * @return Summary
+     */
+    public function setFinalDate($finalDate)
+    {
+        $this->finalDate = $finalDate;
 
         return $this;
     }

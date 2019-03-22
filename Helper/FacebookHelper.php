@@ -38,7 +38,7 @@ class FacebookHelper extends CommonProviderHelper
     public static $rateLimitSleep = 60;
 
     /** @var string */
-    public static $ageDataIsFinal = '-48 hours';
+    public static $ageDataIsFinal = '48 hours';
 
     /** @var bool */
     private static $facebookImplicitFetch = true;
@@ -56,22 +56,17 @@ class FacebookHelper extends CommonProviderHelper
     private $facebookInsightAccounts = [];
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this|array|CommonProviderHelper
-     *
-     * @throws \Exception
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
         try {
             $this->authenticate();
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
-            $date   = clone $dateTo;
+            $date   = $this->getDateTo();
             $oneDay = new \DateInterval('P1D');
-            while ($date >= $dateFrom) {
+            while ($date >= $this->getDateFrom()) {
                 /** @var AdAccount $account */
                 foreach ($this->getActiveAccounts($date, $date) as $account) {
                     $spend       = 0;
@@ -204,8 +199,10 @@ class FacebookHelper extends CommonProviderHelper
                     $summary->setComplete($complete);
                     $endOfDate = clone $until;
                     $endOfDate->setTime(23, 59, 59);
-                    $final = $endOfDate < new \DateTime(self::$ageDataIsFinal);
+                    $final = $complete && ($endOfDate < new \DateTime(self::$ageDataIsFinal));
                     $summary->setFinal($final);
+                    $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
+                    $summary->setProviderDate($since->format(\DateTime::ISO8601));
                     $this->addSummaryToQueue($summary);
 
                     $this->output->writeln(
@@ -220,7 +217,11 @@ class FacebookHelper extends CommonProviderHelper
             sleep(self::$rateLimitSleep);
         }
         $this->saveQueue();
-        $this->processInsightJobs();
+        try {
+            $this->processInsightJobs();
+        } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+        }
         $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
 
         return $this;
@@ -321,9 +322,6 @@ class FacebookHelper extends CommonProviderHelper
                     function ($accountInsightData) use (
                         $account,
                         $since,
-                        $until,
-                        $dateFrom,
-                        $dateTo,
                         $accountData,
                         &$spend,
                         &$accounts
@@ -336,7 +334,7 @@ class FacebookHelper extends CommonProviderHelper
                             $account->setDataWithoutValidation($accountData);
                             $accounts[] = $account;
 
-                            if ($dateFrom === $dateTo) {
+                            if ($this->getDateFrom() === $this->getDateTo()) {
                                 $summary = new Summary();
                                 $summary->setMediaAccountId($this->mediaAccount->getId());
                                 $summary->setDateAdded($since);
@@ -354,6 +352,8 @@ class FacebookHelper extends CommonProviderHelper
                                 // Set to false by default until we've correlated the result.
                                 $summary->setComplete(false);
                                 $summary->setFinal(false);
+                                $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
+                                $summary->setProviderDate($since->format(\DateTime::ISO8601));
                                 $this->addSummaryToQueue($summary);
                             }
                         }

@@ -45,7 +45,7 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
 class BingHelper extends CommonProviderHelper
 {
     /** @var string https://help.bingads.microsoft.com/#apex/3/en/54480/2 */
-    public static $ageDataIsFinal = '-48 hour';
+    public static $ageDataIsFinal = '48 hour';
 
     /** @var array */
     private $bingServices = [];
@@ -69,13 +69,13 @@ class BingHelper extends CommonProviderHelper
      *
      * @throws \Exception
      */
-    public function pullDataOneDayAtATime(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullDataOneDayAtATime()
     {
         $customers = $this->getAllManagedCustomers();
-        $date      = clone $dateTo;
+        $date      = $this->getDateTo();
         $oneDay    = new \DateInterval('P1D');
         // Pull one day at a time so microsock doesn't fall over.
-        while ($date >= $dateFrom) {
+        while ($date >= $this->getDateFrom()) {
             foreach ($customers as $customerId => $accounts) {
                 $this->bingCustomerId = $customerId;
                 foreach ($accounts as $accountId => $account) {
@@ -190,8 +190,9 @@ class BingHelper extends CommonProviderHelper
                         $summary->setComplete(true);
                         $endOfDate = clone $until;
                         $endOfDate->setTime(23, 59, 59);
-                        $summary->setFinal($endOfDate < new \DateTime(self::$ageDataIsFinal));
-
+                        $summary->setFinal($endOfDate < new \DateTime('-'.self::$ageDataIsFinal));
+                        $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
+                        $summary->setProviderDate($since->format(\DateTime::ISO8601));
                         $this->addSummaryToQueue($summary);
                     }
                 }
@@ -685,12 +686,9 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this|array
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
         // microstump reports all billing (spend) data in Pacific time only, so we must use this timezone.
         $this->timezone = new \DateTimeZone('America/Los_Angeles');
@@ -700,8 +698,8 @@ class BingHelper extends CommonProviderHelper
 
         try {
             // Batching many accounts together is faster, in general.
-            $this->pullDataInBatches($dateFrom, $dateTo);
-            // $this->pullDataOneDayAtATime($dateFrom, $dateTo);
+            $this->pullDataInBatches();
+            // $this->pullDataOneDayAtATime();
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
         }
@@ -718,7 +716,7 @@ class BingHelper extends CommonProviderHelper
      *
      * @throws \Exception
      */
-    public function pullDataInBatches(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullDataInBatches()
     {
         $customers = $this->getAllManagedCustomers();
         foreach ($customers as $customerId => $accounts) {
@@ -731,14 +729,12 @@ class BingHelper extends CommonProviderHelper
             $currencyCode = 'USD';
             $spend        = 0;
             // microstump reports all billing (spend) data in Pacific time only, so for things to line up, we must use this timezone.
-            $since = clone $dateFrom;
-            $until = clone $dateTo;
-            $since->setTimeZone($this->timezone);
-            $until->setTimeZone($this->timezone);
+            $since = $this->getDateFrom($this->timezone);
+            $until = $this->getDateTo($this->timezone);
             $this->output->write(
                 MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-                $dateFrom->format('Y-m-d').' ~ '.
-                $dateTo->format('Y-m-d').' - '.
+                $this->getDateFrom()->format('Y-m-d').' ~ '.
+                $this->getDateTo()->format('Y-m-d').' - '.
                 implode(', ', $accountNames)
             );
             $this->getAdPerformanceReportRequest(

@@ -60,15 +60,12 @@ class GoogleHelper extends CommonProviderHelper
     private $adWordsSessions = [];
 
     /** @var string */
-    public static $ageDataIsFinal = '-48 hour';
+    public static $ageDataIsFinal = '48 hour';
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
         $fields = [
             'Date',
@@ -102,9 +99,9 @@ class GoogleHelper extends CommonProviderHelper
             );
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
-            $date   = clone $dateTo;
+            $date   = $this->getDateTo();
             $oneDay = new \DateInterval('P1D');
-            while ($date >= $dateFrom) {
+            while ($date >= $this->getDateFrom()) {
                 foreach ($customers as $customerId => $customer) {
                     $spend = 0;
                     /** @var Customer $customer */
@@ -265,8 +262,9 @@ class GoogleHelper extends CommonProviderHelper
                         $summary->setComplete(true);
                         $endOfDate = clone $until;
                         $endOfDate->setTime(23, 59, 59);
-                        $summary->setFinal($endOfDate < new \DateTime(self::$ageDataIsFinal));
-
+                        $summary->setFinal($endOfDate < new \DateTime('-'.self::$ageDataIsFinal));
+                        $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
+                        $summary->setProviderDate($since->format(\DateTime::ISO8601));
                         $this->addSummaryToQueue($summary);
                     }
                 }

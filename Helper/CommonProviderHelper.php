@@ -39,7 +39,7 @@ class CommonProviderHelper
     /** @var string If the data is older than this time string, then we consider the data final (if complete)
      *              Data will not need to be pulled again unless the data is incomplete due to an error
      */
-    public static $ageDataIsFinal = '-2 hour';
+    public static $ageDataIsFinal = '2 hour';
 
     /** @var string */
     protected $providerAccountId;
@@ -84,7 +84,16 @@ class CommonProviderHelper
     protected $state = '';
 
     /** @var string */
+    protected $providerDate = '';
+
+    /** @var string */
     protected $reportName = '';
+
+    /** @var \DateTime */
+    protected $dateFrom;
+
+    /** @var \DateTime */
+    protected $dateTo;
 
     /**
      * ProviderInterface constructor.
@@ -180,12 +189,29 @@ class CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
+     * @return string
+     */
+    public function getProviderDate()
+    {
+        return $this->providerDate;
+    }
+
+    /**
+     * @param $providerDate
      *
      * @return $this
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function setProviderDate($providerDate)
+    {
+        $this->providerDate = $providerDate;
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function pullData()
     {
         return $this;
     }
@@ -244,7 +270,7 @@ class CommonProviderHelper
             // || $stat->getReach()
         ) {
             // Uniqueness to match the unique_by_ad constraint.
-            $key               = implode(
+            $key = implode(
                 '|',
                 [
                     $stat->getDateAdded()->getTimestamp(),
@@ -302,7 +328,7 @@ class CommonProviderHelper
      */
     protected function addSummaryToQueue(Summary $summary)
     {
-        $key                   = implode(
+        $key = implode(
             '|',
             [
                 $summary->getDateAdded()->getTimestamp(),
@@ -414,5 +440,71 @@ class CommonProviderHelper
             $this->output->writeln('<error>'.$provider.' - '.$message.'</error>');
         }
         $this->errors = [];
+    }
+
+    /**
+     * @param \DateTimeZone $timezone
+     *
+     * @return \DateTime
+     *
+     * @throws \Exception
+     */
+    protected function getDateFrom(\DateTimeZone $timezone = null)
+    {
+        if (empty($this->providerDate)) {
+            $date = clone $this->dateFrom;
+            if ($timezone) {
+                $date->setTimezone($timezone);
+            }
+        } else {
+            $date = new \DateTime($this->providerDate);
+        }
+
+        return $date;
+    }
+
+    /**
+     * @param $dateFrom
+     *
+     * @return $this
+     */
+    public function setDateFrom($dateFrom)
+    {
+        $this->dateFrom = $dateFrom;
+
+        return $this;
+    }
+
+    /**
+     * @param \DateTimeZone $timezone
+     *
+     * @return \DateTime
+     *
+     * @throws \Exception
+     */
+    protected function getDateTo(\DateTimeZone $timezone = null)
+    {
+        if (empty($this->providerDate)) {
+            $date = clone $this->dateTo;
+            if ($timezone) {
+                $date->setTimezone($timezone);
+            }
+        } else {
+            $date = new \DateTime($this->providerDate);
+        }
+
+        return $date;
+    }
+
+    /**
+     * @param $dateTo
+     *
+     * @return $this
+     */
+    public function setDateTo($dateTo)
+    {
+        $this->dateTo = $dateTo;
+
+        return $this;
     }
 }

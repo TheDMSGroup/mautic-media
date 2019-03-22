@@ -208,15 +208,12 @@ class SnapchatHelper extends CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this|array
-     *
-     * @throws \Exception
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
+        $dateFrom = $this->dateFrom;
+        $dateTo   = $this->dateTo;
         try {
             $accounts = $this->getAllActiveAccounts($dateFrom, $dateTo);
             $this->output->writeln(
