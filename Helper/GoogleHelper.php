@@ -30,6 +30,7 @@ use Google\AdsApi\Common\Configuration;
 use Google\AdsApi\Common\OAuth2TokenBuilder;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Entity\Summary;
 use Psr\Log\NullLogger;
 
 /**
@@ -57,6 +58,9 @@ class GoogleHelper extends CommonProviderHelper
 
     /** @var array */
     private $adWordsSessions = [];
+
+    /** @var string */
+    public static $ageDataIsFinal = '-48 hour';
 
     /**
      * @param \DateTime $dateFrom
@@ -102,6 +106,10 @@ class GoogleHelper extends CommonProviderHelper
             $oneDay = new \DateInterval('P1D');
             while ($date >= $dateFrom) {
                 foreach ($customers as $customerId => $customer) {
+                    if ('Platinum Auto' != $customer->getName()) {
+                        continue;
+                    }
+
                     $spend = 0;
                     /** @var Customer $customer */
                     $timezone = new \DateTimeZone($customer->getDateTimeZone());
@@ -122,15 +130,16 @@ class GoogleHelper extends CommonProviderHelper
                     $reportDefinition->setDateRangeType(
                         ReportDefinitionDateRangeType::CUSTOM_DATE
                     );
-                    $selector->setPredicates(
-                        [
-                            new Predicate(
-                                'Cost',
-                                PredicateOperator::GREATER_THAN,
-                                ['0']
-                            ),
-                        ]
-                    );
+                    // Limiting by a cost of 0 or more causes the data set to be inaccurate.
+                    // $selector->setPredicates(
+                    //     [
+                    //         new Predicate(
+                    //             'Cost',
+                    //             PredicateOperator::GREATER_THAN,
+                    //             ['0']
+                    //         ),
+                    //     ]
+                    // );
                     // Sorting is not currently supported for reports.
                     // $selector->setOrdering(
                     //     [
@@ -172,7 +181,7 @@ class GoogleHelper extends CommonProviderHelper
                                         continue;
                                     }
                                     $date = \DateTime::createFromFormat(
-                                        'Y-m-d H:i:s',
+                                        'Y-m-d G:i:s',
                                         $data['Date'].' '.$data['HourOfDay'].':00:00',
                                         $timezone
                                     );
@@ -238,7 +247,32 @@ class GoogleHelper extends CommonProviderHelper
                             }
                         }
                     } while (true === $doContinue);
+                    $spend = round($spend, 2);
                     $this->output->writeln(' - '.$customer->getCurrencyCode().' '.$spend);
+                    if ($spend) {
+                        $summary = new Summary();
+                        $summary->setMediaAccountId($this->mediaAccount->getId());
+                        $summary->setDateAdded($since);
+                        $summary->setDateModified($since);
+                        $summary->setProvider(MediaAccount::PROVIDER_GOOGLE);
+                        $summary->setProviderAccountId($customerId);
+                        $summary->setProviderAccountName($customer->getName());
+                        // $cpm = $impressionsTotal ? (($spend * 1000) / $impressionsTotal) : 0;
+                        // $summary->setCpm($cpm);
+                        // $summary->setCpc($spend / $clicksTotal);
+                        // $summary->setCtr(($clicksTotal / $impressionsTotal) * 100);
+                        // $summary->setClicks($clicksTotal);
+                        $summary->setCurrency($customer->getCurrencyCode());
+                        $summary->setSpend($spend);
+                        // $summary->setImpressions($impressionsTotal);
+                        // With Bing, they only provide complete days in files as far as we know.
+                        $summary->setComplete(true);
+                        $endOfDate = clone $until;
+                        $endOfDate->setTime(23, 59, 59);
+                        $summary->setFinal($endOfDate < new \DateTime(self::$ageDataIsFinal));
+
+                        $this->addSummaryToQueue($summary);
+                    }
                 }
                 $date->sub($oneDay);
             }
