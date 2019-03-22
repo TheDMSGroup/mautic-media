@@ -253,6 +253,9 @@ class CommonProviderHelper
                     $stat->getProviderAdId(),
                 ]
             );
+            if (isset($this->stats[$key])) {
+                $this->errors[] = 'Duplicate Stat key found: '.$key;
+            }
             $this->stats[$key] = $stat;
             if (0 === count($this->stats) % 100) {
                 $this->saveStatQueue();
@@ -307,6 +310,9 @@ class CommonProviderHelper
                 $summary->getProviderAccountId(),
             ]
         );
+        if (isset($this->stats[$key])) {
+            $this->errors[] = 'Duplicate Summary key found: '.$key;
+        }
         $this->summaries[$key] = $summary;
         if (0 === count($this->summaries) % 100) {
             $this->saveSummaryQueue();
