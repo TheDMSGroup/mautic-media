@@ -14,6 +14,7 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 use Guzzle\Http\Client;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Entity\Summary;
 use Microsoft\BingAds\Auth\ApiEnvironment;
 use Microsoft\BingAds\Auth\AuthorizationData;
 use Microsoft\BingAds\Auth\OAuthTokens;
@@ -43,6 +44,9 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
  */
 class BingHelper extends CommonProviderHelper
 {
+    /** @var string https://help.bingads.microsoft.com/#apex/3/en/54480/2 */
+    public static $ageDataIsFinal = '-48 hour';
+
     /** @var array */
     private $bingServices = [];
 
@@ -51,6 +55,12 @@ class BingHelper extends CommonProviderHelper
 
     /** @var int */
     private $bingAccountId;
+
+    /** @var \DateTimeZone */
+    private $timezone;
+
+    /** @var string */
+    private $timezoneMs;
 
     /**
      * For debugging only.
@@ -69,13 +79,14 @@ class BingHelper extends CommonProviderHelper
             foreach ($customers as $customerId => $accounts) {
                 $this->bingCustomerId = $customerId;
                 foreach ($accounts as $accountId => $account) {
-                    $currencyCode = 'USD';
-                    $spend        = 0;
-                    $timezone     = new \DateTimeZone('UTC');
-                    $since        = clone $date;
-                    $until        = clone $date;
-                    $since->setTimeZone($timezone);
-                    $until->setTimeZone($timezone);
+                    $currencyCode     = 'USD';
+                    $spend            = 0;
+                    $clicksTotal      = 0;
+                    $impressionsTotal = 0;
+                    $since            = clone $date;
+                    $until            = clone $date;
+                    $since->setTimeZone($this->timezone);
+                    $until->setTimeZone($this->timezone);
                     $this->bingAccountId = $accountId;
                     // $account              = $this->getAccount($accountId);
                     $this->output->write(
@@ -87,7 +98,7 @@ class BingHelper extends CommonProviderHelper
                         $since,
                         $until,
                         [$accountId],
-                        function ($adStat) use (&$spend, &$currencyCode) {
+                        function ($adStat) use (&$spend, &$currencyCode, &$clicksTotal, &$impressionsTotal) {
                             if (!$adStat) {
                                 return;
                             }
@@ -114,8 +125,7 @@ class BingHelper extends CommonProviderHelper
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $provider = MediaAccount::PROVIDER_BING;
-                            $stat->setProvider($provider);
+                            $stat->setProvider(MediaAccount::PROVIDER_BING);
 
                             $stat->setProviderAccountId($adStat->AccountId);
                             $stat->setproviderAccountName($adStat->AccountName);
@@ -137,10 +147,12 @@ class BingHelper extends CommonProviderHelper
                             // CTR is the click through rate.
                             //      CTR = (clicks / impressions) * 100
                             // For our purposes we are considering swipes as clicks for Snapchat.
-                            $clicks      = intval($adStat->Clicks);
-                            $impressions = intval($adStat->Impressions);
-                            $cost        = floatval($adStat->Spend);
-                            $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
+                            $clicks           = intval($adStat->Clicks);
+                            $clicksTotal += $clicks;
+                            $impressions      = intval($adStat->Impressions);
+                            $impressionsTotal += $impressions;
+                            $cost             = floatval($adStat->Spend);
+                            $cpm              = $impressions ? (($cost * 1000) / $impressions) : 0;
                             $stat->setCpm($cpm);
                             $stat->setCpc(floatval($adStat->CostPerConversion));
                             $stat->setCtr(floatval($adStat->Ctr));
@@ -156,6 +168,32 @@ class BingHelper extends CommonProviderHelper
                         }
                     );
                     $this->output->writeln(' - '.$currencyCode.' '.$spend);
+                    if ($spend) {
+                        $summary = new Summary();
+                        $summary->setMediaAccountId($this->mediaAccount->getId());
+                        $summary->setDateAdded($since);
+                        $summary->setDateModified($since);
+                        $summary->setProvider(MediaAccount::PROVIDER_BING);
+                        $summary->setProviderAccountId($accountId);
+                        if (!empty($account->Name)) {
+                            $summary->setProviderAccountName($account->Name);
+                        }
+                        $cpm = $impressionsTotal ? (($spend * 1000) / $impressionsTotal) : 0;
+                        $summary->setCpm($cpm);
+                        $summary->setCpc($spend / $clicksTotal);
+                        $summary->setCtr(($clicksTotal / $impressionsTotal) * 100);
+                        $summary->setClicks($clicksTotal);
+                        $summary->setCurrency($currencyCode);
+                        $summary->setSpend($spend);
+                        $summary->setImpressions($impressionsTotal);
+                        // With Bing, they only provide complete days in files as far as we know.
+                        $summary->setComplete(true);
+                        $endOfDate = clone $until;
+                        $endOfDate->setTime(23, 59, 59);
+                        $summary->setFinal($endOfDate < new \DateTime(self::$ageDataIsFinal));
+
+                        $this->addSummaryToQueue($summary);
+                    }
                 }
             }
             $date->sub($oneDay);
@@ -463,8 +501,7 @@ class BingHelper extends CommonProviderHelper
         $report->Time->CustomDateRangeEnd->Month   = (int) $until->format('m');
         $report->Time->CustomDateRangeEnd->Day     = (int) $until->format('d');
 
-        // microspark invented their own timezone names. how inventive.
-        $report->Time->ReportTimeZone = ReportTimeZone::GreenwichMeanTimeDublinEdinburghLisbonLondon;
+        $report->Time->ReportTimeZone = $this->timezoneMs;
 
         // Sorting? What do you think this is, literally any other report generator? You'll get your zips and like em.
         // $report->Sort = [];
@@ -655,6 +692,12 @@ class BingHelper extends CommonProviderHelper
      */
     public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
     {
+        // microstump reports all billing (spend) data in Pacific time only, so we must use this timezone.
+        $this->timezone = new \DateTimeZone('America/Los_Angeles');
+
+        // microspark invented their own timezone names. how inventive.
+        $this->timezoneMs = ReportTimeZone::PacificTimeUSCanadaTijuana;
+
         try {
             // Batching many accounts together is faster, in general.
             $this->pullDataInBatches($dateFrom, $dateTo);
@@ -687,11 +730,11 @@ class BingHelper extends CommonProviderHelper
             }
             $currencyCode = 'USD';
             $spend        = 0;
-            $timezone     = new \DateTimeZone('UTC');
-            $since        = clone $dateFrom;
-            $until        = clone $dateTo;
-            $since->setTimeZone($timezone);
-            $until->setTimeZone($timezone);
+            // microstump reports all billing (spend) data in Pacific time only, so for things to line up, we must use this timezone.
+            $since = clone $dateFrom;
+            $until = clone $dateTo;
+            $since->setTimeZone($this->timezone);
+            $until->setTimeZone($this->timezone);
             $this->output->write(
                 MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
                 $dateFrom->format('Y-m-d').' ~ '.
@@ -712,7 +755,8 @@ class BingHelper extends CommonProviderHelper
                     // microsham invented their own date format for this. It's wonderful.
                     $dateAdded = \DateTime::createFromFormat(
                         'n/j/Y 12:00:00 \A\M\|G',
-                        $adStat->TimePeriod
+                        $adStat->TimePeriod,
+                        $this->timezone
                     );
                     if (!$dateAdded) {
                         throw new \Exception('Unparsable date: '.$adStat->TimePeriod);

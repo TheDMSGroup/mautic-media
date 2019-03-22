@@ -242,7 +242,7 @@ class FacebookHelper extends CommonProviderHelper
             // Configure the client session.
             Api::init($this->providerClientId, $this->providerClientSecret, $this->providerToken);
             $this->facebookApi = Api::instance();
-            if ($this->output->getVerbosity() == 256) {
+            if (256 == $this->output->getVerbosity()) {
                 $this->facebookApi->setLogger(new \FacebookAds\Logger\CurlLogger());
             }
 

@@ -70,6 +70,7 @@ class SummaryRepository extends CommonRepository
             );
 
         $count = 0;
+        krsort($entities);
         foreach ($entities as $entity) {
             /* @var Summary $entity */
             $q->bindValue(++$count, $entity->getDateAdded()->getTimestamp(), Type::INTEGER);

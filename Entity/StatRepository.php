@@ -226,6 +226,7 @@ class StatRepository extends CommonRepository
             );
 
         $count = 0;
+        krsort($entities);
         foreach ($entities as $entity) {
             /* @var Stat $entity */
             $q->bindValue(++$count, $entity->getDateAdded()->getTimestamp(), Type::INTEGER);
