@@ -11,6 +11,7 @@
 
 namespace MauticPlugin\MauticMediaBundle\Entity;
 
+use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Types\Type;
 use Mautic\CoreBundle\Entity\CommonRepository;
 
@@ -91,5 +92,64 @@ class SummaryRepository extends CommonRepository
         }
 
         $q->execute();
+    }
+
+    /**
+     * @param $mediaAccountId
+     * @param $provider
+     *
+     * @return array
+     *
+     * @throws \Exception
+     */
+    public function getDatesNeedingFinalization($mediaAccountId, $provider, $timezone)
+    {
+        $dates = [];
+        $alias = 's';
+        $query = $this->slaveQueryBuilder();
+        $query->select(
+            'UNIX_TIMESTAMP('.$alias.'.date_added) as date_added'
+        );
+        $query->from(MAUTIC_TABLE_PREFIX.$this->getTableName(), $alias);
+
+        // Query structured to use the campaign_mapping index.
+        $query->add(
+            'where',
+            $query->expr()->andX(
+                $query->expr()->eq($alias.'.provider', ':provider'),
+                $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
+                $query->expr()->eq($alias.'.final', 0)
+            )
+        );
+        $query->setParameter('provider', $provider);
+        $query->groupBy($alias.'.date_added');
+        $query->orderBy($alias.'.date_added', 'DESC');
+        $query->setMaxResults(90);
+
+        foreach ($query->execute()->fetchAll() as $row) {
+            // Recall these as local timezones for the pullData method.
+            $date = new \DateTime('@'.$row['date_added']);
+            $date->setTimezone($timezone);
+            $dates[$date->format('Y-m-d')] = $date;
+        }
+
+        return $dates;
+    }
+
+    /**
+     * Create a DBAL QueryBuilder preferring a slave connection if available.
+     *
+     * @return QueryBuilder
+     */
+    private function slaveQueryBuilder()
+    {
+        /** @var Connection $connection */
+        $connection = $this->getEntityManager()->getConnection();
+        if ($connection instanceof MasterSlaveConnection) {
+            // Prefer a slave connection if available.
+            $connection->connect('slave');
+        }
+
+        return new QueryBuilder($connection);
     }
 }

@@ -23,6 +23,7 @@ use Mautic\LeadBundle\Model\LeadModel as ContactModel;
 use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
+use MauticPlugin\MauticMediaBundle\Entity\SummaryRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
@@ -481,6 +482,59 @@ class MediaAccountModel extends FormModel
         }
 
         return $this->campaignNames;
+    }
+
+    /**
+     * @param MediaAccount    $mediaAccount
+     * @param OutputInterface $output
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function finalizeData(
+        MediaAccount $mediaAccount,
+        OutputInterface $output
+    ) {
+        $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
+        if ($helper) {
+            $timezone = new \DateTimeZone(
+                $this->coreParametersHelper->getParameter(
+                    'default_timezone',
+                    date_default_timezone_get()
+                )
+            );
+
+            $dates = $this->getSummaryRepository()
+                ->getDatesNeedingFinalization($mediaAccount->getId(), $mediaAccount->getProvider(), $timezone);
+
+            if ($dates) {
+                $output->writeLn('Found '.count($dates).' days needing finalization');
+                foreach ($dates as $date) {
+                    $dateFrom = clone $date;
+                    $dateTo   = clone $date;
+                    $dateFrom->setTime(0, 0, 0, 0);
+                    $dateTo->setTime(0, 0, 0, 0);
+                    $helper->pullData($dateFrom, $dateTo);
+                }
+            }
+        }
+    }
+
+    /**
+     * @return SummaryRepository
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getSummaryRepository()
+    {
+        if (!$this->em->isOpen()) {
+            $this->em = $this->em->create(
+                $this->em->getConnection(),
+                $this->em->getConfiguration(),
+                $this->em->getEventManager()
+            );
+        }
+
+        return $this->em->getRepository('MauticMediaBundle:Summary');
     }
 
     /**

@@ -106,10 +106,6 @@ class GoogleHelper extends CommonProviderHelper
             $oneDay = new \DateInterval('P1D');
             while ($date >= $dateFrom) {
                 foreach ($customers as $customerId => $customer) {
-                    if ('Platinum Auto' != $customer->getName()) {
-                        continue;
-                    }
-
                     $spend = 0;
                     /** @var Customer $customer */
                     $timezone = new \DateTimeZone($customer->getDateTimeZone());

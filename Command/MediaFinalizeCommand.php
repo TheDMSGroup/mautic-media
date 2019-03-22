@@ -19,39 +19,26 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * CLI Command : Warms the media caches for all users.
+ * Finalize media spend statistics as needed.
  *
- * php app/console mautic:media:boost
+ * php app/console mautic:media:pull
  */
-class MediaCommand extends ModeratedCommand
+class MediaFinalizeCommand extends ModeratedCommand
 {
     /**
      * Maintenance command line task.
      */
     protected function configure()
     {
-        $this->setName('mautic:media:pull')
-            ->setDescription('Pull media spend statistics.')
+        $this->setName('mautic:media:finalize')
+            ->setAliases(['mautic:media:final'])
+            ->setDescription('Finalize media spend statistics as needed.')
             ->addOption(
                 'limit',
                 'l',
                 InputOption::VALUE_OPTIONAL,
-                'Maximum number of accounts to pull.',
+                'Maximum number of accounts to finalize.',
                 0
-            )
-            ->addOption(
-                'date-from',
-                '',
-                InputOption::VALUE_OPTIONAL,
-                'Oldest date to pull spend data for. Leave blank to pull the last hour or day as needed.',
-                '-1 hour'
-            )
-            ->addOption(
-                'date-to',
-                '',
-                InputOption::VALUE_OPTIONAL,
-                'Newest date to pull spend data for. Leave blank for the current date.',
-                'now'
             )
             ->addOption(
                 'provider',
@@ -87,8 +74,6 @@ class MediaCommand extends ModeratedCommand
         }
         $limit          = $input->getOption('limit');
         $mediaAccountId = $input->getOption('media-account');
-        $dateFromString = $input->getOption('date-from');
-        $dateToString   = $input->getOption('date-to');
         $provider       = strtolower($input->getOption('provider'));
 
         /** @var MediaAccountModel $model */
@@ -129,12 +114,12 @@ class MediaCommand extends ModeratedCommand
             if (!$mediaAccount->getIsPublished()) {
                 $output->writeln(
                     '<error>The Media Account '.$mediaAccount->getName(
-                    ).' is unpublished. Please publish it to pull data.</error>'
+                    ).' is unpublished. Please publish it to finalize data.</error>'
                 );
                 continue;
             }
-            $output->writeln('<info>Pulling data for Media Account '.$mediaAccount->getName().'</info>');
-            $model->pullData($mediaAccount, $dateFromString, $dateToString, $output);
+            $output->writeln('<info>Finalizing data for Media Account '.$mediaAccount->getName().'</info>');
+            $model->finalizeData($mediaAccount, $output);
         }
 
         $this->completeRun();
