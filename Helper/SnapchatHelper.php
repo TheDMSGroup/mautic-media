@@ -215,19 +215,17 @@ class SnapchatHelper extends CommonProviderHelper
      */
     public function pullData()
     {
-        $dateFrom = $this->dateFrom;
-        $dateTo   = $this->dateTo;
         try {
-            $accounts = $this->getAllActiveAccounts($dateFrom, $dateTo);
+            $accounts = $this->getAllActiveAccounts($this->getDateFrom(), $this->getDateTo());
             $this->output->writeln(
                 self::$provider.' - Found '.count(
                     $accounts
                 ).' active accounts in media account '.$this->mediaAccount->getId().'.'
             );
 
-            $date   = clone $dateTo;
+            $date   = $this->getDateTo();
             $oneDay = new \DateInterval('P1D');
-            while ($date >= $dateFrom) {
+            while ($date >= $this->getDateFrom()) {
                 /** @var AdAccount $account */
                 foreach ($accounts as $account) {
                     $spend            = 0;
@@ -243,7 +241,7 @@ class SnapchatHelper extends CommonProviderHelper
                     );
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone)->add($oneDay);
-                    foreach ($this->getActiveCampaigns($account->id, $dateFrom, $dateTo) as $campaign) {
+                    foreach ($this->getActiveCampaigns($account->id, $this->getDateFrom(), $this->getDateTo()) as $campaign) {
                         $adStats = $this->getCampaignStats($campaign->id, $since, $until);
                         foreach ($adStats as $adStat) {
                             if (!$adStat) {
@@ -333,6 +331,7 @@ class SnapchatHelper extends CommonProviderHelper
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
         }
+        $this->saveQueue();
         $this->outputErrors();
 
         return $this;
