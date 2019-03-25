@@ -39,7 +39,10 @@ class CommonProviderHelper
     /** @var string If the data is older than this time string, then we consider the data final (if complete)
      *              Data will not need to be pulled again unless the data is incomplete due to an error
      */
-    public static $ageDataIsFinal = '2 hour';
+    public static $ageSpendBecomesFinal = '2 hour';
+
+    /** @var string */
+    protected static $provider = '';
 
     /** @var string */
     protected $providerAccountId;
@@ -83,8 +86,8 @@ class CommonProviderHelper
     /** @var string */
     protected $state = '';
 
-    /** @var string */
-    protected $providerDate = '';
+    /** @var \DateTime */
+    protected $providerDate;
 
     /** @var string */
     protected $reportName = '';
@@ -94,6 +97,9 @@ class CommonProviderHelper
 
     /** @var \DateTime */
     protected $dateTo;
+
+    /** @var bool */
+    protected $finalizing = false;
 
     /**
      * ProviderInterface constructor.
@@ -189,7 +195,7 @@ class CommonProviderHelper
     }
 
     /**
-     * @return string
+     * @return \DateTime
      */
     public function getProviderDate()
     {
@@ -247,6 +253,18 @@ class CommonProviderHelper
     public function authCallback($params)
     {
         return false;
+    }
+
+    /**
+     * @param $finalizing
+     *
+     * @return $this
+     */
+    public function setFinalizing($finalizing)
+    {
+        $this->finalizing = $finalizing;
+
+        return $this;
     }
 
     /**
@@ -324,25 +342,12 @@ class CommonProviderHelper
     }
 
     /**
-     * @param Summary $summary
+     * Save all the entities in queue.
      */
-    protected function addSummaryToQueue(Summary $summary)
+    protected function saveQueue()
     {
-        $key = implode(
-            '|',
-            [
-                $summary->getDateAdded()->getTimestamp(),
-                $summary->getProvider(),
-                $summary->getProviderAccountId(),
-            ]
-        );
-        if (isset($this->stats[$key])) {
-            $this->errors[] = 'Duplicate Summary key found: '.$key;
-        }
-        $this->summaries[$key] = $summary;
-        if (0 === count($this->summaries) % 100) {
-            $this->saveSummaryQueue();
-        }
+        $this->saveSummaryQueue();
+        $this->saveStatQueue();
     }
 
     /**
@@ -358,15 +363,6 @@ class CommonProviderHelper
             $this->summaries = [];
             $this->em->clear(Summary::class);
         }
-    }
-
-    /**
-     * Save all the entities in queue.
-     */
-    protected function saveQueue()
-    {
-        $this->saveSummaryQueue();
-        $this->saveStatQueue();
     }
 
     /**
@@ -431,13 +427,13 @@ class CommonProviderHelper
     }
 
     /**
-     * @param $provider
+     * Output errors to CLI.
      */
-    protected function outputErrors($provider)
+    protected function outputErrors()
     {
         $this->output->writeln('');
         foreach ($this->errors as $message) {
-            $this->output->writeln('<error>'.$provider.' - '.$message.'</error>');
+            $this->output->writeln('<error>'.self::$provider.' - '.$message.'</error>');
         }
         $this->errors = [];
     }
@@ -451,13 +447,13 @@ class CommonProviderHelper
      */
     protected function getDateFrom(\DateTimeZone $timezone = null)
     {
-        if (empty($this->providerDate)) {
+        if ($this->finalizing) {
+            $date = clone $this->providerDate;
+        } else {
             $date = clone $this->dateFrom;
             if ($timezone) {
                 $date->setTimezone($timezone);
             }
-        } else {
-            $date = new \DateTime($this->providerDate);
         }
 
         return $date;
@@ -484,13 +480,13 @@ class CommonProviderHelper
      */
     protected function getDateTo(\DateTimeZone $timezone = null)
     {
-        if (empty($this->providerDate)) {
+        if ($this->finalizing) {
+            $date = clone $this->providerDate;
+        } else {
             $date = clone $this->dateTo;
             if ($timezone) {
                 $date->setTimezone($timezone);
             }
-        } else {
-            $date = new \DateTime($this->providerDate);
         }
 
         return $date;
@@ -506,5 +502,90 @@ class CommonProviderHelper
         $this->dateTo = $dateTo;
 
         return $this;
+    }
+
+    /**
+     * @param string    $provider
+     * @param string    $providerAccountId
+     * @param string    $providerAccountName
+     * @param string    $currencyCode
+     * @param \DateTime $providerDate
+     * @param int       $spendTotal
+     * @param int       $clicksTotal
+     * @param int       $impressionsTotal
+     * @param bool      $complete
+     *
+     * @throws \Exception
+     */
+    protected function createSummary(
+        $provider = '',
+        $providerAccountId = '',
+        $providerAccountName = '',
+        $currencyCode = '',
+        \DateTime $providerDate,
+        $spendTotal = 0,
+        $clicksTotal = 0,
+        $impressionsTotal = 0,
+        $complete = false
+    ) {
+        $summary = new Summary();
+        $summary->setMediaAccountId($this->mediaAccount->getId());
+        // Date aded in this context is the date the data originated from via the provider.
+        $summary->setDateAdded($providerDate);
+        $summary->setDateModified(new \DateTime());
+        $summary->setProvider($provider);
+        $summary->setProviderAccountId($providerAccountId);
+        $summary->setProviderAccountName($providerAccountName);
+
+        $cpm = $impressionsTotal ? (($spendTotal * 1000) / $impressionsTotal) : 0;
+        $summary->setCpm($cpm);
+
+        $cpc = ($spendTotal && $clicksTotal) ? ($spendTotal / $clicksTotal) : 0;
+        $summary->setCpc($cpc);
+
+        $ctr = ($clicksTotal && $impressionsTotal) ? (($clicksTotal / $impressionsTotal) * 100) : 0;
+        $summary->setCtr($ctr);
+        $summary->setClicks($clicksTotal);
+        $summary->setCurrency($currencyCode);
+        $summary->setSpend($spendTotal);
+        $summary->setImpressions($impressionsTotal);
+        $summary->setComplete($complete);
+
+        $finalDate = clone $providerDate;
+        $finalDate->modify('+'.self::$ageSpendBecomesFinal);
+        $summary->setFinalDate($finalDate);
+
+        $final = $complete && ($finalDate < new \DateTime('-'.self::$ageSpendBecomesFinal));
+        $summary->setFinal($final);
+
+        $summary->setProviderDate($providerDate);
+
+        $this->addSummaryToQueue($summary);
+
+        $this->output->writeln(
+            ' - '.($spendTotal ? '<info>' : '').$currencyCode.' '.$spendTotal.($spendTotal ? '</info>' : '').' - '.($complete ? 'complete' : '<error>incomplete</error>').' - '.($final ? 'final' : '<error>not final</error>')
+        );
+    }
+
+    /**
+     * @param Summary $summary
+     */
+    protected function addSummaryToQueue(Summary $summary)
+    {
+        $key = implode(
+            '|',
+            [
+                $summary->getDateAdded()->getTimestamp(),
+                $summary->getProvider(),
+                $summary->getProviderAccountId(),
+            ]
+        );
+        if (isset($this->stats[$key])) {
+            $this->errors[] = 'Duplicate Summary key found: '.$key;
+        }
+        $this->summaries[$key] = $summary;
+        if (0 === count($this->summaries) % 100) {
+            $this->saveSummaryQueue();
+        }
     }
 }

@@ -105,17 +105,15 @@ class SummaryRepository extends CommonRepository
     }
 
     /**
-     * @param int           $mediaAccountId
-     * @param string        $provider
-     * @param \DateTimeZone $timezone
+     * @param $mediaAccountId
+     * @param $provider
+     * @param $pullCountLimit
+     * @param $maxDays
      *
      * @return array
-     *
-     * @throws \Exception
      */
-    public function getDatesNeedingFinalization($mediaAccountId, $provider, \DateTimeZone $timezone)
+    public function getDatesNeedingFinalization($mediaAccountId, $provider, $pullCountLimit, $maxDays)
     {
-        $dates = [];
         $alias = 's';
         $query = $this->slaveQueryBuilder();
         $query->select(
@@ -130,21 +128,17 @@ class SummaryRepository extends CommonRepository
                 $query->expr()->lte($alias.'.final_date', 'NOW()'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
                 $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
-                $query->expr()->eq($alias.'.final', 0)
+                $query->expr()->eq($alias.'.final', 0),
+                $query->expr()->lte($alias.'.pull_count', (int) $pullCountLimit)
             )
         );
         $query->setParameter('provider', $provider);
-        $query->groupBy($alias.'.final_date, '.$alias.'.provider_date');
+        $query->groupBy($alias.'.provider_date');
         // Start with the newest and go backward. We always care more about recent data accuracy.
         $query->orderBy($alias.'.final_date', 'DESC');
-        $query->setMaxResults(90);
+        $query->setMaxResults((int) $maxDays);
 
-        foreach ($query->execute()->fetchAll() as $row) {
-            // Recall these as local timezones for the pullData method.
-            $dates[] = $row['provider_date'];
-        }
-
-        return $dates;
+        return array_column($query->execute()->fetchAll(), 'provider_date');
     }
 
     /**

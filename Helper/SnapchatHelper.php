@@ -25,6 +25,9 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
 class SnapchatHelper extends CommonProviderHelper
 {
     /** @var string */
+    public static $provider = MediaAccount::PROVIDER_SNAPCHAT;
+
+    /** @var string */
     private static $snapchatScope = 'snapchat-marketing-api';
 
     /** @var string */
@@ -217,7 +220,7 @@ class SnapchatHelper extends CommonProviderHelper
         try {
             $accounts = $this->getAllActiveAccounts($dateFrom, $dateTo);
             $this->output->writeln(
-                MediaAccount::PROVIDER_SNAPCHAT.' - Found '.count(
+                self::$provider.' - Found '.count(
                     $accounts
                 ).' active accounts in media account '.$this->mediaAccount->getId().'.'
             );
@@ -227,13 +230,15 @@ class SnapchatHelper extends CommonProviderHelper
             while ($date >= $dateFrom) {
                 /** @var AdAccount $account */
                 foreach ($accounts as $account) {
-                    $spend    = 0;
-                    $timezone = new \DateTimeZone($account->timezone);
-                    $since    = clone $date;
-                    $until    = clone $date;
+                    $spend            = 0;
+                    $clicksTotal      = 0;
+                    $impressionsTotal = 0;
+                    $timezone         = new \DateTimeZone($account->timezone);
+                    $since            = clone $date;
+                    $until            = clone $date;
                     $this->output->write(
-                        MediaAccount::PROVIDER_SNAPCHAT.' - Pulling hourly data - '.
-                        $since->format('Y-m-d').' - '.
+                        self::$provider.' - Pulling hourly data - '.
+                        $since->format(\DateTime::ISO8601).' - '.
                         $account->name
                     );
                     $since->setTimeZone($timezone);
@@ -259,8 +264,7 @@ class SnapchatHelper extends CommonProviderHelper
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $provider = MediaAccount::PROVIDER_SNAPCHAT;
-                            $stat->setProvider($provider);
+                            $stat->setProvider(self::$provider);
 
                             $stat->setProviderAccountId($account->id);
                             $stat->setproviderAccountName($account->name);
@@ -303,19 +307,32 @@ class SnapchatHelper extends CommonProviderHelper
                             $stat->setCpc($cpc);
                             $stat->setCtr($ctr);
                             $stat->setImpressions($impressions);
+                            $impressionsTotal += $impressions;
                             $stat->setClicks($clicks);
+                            $clicksTotal += $clicks;
 
                             $this->addStatToQueue($stat, $spend);
                         }
                     }
-                    $this->output->writeln(' - '.$account->currency.' '.$spend);
+                    $this->createSummary(
+                        self::$provider,
+                        $account->id,
+                        $account->name,
+                        $account->currency,
+                        $date,
+                        $spend,
+                        $clicksTotal,
+                        $impressionsTotal,
+                        // @todo - Add validation for completion for Snapchat data sets.
+                        true
+                    );
                 }
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
         }
-        $this->outputErrors(MediaAccount::PROVIDER_SNAPCHAT);
+        $this->outputErrors();
 
         return $this;
     }

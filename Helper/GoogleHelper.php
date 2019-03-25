@@ -30,7 +30,6 @@ use Google\AdsApi\Common\Configuration;
 use Google\AdsApi\Common\OAuth2TokenBuilder;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
-use MauticPlugin\MauticMediaBundle\Entity\Summary;
 use Psr\Log\NullLogger;
 
 /**
@@ -38,6 +37,9 @@ use Psr\Log\NullLogger;
  */
 class GoogleHelper extends CommonProviderHelper
 {
+    /** @var string */
+    public static $provider = MediaAccount::PROVIDER_GOOGLE;
+
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 5;
 
@@ -50,6 +52,9 @@ class GoogleHelper extends CommonProviderHelper
     /** @var int */
     public static $pageLimit = 500;
 
+    /** @var string */
+    public static $ageSpendBecomesFinal = '48 hour';
+
     /** @var AdWordsSessionBuilder */
     private $adWordsSessionBuilder;
 
@@ -58,9 +63,6 @@ class GoogleHelper extends CommonProviderHelper
 
     /** @var array */
     private $adWordsSessions = [];
-
-    /** @var string */
-    public static $ageDataIsFinal = '48 hour';
 
     /**
      * @return $this|CommonProviderHelper
@@ -93,7 +95,7 @@ class GoogleHelper extends CommonProviderHelper
                 );
             }
             $this->output->writeln(
-                MediaAccount::PROVIDER_GOOGLE.' - Found '.count(
+                self::$provider.' - Found '.count(
                     $customers
                 ).' accounts active for media account '.$this->mediaAccount->getId().'.'
             );
@@ -103,7 +105,9 @@ class GoogleHelper extends CommonProviderHelper
             $oneDay = new \DateInterval('P1D');
             while ($date >= $this->getDateFrom()) {
                 foreach ($customers as $customerId => $customer) {
-                    $spend = 0;
+                    $spend            = 0;
+                    $clicksTotal      = 0;
+                    $impressionsTotal = 0;
                     /** @var Customer $customer */
                     $timezone = new \DateTimeZone($customer->getDateTimeZone());
                     $since    = clone $date;
@@ -111,8 +115,8 @@ class GoogleHelper extends CommonProviderHelper
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone);
                     $this->output->write(
-                        MediaAccount::PROVIDER_GOOGLE.' - Pulling hourly data - '.
-                        $since->format('Y-m-d').' - '.
+                        self::$provider.' - Pulling hourly data - '.
+                        $since->format(\DateTime::ISO8601).' - '.
                         $customer->getName()
                     );
 
@@ -173,15 +177,15 @@ class GoogleHelper extends CommonProviderHelper
                                     if (!$data) {
                                         continue;
                                     }
-                                    $date = \DateTime::createFromFormat(
+                                    $dateAdded = \DateTime::createFromFormat(
                                         'Y-m-d G:i:s',
                                         $data['Date'].' '.$data['HourOfDay'].':00:00',
                                         $timezone
                                     );
-                                    $stat = new Stat();
+                                    $stat      = new Stat();
                                     $stat->setMediaAccountId($this->mediaAccount->getId());
 
-                                    $stat->setDateAdded($date);
+                                    $stat->setDateAdded($dateAdded);
 
                                     $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                         (string) $customerId,
@@ -193,8 +197,7 @@ class GoogleHelper extends CommonProviderHelper
                                         $stat->setCampaignId($campaignId);
                                     }
 
-                                    $provider = MediaAccount::PROVIDER_GOOGLE;
-                                    $stat->setProvider($provider);
+                                    $stat->setProvider(self::$provider);
 
                                     $stat->setProviderAccountId($customerId);
                                     $stat->setproviderAccountName($customer->getName());
@@ -222,7 +225,9 @@ class GoogleHelper extends CommonProviderHelper
                                     $stat->setCpc(floatval($data['AverageCpc']) / 1000000);
                                     $stat->setCtr(floatval($data['Ctr']));
                                     $stat->setImpressions(intval($data['Impressions']));
+                                    $impressionsTotal += intval($data['Impressions']);
                                     $stat->setClicks(intval($data['Clicks']));
+                                    $clicksTotal += intval($data['Clicks']);
 
                                     $this->addStatToQueue($stat, $spend);
                                 }
@@ -241,32 +246,18 @@ class GoogleHelper extends CommonProviderHelper
                         }
                     } while (true === $doContinue);
                     $spend = round($spend, 2);
-                    $this->output->writeln(' - '.$customer->getCurrencyCode().' '.$spend);
-                    if ($spend) {
-                        $summary = new Summary();
-                        $summary->setMediaAccountId($this->mediaAccount->getId());
-                        $summary->setDateAdded($since);
-                        $summary->setDateModified($since);
-                        $summary->setProvider(MediaAccount::PROVIDER_GOOGLE);
-                        $summary->setProviderAccountId($customerId);
-                        $summary->setProviderAccountName($customer->getName());
-                        // $cpm = $impressionsTotal ? (($spend * 1000) / $impressionsTotal) : 0;
-                        // $summary->setCpm($cpm);
-                        // $summary->setCpc($spend / $clicksTotal);
-                        // $summary->setCtr(($clicksTotal / $impressionsTotal) * 100);
-                        // $summary->setClicks($clicksTotal);
-                        $summary->setCurrency($customer->getCurrencyCode());
-                        $summary->setSpend($spend);
-                        // $summary->setImpressions($impressionsTotal);
-                        // With Bing, they only provide complete days in files as far as we know.
-                        $summary->setComplete(true);
-                        $endOfDate = clone $until;
-                        $endOfDate->setTime(23, 59, 59);
-                        $summary->setFinal($endOfDate < new \DateTime('-'.self::$ageDataIsFinal));
-                        $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
-                        $summary->setProviderDate($since->format(\DateTime::ISO8601));
-                        $this->addSummaryToQueue($summary);
-                    }
+
+                    $this->createSummary(
+                        self::$provider,
+                        $customerId,
+                        $customer->getName(),
+                        $customer->getCurrencyCode(),
+                        $date,
+                        $spend,
+                        $clicksTotal,
+                        $impressionsTotal,
+                        true
+                    );
                 }
                 $date->sub($oneDay);
             }
@@ -274,7 +265,7 @@ class GoogleHelper extends CommonProviderHelper
             $this->errors[] = $e->getMessage();
         }
         $this->saveQueue();
-        $this->outputErrors(MediaAccount::PROVIDER_GOOGLE);
+        $this->outputErrors();
 
         return $this;
     }

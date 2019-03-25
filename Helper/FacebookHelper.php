@@ -28,6 +28,9 @@ use MauticPlugin\MauticMediaBundle\Entity\Summary;
  */
 class FacebookHelper extends CommonProviderHelper
 {
+    /** @var string */
+    public static $provider = MediaAccount::PROVIDER_FACEBOOK;
+
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 100000;
 
@@ -38,7 +41,7 @@ class FacebookHelper extends CommonProviderHelper
     public static $rateLimitSleep = 60;
 
     /** @var string */
-    public static $ageDataIsFinal = '48 hours';
+    public static $ageSpendBecomesFinal = '48 hours';
 
     /** @var bool */
     private static $facebookImplicitFetch = true;
@@ -78,8 +81,8 @@ class FacebookHelper extends CommonProviderHelper
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone);
                     $this->output->write(
-                        MediaAccount::PROVIDER_FACEBOOK.' - Pulling hourly data - '.
-                        $since->format('Y-m-d').' - '.
+                        self::$provider.' - Pulling hourly data - '.
+                        $since->format(\DateTime::ISO8601).' - '.
                         $accountData['name']
                     );
 
@@ -150,8 +153,7 @@ class FacebookHelper extends CommonProviderHelper
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $provider = MediaAccount::PROVIDER_FACEBOOK;
-                            $stat->setProvider($provider);
+                            $stat->setProvider(self::$provider);
 
                             $stat->setProviderAccountId($data['id']);
                             $stat->setproviderAccountName($data['name']);
@@ -180,33 +182,16 @@ class FacebookHelper extends CommonProviderHelper
                     );
                     $spend = round($spend, 2);
 
-                    // Create/Update summary data (final and completion may be changed).
-                    $summary = new Summary();
-                    $summary->setMediaAccountId($this->mediaAccount->getId());
-                    $summary->setDateAdded($since);
-                    $summary->setDateModified(new \DateTime());
-                    $summary->setProvider(MediaAccount::PROVIDER_FACEBOOK);
-                    $summary->setProviderAccountId($accountData['id']);
-                    $summary->setProviderAccountName($accountData['name']);
-                    $summary->setCpm(floatval($accountData['cpm']));
-                    $summary->setCpc(floatval($accountData['cpc']));
-                    $summary->setCtr(floatval($accountData['ctr']));
-                    $summary->setClicks(intval($accountData['clicks']));
-                    $summary->setCurrency($accountData['currency']);
-                    $summary->setSpend(floatval($accountData['spend']));
-                    $summary->setImpressions(intval($accountData['impressions']));
-                    $complete = $spend >= $accountData['spend'];
-                    $summary->setComplete($complete);
-                    $endOfDate = clone $until;
-                    $endOfDate->setTime(23, 59, 59);
-                    $final = $complete && ($endOfDate < new \DateTime(self::$ageDataIsFinal));
-                    $summary->setFinal($final);
-                    $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
-                    $summary->setProviderDate($since->format(\DateTime::ISO8601));
-                    $this->addSummaryToQueue($summary);
-
-                    $this->output->writeln(
-                        ' - '.$accountData['currency'].' '.$spend.' - '.($complete ? 'complete' : 'incomplete').' - '.($final ? 'final' : 'not final')
+                    $this->createSummary(
+                        MediaAccount::PROVIDER_FACEBOOK,
+                        $accountData['id'],
+                        $accountData['name'],
+                        $accountData['currency'],
+                        $date,
+                        $spend,
+                        intval($accountData['clicks']),
+                        intval($accountData['impressions']),
+                        ($spend >= $accountData['spend'])
                     );
                 }
                 $date->sub($oneDay);
@@ -222,7 +207,7 @@ class FacebookHelper extends CommonProviderHelper
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
         }
-        $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
+        $this->outputErrors();
 
         return $this;
     }
@@ -280,7 +265,7 @@ class FacebookHelper extends CommonProviderHelper
                 $accountData = $account->getData();
 
                 $this->output->write(
-                    MediaAccount::PROVIDER_FACEBOOK.' - Checking activity - '.
+                    self::$provider.' - Checking activity - '.
                     $dateFrom->format('Y-m-d').($dateFrom === $dateTo ? '' : ' ~ '.$dateTo->format('Y-m-d')).' - '.
                     $accountData['name']
                 );
@@ -339,7 +324,7 @@ class FacebookHelper extends CommonProviderHelper
                                 $summary->setMediaAccountId($this->mediaAccount->getId());
                                 $summary->setDateAdded($since);
                                 $summary->setDateModified(new \DateTime());
-                                $summary->setProvider(MediaAccount::PROVIDER_FACEBOOK);
+                                $summary->setProvider(self::$provider);
                                 $summary->setProviderAccountId($accountData['id']);
                                 $summary->setProviderAccountName($accountData['name']);
                                 $summary->setCpm(floatval($accountData['cpm']));
@@ -352,8 +337,10 @@ class FacebookHelper extends CommonProviderHelper
                                 // Set to false by default until we've correlated the result.
                                 $summary->setComplete(false);
                                 $summary->setFinal(false);
-                                $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
-                                $summary->setProviderDate($since->format(\DateTime::ISO8601));
+                                $finalDate = clone $since;
+                                $finalDate->modify('+'.self::$ageSpendBecomesFinal);
+                                $summary->setFinalDate($finalDate);
+                                $summary->setProviderDate($since);
                                 $this->addSummaryToQueue($summary);
                             }
                         }
@@ -364,7 +351,7 @@ class FacebookHelper extends CommonProviderHelper
             }
         );
         $this->output->writeln(
-            MediaAccount::PROVIDER_FACEBOOK.' - Found '.count(
+            self::$provider.' - Found '.count(
                 $accounts
             ).' accounts active for media account '.$this->mediaAccount->getId().'.'
         );
@@ -711,7 +698,7 @@ class FacebookHelper extends CommonProviderHelper
     {
         if (!empty($this->facebookInsightJobs)) {
             $this->output->write(
-                MediaAccount::PROVIDER_FACEBOOK.' - Processing all requests that had to be queued due to rate limits.'
+                self::$provider.' - Processing all requests that had to be queued due to rate limits.'
             );
             foreach ($this->facebookInsightJobs as $accountId => $jobs) {
                 foreach ($jobs as $id => $job) {

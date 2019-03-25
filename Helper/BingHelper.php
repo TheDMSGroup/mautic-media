@@ -14,7 +14,6 @@ namespace MauticPlugin\MauticMediaBundle\Helper;
 use Guzzle\Http\Client;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
-use MauticPlugin\MauticMediaBundle\Entity\Summary;
 use Microsoft\BingAds\Auth\ApiEnvironment;
 use Microsoft\BingAds\Auth\AuthorizationData;
 use Microsoft\BingAds\Auth\OAuthTokens;
@@ -44,8 +43,11 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
  */
 class BingHelper extends CommonProviderHelper
 {
+    /** @var string */
+    public static $provider = MediaAccount::PROVIDER_BING;
+
     /** @var string https://help.bingads.microsoft.com/#apex/3/en/54480/2 */
-    public static $ageDataIsFinal = '48 hour';
+    public static $ageSpendBecomesFinal = '48 hour';
 
     /** @var array */
     private $bingServices = [];
@@ -90,8 +92,8 @@ class BingHelper extends CommonProviderHelper
                     $this->bingAccountId = $accountId;
                     // $account              = $this->getAccount($accountId);
                     $this->output->write(
-                        MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-                        $date->format('Y-m-d').' - '.
+                        self::$provider.' - Pulling hourly data - '.
+                        $date->format(\DateTime::ISO8601).' - '.
                         (isset($account->Name) ? $account->Name : 'NA')
                     );
                     $this->getAdPerformanceReportRequest(
@@ -125,7 +127,7 @@ class BingHelper extends CommonProviderHelper
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $stat->setProvider(MediaAccount::PROVIDER_BING);
+                            $stat->setProvider(self::$provider);
 
                             $stat->setProviderAccountId($adStat->AccountId);
                             $stat->setproviderAccountName($adStat->AccountName);
@@ -167,34 +169,17 @@ class BingHelper extends CommonProviderHelper
                             $this->addStatToQueue($stat, $spend);
                         }
                     );
-                    $this->output->writeln(' - '.$currencyCode.' '.$spend);
-                    if ($spend) {
-                        $summary = new Summary();
-                        $summary->setMediaAccountId($this->mediaAccount->getId());
-                        $summary->setDateAdded($since);
-                        $summary->setDateModified($since);
-                        $summary->setProvider(MediaAccount::PROVIDER_BING);
-                        $summary->setProviderAccountId($accountId);
-                        if (!empty($account->Name)) {
-                            $summary->setProviderAccountName($account->Name);
-                        }
-                        $cpm = $impressionsTotal ? (($spend * 1000) / $impressionsTotal) : 0;
-                        $summary->setCpm($cpm);
-                        $summary->setCpc($spend / $clicksTotal);
-                        $summary->setCtr(($clicksTotal / $impressionsTotal) * 100);
-                        $summary->setClicks($clicksTotal);
-                        $summary->setCurrency($currencyCode);
-                        $summary->setSpend($spend);
-                        $summary->setImpressions($impressionsTotal);
-                        // With Bing, they only provide complete days in files as far as we know.
-                        $summary->setComplete(true);
-                        $endOfDate = clone $until;
-                        $endOfDate->setTime(23, 59, 59);
-                        $summary->setFinal($endOfDate < new \DateTime('-'.self::$ageDataIsFinal));
-                        $summary->setFinalDate($summary->getDateAdded()->modify('+'.self::$ageDataIsFinal));
-                        $summary->setProviderDate($since->format(\DateTime::ISO8601));
-                        $this->addSummaryToQueue($summary);
-                    }
+                    $this->createSummary(
+                        self::$provider,
+                        $accountId,
+                        (isset($account->Name) ? $account->Name : ''),
+                        $currencyCode,
+                        $date,
+                        $spend,
+                        $clicksTotal,
+                        $impressionsTotal,
+                        true
+                    );
                 }
             }
             $date->sub($oneDay);
@@ -245,7 +230,7 @@ class BingHelper extends CommonProviderHelper
             );
         }
         $this->output->writeln(
-            MediaAccount::PROVIDER_BING.' - Found '.$accountCount.
+            self::$provider.' - Found '.$accountCount.
             ' active accounts in media account '.$this->mediaAccount->getId().'.'
         );
 
@@ -704,7 +689,7 @@ class BingHelper extends CommonProviderHelper
             $this->errors[] = $e->getMessage();
         }
         $this->saveQueue();
-        $this->outputErrors(MediaAccount::PROVIDER_BING);
+        $this->outputErrors();
 
         return $this;
     }
@@ -732,9 +717,9 @@ class BingHelper extends CommonProviderHelper
             $since = $this->getDateFrom($this->timezone);
             $until = $this->getDateTo($this->timezone);
             $this->output->write(
-                MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-                $this->getDateFrom()->format('Y-m-d').' ~ '.
-                $this->getDateTo()->format('Y-m-d').' - '.
+                self::$provider.' - Pulling hourly data - '.
+                $this->getDateFrom()->format(\DateTime::ISO8601).' ~ '.
+                $this->getDateTo()->format(\DateTime::ISO8601).' - '.
                 implode(', ', $accountNames)
             );
             $this->getAdPerformanceReportRequest(
@@ -769,8 +754,7 @@ class BingHelper extends CommonProviderHelper
                         $stat->setCampaignId($campaignId);
                     }
 
-                    $provider = MediaAccount::PROVIDER_BING;
-                    $stat->setProvider($provider);
+                    $stat->setProvider(self::$provider);
 
                     $stat->setProviderAccountId($adStat->AccountId);
                     $stat->setproviderAccountName($adStat->AccountName);

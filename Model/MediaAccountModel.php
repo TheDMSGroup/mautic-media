@@ -40,6 +40,12 @@ use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
  */
 class MediaAccountModel extends FormModel
 {
+    /** @var int $pullCountLimit Maximum number of attempts to pull data for auto-finalization. */
+    protected static $pullCountLimit = 3;
+
+    /** @var int $maxDaysToFinalize Maximum number of days to attempt to finalize in one run. */
+    protected static $maxDaysToFinalize = 90;
+
     /** @var EventDispatcherInterface */
     protected $dispatcher;
 
@@ -387,7 +393,6 @@ class MediaAccountModel extends FormModel
             $dateTo->setTime(0, 0, 0, 0);
             $helper->setDateFrom($dateFrom)
                 ->setDateTo($dateTo)
-                ->setProviderDate($dateFromString)
                 ->pullData();
         }
     }
@@ -500,20 +505,21 @@ class MediaAccountModel extends FormModel
         /** @var CommonProviderHelper $helper */
         $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
         if ($helper) {
-            $timezone = new \DateTimeZone(
-                $this->coreParametersHelper->getParameter(
-                    'default_timezone',
-                    date_default_timezone_get()
-                )
-            );
+            $dateStrings = $this->getSummaryRepository()
+                ->getDatesNeedingFinalization(
+                    $mediaAccount->getId(),
+                    $mediaAccount->getProvider(),
+                    self::$pullCountLimit,
+                    self::$maxDaysToFinalize
+                );
 
-            $dates = $this->getSummaryRepository()
-                ->getDatesNeedingFinalization($mediaAccount->getId(), $mediaAccount->getProvider(), $timezone);
-
-            if ($dates) {
-                $output->writeLn('Found '.count($dates).' days needing finalization');
-                foreach ($dates as $date) {
-                    $helper->setProviderDate($date)
+            if ($dateStrings) {
+                $output->writeLn(
+                    'Found '.count($dateStrings).' day'.(count($dateStrings) > 1 ? 's' : '').' needing finalization.'
+                );
+                foreach ($dateStrings as $dateString) {
+                    $helper->setProviderDate(new \DateTime($dateString))
+                        ->setFinalizing(true)
                         ->pullData();
                 }
             }
