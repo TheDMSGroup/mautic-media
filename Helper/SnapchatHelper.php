@@ -314,6 +314,7 @@ class SnapchatHelper extends CommonProviderHelper
                             $this->addStatToQueue($stat, $spend);
                         }
                     }
+                    $spend = round($spend, 2);
                     $this->createSummary(
                         self::$provider,
                         $account->id,

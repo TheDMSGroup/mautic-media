@@ -297,8 +297,16 @@ class CommonProviderHelper
                     $stat->getProviderAdId(),
                 ]
             );
-            if (isset($this->stats[$key])) {
-                $this->errors[] = 'Duplicate Stat key found: '.$key;
+            if (isset($this->stats[$key]) && $this->stats[$key] !== $stat) {
+                $a              = explode(PHP_EOL, print_r($this->stats[$key], true));
+                $b              = explode(PHP_EOL, print_r($stat, true));
+                if ($a !== $b) {
+                    $diff           = array_diff($a, $b);
+                    $this->errors[] = 'Duplicate Stat key found with differences: '.$key.PHP_EOL.'Diff: '.var_dump($diff);
+                } else {
+                    // This could just mean we're overlapping on our data pulls. Snapchat does this.
+                    // $this->errors[] = 'Duplicate Stat key found: '.$key;
+                }
             }
             $this->stats[$key] = $stat;
             if (0 === count($this->stats) % 100) {
