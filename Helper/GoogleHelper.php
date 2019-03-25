@@ -248,7 +248,6 @@ class GoogleHelper extends CommonProviderHelper
                     $spend = round($spend, 2);
 
                     $this->createSummary(
-                        self::$provider,
                         $customerId,
                         $customer->getName(),
                         $customer->getCurrencyCode(),

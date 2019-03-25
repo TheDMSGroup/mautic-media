@@ -513,7 +513,6 @@ class CommonProviderHelper
     }
 
     /**
-     * @param string    $provider
      * @param string    $providerAccountId
      * @param string    $providerAccountName
      * @param string    $currencyCode
@@ -526,7 +525,6 @@ class CommonProviderHelper
      * @throws \Exception
      */
     protected function createSummary(
-        $provider = '',
         $providerAccountId = '',
         $providerAccountName = '',
         $currencyCode = '',
@@ -541,7 +539,7 @@ class CommonProviderHelper
         // Date aded in this context is the date the data originated from via the provider.
         $summary->setDateAdded($providerDate);
         $summary->setDateModified(new \DateTime());
-        $summary->setProvider($provider);
+        $summary->setProvider(self::$provider);
         $summary->setProviderAccountId($providerAccountId);
         $summary->setProviderAccountName($providerAccountName);
 

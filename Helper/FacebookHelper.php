@@ -183,7 +183,6 @@ class FacebookHelper extends CommonProviderHelper
                     $spend = round($spend, 2);
 
                     $this->createSummary(
-                        MediaAccount::PROVIDER_FACEBOOK,
                         $accountData['id'],
                         $accountData['name'],
                         $accountData['currency'],

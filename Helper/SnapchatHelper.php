@@ -314,7 +314,6 @@ class SnapchatHelper extends CommonProviderHelper
                     }
                     $spend = round($spend, 2);
                     $this->createSummary(
-                        self::$provider,
                         $account->id,
                         $account->name,
                         $account->currency,

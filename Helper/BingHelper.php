@@ -88,7 +88,6 @@ class BingHelper extends CommonProviderHelper
                         $data['accountName']
                     );
                     $this->createSummary(
-                        self::$provider,
                         $accountId,
                         $data['accountName'],
                         $data['currencyCode'],
