@@ -73,6 +73,9 @@ class Summary
     /** @var \DateTime $finalDate */
     private $finalDate;
 
+    /** @var int $pullCount */
+    private $pullCount = 1;
+
     /**
      * @param ORM\ClassMetadata $metadata
      */
@@ -131,6 +134,8 @@ class Summary
 
         $builder->addNamedField('providerDate', 'string', 'provider_date', false);
 
+        $builder->addNamedField('pullCount', 'integer', 'pull_count', false);
+
         $builder->addUniqueConstraint(
             [
                 'date_added',
@@ -146,6 +151,7 @@ class Summary
                 'provider',
                 'media_account_id',
                 'final',
+                'pull_count',
             ],
             'finalization'
         );
@@ -180,7 +186,7 @@ class Summary
     }
 
     /**
-     * @return mixed
+     * @return string
      */
     public function getProviderDate()
     {
@@ -191,10 +197,17 @@ class Summary
      * @param $providerDate
      *
      * @return $this
+     *
+     * @throws \Exception
      */
     public function setProviderDate($providerDate)
     {
-        $this->providerDate = $providerDate;
+        if ($providerDate instanceof \DateTime) {
+            // Intentionally store as a string to persist the provider timezone for subsequent finalization.
+            $this->providerDate = $providerDate->format(\DateTime::ISO8601);
+        } else {
+            $this->providerDate = $providerDate;
+        }
 
         return $this;
     }
@@ -495,6 +508,26 @@ class Summary
     public function setFinalDate($finalDate)
     {
         $this->finalDate = $finalDate;
+
+        return $this;
+    }
+
+    /**
+     * @return int
+     */
+    public function getPullCount()
+    {
+        return $this->pullCount;
+    }
+
+    /**
+     * @param int $pullCount
+     *
+     * @return $this
+     */
+    public function setPullCount($pullCount)
+    {
+        $this->pullCount = $pullCount;
 
         return $this;
     }

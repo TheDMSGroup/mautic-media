@@ -51,13 +51,14 @@ class SummaryRepository extends CommonRepository
                 'complete,'.
                 'final,'.
                 'final_date,'.
-                'provider_date'.
+                'provider_date,'.
+                'pull_count'.
                 ') VALUES ('.implode(
                     '),(',
                     array_fill(
                         0,
                         count($entities),
-                        'FROM_UNIXTIME(?),FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,FROM_UNIXTIME(?),?'
+                        'FROM_UNIXTIME(?),FROM_UNIXTIME(?),?,?,?,?,?,?,?,?,?,?,?,?,?,FROM_UNIXTIME(?),?,?'
                     )
                 ).') '.
                 'ON DUPLICATE KEY UPDATE '.
@@ -72,7 +73,8 @@ class SummaryRepository extends CommonRepository
                 'complete = VALUES(complete), '.
                 'final = VALUES(final), '.
                 'final_date = VALUES(final_date), '.
-                'provider_date = VALUES(provider_date)'
+                'provider_date = VALUES(provider_date), '.
+                'pull_count = pull_count + VALUES(pull_count)'
             );
 
         $count = 0;
@@ -96,6 +98,7 @@ class SummaryRepository extends CommonRepository
             $q->bindValue(++$count, $entity->getFinal(), Type::BOOLEAN);
             $q->bindValue(++$count, $entity->getFinalDate()->getTimestamp(), Type::INTEGER);
             $q->bindValue(++$count, $entity->getProviderDate(), Type::STRING);
+            $q->bindValue(++$count, $entity->getPullCount(), Type::INTEGER);
         }
 
         $q->execute();
