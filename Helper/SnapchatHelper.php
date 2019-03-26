@@ -25,6 +25,9 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
 class SnapchatHelper extends CommonProviderHelper
 {
     /** @var string */
+    public static $provider = MediaAccount::PROVIDER_SNAPCHAT;
+
+    /** @var string */
     private static $snapchatScope = 'snapchat-marketing-api';
 
     /** @var string */
@@ -208,112 +211,127 @@ class SnapchatHelper extends CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this|array
-     *
-     * @throws \Exception
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
-        $accounts = $this->getAllActiveAccounts($dateFrom, $dateTo);
-        $this->output->writeln(
-            MediaAccount::PROVIDER_SNAPCHAT.' - Found '.count(
-                $accounts
-            ).' active accounts in media account '.$this->mediaAccount->getId().'.'
-        );
+        try {
+            $accounts = $this->getAllActiveAccounts($this->getDateFrom(), $this->getDateTo());
+            $this->output->writeln(
+                self::$provider.' - Found '.count(
+                    $accounts
+                ).' active accounts in media account '.$this->mediaAccount->getId().'.'
+            );
 
-        $date   = clone $dateTo;
-        $oneDay = new \DateInterval('P1D');
-        while ($date >= $dateFrom) {
-            /** @var AdAccount $account */
-            foreach ($accounts as $account) {
-                $spend    = 0;
-                $timezone = new \DateTimeZone($account->timezone);
-                $since    = clone $date;
-                $until    = clone $date;
-                $this->output->write(
-                    MediaAccount::PROVIDER_SNAPCHAT.' - Pulling hourly data - '.
-                    $since->format('Y-m-d').' - '.
-                    $account->name
-                );
-                $since->setTimeZone($timezone);
-                $until->setTimeZone($timezone)->add($oneDay);
-                foreach ($this->getActiveCampaigns($account->id, $dateFrom, $dateTo) as $campaign) {
-                    $adStats = $this->getCampaignStats($campaign->id, $since, $until);
-                    foreach ($adStats as $adStat) {
-                        if (!$adStat) {
-                            continue;
-                        }
-                        $stat = new Stat();
-                        $stat->setMediaAccountId($this->mediaAccount->getId());
-
-                        $stat->setDateAdded((new \DateTime($adStat->start_time)));
-
-                        $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                            (string) $account->id,
-                            (string) $campaign->id,
-                            (string) $account->name,
-                            (string) $campaign->name
-                        );
-                        if (is_int($campaignId)) {
-                            $stat->setCampaignId($campaignId);
-                        }
-
-                        $provider = MediaAccount::PROVIDER_SNAPCHAT;
-                        $stat->setProvider($provider);
-
-                        $stat->setProviderAccountId($account->id);
-                        $stat->setproviderAccountName($account->name);
-
-                        $stat->setProviderCampaignId($campaign->id);
-                        $stat->setProviderCampaignName($campaign->name);
-
-                        // Since the stats API doesn't contain other data, we need to pull names sepperately.
-                        $adDetails = $this->getAdDetails($account->id, $adStat->id);
-                        if (isset($adDetails->ad_squad_id)) {
-                            $stat->setProviderAdsetId($adDetails->ad_squad_id);
-                            $adSquadDetails = $this->getAdSquadDetails($campaign->id, $adDetails->ad_squad_id);
-                            if (isset($adSquadDetails->name)) {
-                                $stat->setproviderAdsetName($adSquadDetails->name);
+            $date   = $this->getDateTo();
+            $oneDay = new \DateInterval('P1D');
+            while ($date >= $this->getDateFrom()) {
+                /** @var AdAccount $account */
+                foreach ($accounts as $account) {
+                    $spend            = 0;
+                    $clicksTotal      = 0;
+                    $impressionsTotal = 0;
+                    $timezone         = new \DateTimeZone($account->timezone);
+                    $since            = clone $date;
+                    $until            = clone $date;
+                    $this->output->write(
+                        self::$provider.' - Pulling hourly data - '.
+                        $since->format(\DateTime::ISO8601).' - '.
+                        $account->name
+                    );
+                    $since->setTimeZone($timezone);
+                    $until->setTimeZone($timezone)->add($oneDay);
+                    foreach ($this->getActiveCampaigns($account->id, $this->getDateFrom(), $this->getDateTo()) as $campaign) {
+                        $adStats = $this->getCampaignStats($campaign->id, $since, $until);
+                        foreach ($adStats as $adStat) {
+                            if (!$adStat) {
+                                continue;
                             }
+                            $stat = new Stat();
+                            $stat->setMediaAccountId($this->mediaAccount->getId());
+
+                            $stat->setDateAdded((new \DateTime($adStat->start_time)));
+
+                            $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                                (string) $account->id,
+                                (string) $campaign->id,
+                                (string) $account->name,
+                                (string) $campaign->name
+                            );
+                            if (is_int($campaignId)) {
+                                $stat->setCampaignId($campaignId);
+                            }
+
+                            $stat->setProvider(self::$provider);
+
+                            $stat->setProviderAccountId($account->id);
+                            $stat->setproviderAccountName($account->name);
+
+                            $stat->setProviderCampaignId($campaign->id);
+                            $stat->setProviderCampaignName($campaign->name);
+
+                            // Since the stats API doesn't contain other data, we need to pull names sepperately.
+                            $adDetails = $this->getAdDetails($account->id, $adStat->id);
+                            if (isset($adDetails->ad_squad_id)) {
+                                $stat->setProviderAdsetId($adDetails->ad_squad_id);
+                                $adSquadDetails = $this->getAdSquadDetails($campaign->id, $adDetails->ad_squad_id);
+                                if (isset($adSquadDetails->name)) {
+                                    $stat->setproviderAdsetName($adSquadDetails->name);
+                                }
+                            }
+
+                            $stat->setProviderAdId($adStat->id);
+                            if (isset($adDetails->name)) {
+                                $stat->setproviderAdName($adDetails->name);
+                            }
+
+                            // Definitions:
+                            // CPM is total cost for 1k impressions.
+                            //      CPM = cost * 1000 / impressions
+                            // CPC is the cost per action.
+                            //      CPC = cost / clicks
+                            // CTR is the click through rate.
+                            //      CTR = (clicks / impressions) * 100
+                            // For our purposes we are considering swipes as clicks for Snapchat.
+                            $clicks      = isset($adStat->swipes) ? intval($adStat->swipes) : 0;
+                            $impressions = intval($adStat->impressions);
+                            $cost        = floatval($adStat->spend) / 1000000;
+                            $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
+                            $cpc         = $clicks ? ($cost / $clicks) : 0;
+                            $ctr         = $impressions ? (($clicks / $impressions) * 100) : 0;
+                            $stat->setCurrency($account->currency);
+                            $stat->setSpend($cost);
+                            $stat->setCpm($cpm);
+                            $stat->setCpc($cpc);
+                            $stat->setCtr($ctr);
+                            $stat->setImpressions($impressions);
+                            $impressionsTotal += $impressions;
+                            $stat->setClicks($clicks);
+                            $clicksTotal += $clicks;
+
+                            $this->addStatToQueue($stat, $spend);
                         }
-
-                        $stat->setProviderAdId($adStat->id);
-                        if (isset($adDetails->name)) {
-                            $stat->setproviderAdName($adDetails->name);
-                        }
-
-                        // Definitions:
-                        // CPM is total cost for 1k impressions.
-                        //      CPM = cost * 1000 / impressions
-                        // CPC is the cost per action.
-                        //      CPC = cost / clicks
-                        // CTR is the click through rate.
-                        //      CTR = (clicks / impressions) * 100
-                        // For our purposes we are considering swipes as clicks for Snapchat.
-                        $clicks      = isset($adStat->swipes) ? intval($adStat->swipes) : 0;
-                        $impressions = intval($adStat->impressions);
-                        $cost        = floatval($adStat->spend) / 1000000;
-                        $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
-                        $cpc         = $clicks ? ($cost / $clicks) : 0;
-                        $ctr         = $impressions ? (($clicks / $impressions) * 100) : 0;
-                        $stat->setCurrency($account->currency);
-                        $stat->setSpend($cost);
-                        $stat->setCpm($cpm);
-                        $stat->setCpc($cpc);
-                        $stat->setCtr($ctr);
-                        $stat->setImpressions($impressions);
-                        $stat->setClicks($clicks);
-
-                        $this->addStatToQueue($stat, $spend);
                     }
+                    $spend = round($spend, 2);
+                    $this->createSummary(
+                        $account->id,
+                        $account->name,
+                        $account->currency,
+                        $date,
+                        $spend,
+                        $clicksTotal,
+                        $impressionsTotal,
+                        // @todo - Add validation for completion for Snapchat data sets.
+                        true
+                    );
                 }
-                $this->output->writeln(' - '.$account->currency.' '.$spend);
+                $date->sub($oneDay);
             }
-            $date->sub($oneDay);
+        } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
         }
+        $this->saveQueue();
+        $this->outputErrors();
 
         return $this;
     }

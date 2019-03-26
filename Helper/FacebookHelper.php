@@ -19,6 +19,7 @@ use FacebookAds\Object\User;
 use FacebookAds\Object\Values\ReachFrequencyPredictionStatuses;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Entity\Summary;
 
 /**
  * Class FacebookHelper.
@@ -27,14 +28,23 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
  */
 class FacebookHelper extends CommonProviderHelper
 {
+    /** @var string */
+    public static $provider = MediaAccount::PROVIDER_FACEBOOK;
+
     /** @var int Number of rate limit errors after which we abort. */
-    public static $rateLimitMaxErrors = 200;
+    public static $rateLimitMaxErrors = 100000;
 
     /** @var int Number of seconds to sleep between looping API operations. */
-    public static $betweenOpSleep = 1;
+    public static $betweenOpSleep = .5;
 
     /** @var int Number of seconds to sleep when we hit API rate limits. */
-    public static $rateLimitSleep = 300;
+    public static $rateLimitSleep = 60;
+
+    /** @var string */
+    public static $ageSpendBecomesFinal = '48 hours';
+
+    /** @var bool */
+    private static $facebookImplicitFetch = true;
 
     /** @var Api */
     private $facebookApi;
@@ -49,41 +59,31 @@ class FacebookHelper extends CommonProviderHelper
     private $facebookInsightAccounts = [];
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this|array|CommonProviderHelper
-     *
-     * @throws \Exception
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
-        // Cursor::setDefaultUseImplicitFetch(true);
         try {
             $this->authenticate();
-            $accounts = $this->getActiveAccounts($dateFrom, $dateTo);
-            if (!$accounts) {
-                return $this->stats;
-            }
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
-            $date   = clone $dateTo;
+            $date   = $this->getDateTo();
             $oneDay = new \DateInterval('P1D');
-            while ($date >= $dateFrom) {
+            while ($date >= $this->getDateFrom()) {
                 /** @var AdAccount $account */
-                foreach ($accounts as $account) {
-                    $spend    = 0;
-                    $self     = $account->getData();
-                    $timezone = new \DateTimeZone($self['timezone_name']);
-                    $since    = clone $date;
-                    $until    = clone $date;
+                foreach ($this->getActiveAccounts($date, $date) as $account) {
+                    $spend       = 0;
+                    $accountData = $account->getData();
+                    $timezone    = new \DateTimeZone($accountData['timezone_name']);
+                    $since       = clone $date;
+                    $until       = clone $date;
                     // Since we are pulling one day at a time, these can be the same day for this provider.
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone);
                     $this->output->write(
-                        MediaAccount::PROVIDER_FACEBOOK.' - Pulling hourly data - '.
-                        $since->format('Y-m-d').' - '.
-                        $self['name']
+                        self::$provider.' - Pulling hourly data - '.
+                        $since->format(\DateTime::ISO8601).' - '.
+                        $accountData['name']
                     );
 
                     // Specify the time_range in the relative timezone of the Ad account to make sure we get back the data we need.
@@ -102,6 +102,7 @@ class FacebookHelper extends CommonProviderHelper
                         'clicks',
                     ];
                     $params = [
+                        'limit'      => self::$pageLimit,
                         'level'      => 'ad',
                         'filtering'  => [
                             [
@@ -125,10 +126,11 @@ class FacebookHelper extends CommonProviderHelper
                     $this->applyPresetDateRanges($params, $timezone);
                     $this->getInsights(
                         $account,
-                        $self['id'],
+                        $accountData['id'],
                         $fields,
                         $params,
-                        function ($data) use (&$spend, $timezone, $self) {
+                        function ($accountInsightData) use (&$spend, $timezone, $accountData) {
+                            $data = array_merge($accountData, array_filter($accountInsightData));
                             // Convert the date to our standard.
                             $time = substr($data['hourly_stats_aggregated_by_advertiser_time_zone'], 0, 8);
                             $date = \DateTime::createFromFormat(
@@ -142,20 +144,19 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setDateAdded($date);
 
                             $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                                (string) $self['id'],
+                                (string) $data['id'],
                                 (string) $data['campaign_id'],
-                                (string) $self['name'],
+                                (string) $data['name'],
                                 (string) $data['campaign_name']
                             );
                             if (is_int($campaignId)) {
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $provider = MediaAccount::PROVIDER_FACEBOOK;
-                            $stat->setProvider($provider);
+                            $stat->setProvider(self::$provider);
 
-                            $stat->setProviderAccountId($self['id']);
-                            $stat->setproviderAccountName($self['name']);
+                            $stat->setProviderAccountId($data['id']);
+                            $stat->setproviderAccountName($data['name']);
 
                             $stat->setProviderCampaignId($data['campaign_id']);
                             $stat->setProviderCampaignName($data['campaign_name']);
@@ -166,7 +167,7 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setProviderAdId($data['ad_id']);
                             $stat->setproviderAdName($data['ad_name']);
 
-                            $stat->setCurrency($self['currency']);
+                            $stat->setCurrency($data['currency']);
                             $stat->setSpend(floatval($data['spend']));
                             $stat->setCpm(floatval($data['cpm']));
                             $stat->setCpc(floatval($data['cpc']));
@@ -176,18 +177,36 @@ class FacebookHelper extends CommonProviderHelper
 
                             $this->addStatToQueue($stat, $spend);
                         },
-                        true
+                        // No longer queing jobs in order to ensure lock-up of summary data. Could be re-enabled in future.
+                        false
                     );
-                    $this->output->writeln(' - '.$self['currency'].' '.round($spend, 2));
+                    $spend = round($spend, 2);
+
+                    $this->createSummary(
+                        $accountData['id'],
+                        $accountData['name'],
+                        $accountData['currency'],
+                        $date,
+                        $spend,
+                        intval($accountData['clicks']),
+                        intval($accountData['impressions']),
+                        ($spend >= $accountData['spend'])
+                    );
                 }
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
-            $this->outputErrors(MediaAccount::PROVIDER_FACEBOOK);
+            // Unexpected error.
+            sleep(self::$rateLimitSleep);
         }
         $this->saveQueue();
-        $this->processInsightJobs();
+        try {
+            $this->processInsightJobs();
+        } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+        }
+        $this->outputErrors();
 
         return $this;
     }
@@ -208,7 +227,9 @@ class FacebookHelper extends CommonProviderHelper
             // Configure the client session.
             Api::init($this->providerClientId, $this->providerClientSecret, $this->providerToken);
             $this->facebookApi = Api::instance();
-            // $this->facebookApi->setLogger(new \FacebookAds\Logger\CurlLogger());
+            if (256 == $this->output->getVerbosity()) {
+                $this->facebookApi->setLogger(new \FacebookAds\Logger\CurlLogger());
+            }
 
             // Authenticate and get the primary user ID in the same call.
             $me = $this->facebookApi->call('/me')->getContent();
@@ -223,6 +244,9 @@ class FacebookHelper extends CommonProviderHelper
     }
 
     /**
+     * Find Ad accounts this user has access to with activity in this date range to reduce overall API call count.
+     * Build summary data from the daily data.
+     *
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
@@ -232,31 +256,33 @@ class FacebookHelper extends CommonProviderHelper
      */
     private function getActiveAccounts(\DateTime $dateFrom, \DateTime $dateTo)
     {
-        // Find Ad accounts this user has access to with activity in this date range to reduce overall API call count.
-
         $accounts = [];
         /* @var AdAccount $account */
-        $this->getAdAccounts(
+        $this->getAllAdAccounts(
             function ($account) use (&$accounts, $dateTo, $dateFrom) {
-                // For each account, do a quick search for spend activity in the global date range.
-                $spend = 0;
-                $self  = $account->getData();
+                $spend       = 0;
+                $accountData = $account->getData();
+
                 $this->output->write(
-                    MediaAccount::PROVIDER_FACEBOOK.' - Checking for activity - '.
-                    $dateFrom->format('Y-m-d').' ~ '.$dateTo->format('Y-m-d').' - '.
-                    $self['name']
+                    self::$provider.' - Checking activity - '.
+                    $dateFrom->format('Y-m-d').($dateFrom === $dateTo ? '' : ' ~ '.$dateTo->format('Y-m-d')).' - '.
+                    $accountData['name']
                 );
-                $timezone = new \DateTimeZone($self['timezone_name']);
+                $timezone = new \DateTimeZone($accountData['timezone_name']);
                 $since    = clone $dateFrom;
                 $until    = clone $dateTo;
                 $since->setTimeZone($timezone);
                 $until->setTimeZone($timezone);
                 $fields = [
-                    'campaign_id',
-                    'campaign_name',
                     'spend',
+                    'cpm',
+                    'cpc',
+                    'ctr',
+                    'impressions',
+                    'clicks',
                 ];
                 $params = [
+                    'limit'      => self::$pageLimit,
                     'level'      => 'account',
                     'filtering'  => [
                         [
@@ -271,24 +297,60 @@ class FacebookHelper extends CommonProviderHelper
                     ],
                 ];
                 $this->applyPresetDateRanges($params, $timezone);
+                // Should only have a single callback per account.
                 $this->getInsights(
                     $account,
-                    $self['id'],
+                    $accountData['id'],
                     $fields,
                     $params,
-                    function ($data) use (&$spend, $account, &$accounts) {
-                        if (!empty($data['spend'])) {
-                            $spend += $data['spend'];
+                    function ($accountInsightData) use (
+                        $account,
+                        $since,
+                        $accountData,
+                        &$spend,
+                        &$accounts
+                    ) {
+                        $accountData = array_merge($accountData, array_filter($accountInsightData));
+                        if (!empty($accountData['spend']) && $accountData['spend'] > 0) {
+                            $spend += $accountData['spend'];
+
+                            // Add new insight data to the $account object data for later correlation.
+                            $account->setDataWithoutValidation($accountData);
                             $accounts[] = $account;
+
+                            if ($this->getDateFrom() === $this->getDateTo()) {
+                                $summary = new Summary();
+                                $summary->setMediaAccountId($this->mediaAccount->getId());
+                                $summary->setDateAdded($since);
+                                $summary->setDateModified(new \DateTime());
+                                $summary->setProvider(self::$provider);
+                                $summary->setProviderAccountId($accountData['id']);
+                                $summary->setProviderAccountName($accountData['name']);
+                                $summary->setCpm(floatval($accountData['cpm']));
+                                $summary->setCpc(floatval($accountData['cpc']));
+                                $summary->setCtr(floatval($accountData['ctr']));
+                                $summary->setClicks(intval($accountData['clicks']));
+                                $summary->setCurrency($accountData['currency']);
+                                $summary->setSpend(floatval($accountData['spend']));
+                                $summary->setImpressions(intval($accountData['impressions']));
+                                // Set to false by default until we've correlated the result.
+                                $summary->setComplete(false);
+                                $summary->setFinal(false);
+                                $finalDate = clone $since;
+                                $finalDate->modify('+'.self::$ageSpendBecomesFinal);
+                                $summary->setFinalDate($finalDate);
+                                $summary->setProviderDate($since);
+                                $this->addSummaryToQueue($summary);
+                            }
                         }
                     },
                     false
                 );
-                $this->output->writeln(' - '.$self['currency'].' '.$spend);
+                $this->output->writeln(' - '.$accountData['currency'].' '.$spend);
             }
         );
         $this->output->writeln(
-            MediaAccount::PROVIDER_FACEBOOK.' - Found '.count(
+            self::$provider.' - Found '.count(
                 $accounts
             ).' accounts active for media account '.$this->mediaAccount->getId().'.'
         );
@@ -297,13 +359,15 @@ class FacebookHelper extends CommonProviderHelper
     }
 
     /**
+     * Get ALL accounts with minimal data upon which we can filter out invalid accounts on a second call.
+     *
      * @param $callback
      *
      * @return $this
      *
      * @throws \Exception
      */
-    private function getAdAccounts($callback)
+    private function getAllAdAccounts($callback)
     {
         if (!is_callable($callback)) {
             throw new \Exception('Callback is not callable.');
@@ -315,14 +379,17 @@ class FacebookHelper extends CommonProviderHelper
             'name',
             'currency',
         ];
-        $params = [];
+        // This call cannot be filtered by params.
+        $params = [
+            'limit' => self::$pageLimit,
+        ];
 
         do {
             try {
                 if (!$cursor) {
                     /** @var \FacebookAds\Cursor $cursor */
                     $cursor = $this->facebookUser->getAdAccounts($fields, $params);
-                    $cursor->setUseImplicitFetch(true);
+                    $cursor->setUseImplicitFetch(self::$facebookImplicitFetch);
                 }
 
                 $data = $cursor->current();
@@ -345,7 +412,11 @@ class FacebookHelper extends CommonProviderHelper
                     $e instanceof AuthorizationException
                     && ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code
                 ) {
-                    $this->output->write('.');
+                    $this->output->write(':');
+                    sleep(self::$rateLimitSleep);
+                } else {
+                    // Unexpected error
+                    $this->output->write('!');
                     sleep(self::$rateLimitSleep);
                 }
             }
@@ -524,7 +595,7 @@ class FacebookHelper extends CommonProviderHelper
                 if (!$cursor) {
                     /** @var \FacebookAds\Cursor $cursor */
                     $cursor = $account->getInsights($fields, $params);
-                    $cursor->setUseImplicitFetch(true);
+                    $cursor->setUseImplicitFetch(self::$facebookImplicitFetch);
                 }
                 $data = $cursor->current();
                 if ($data) {
@@ -538,7 +609,21 @@ class FacebookHelper extends CommonProviderHelper
                         }
                     }
                 }
-                sleep(self::$betweenOpSleep);
+                if (
+                    !empty($headers['x-ad-account-usage'])
+                    && ($limits = json_decode($headers['x-ad-account-usage'], true))
+                    && (
+                        (!empty($limits['app_id_util_pct']) && $limits['app_id_util_pct'] > 90)
+                        || (!empty($limits['acc_id_util_pct']) && $limits['acc_id_util_pct'] > 90)
+                    )
+                ) {
+                    // Preemptive sleep before we hit the rate limit.
+                    $this->saveQueue();
+                    $this->output->write('.');
+                    sleep(self::$rateLimitSleep / 2);
+                } else {
+                    sleep(self::$betweenOpSleep);
+                }
                 $cursor->next();
             } catch (\Exception $e) {
                 $code           = $e->getCode();
@@ -553,7 +638,7 @@ class FacebookHelper extends CommonProviderHelper
                     } else {
                         // We've already been rate limited, let's add delays now so that we don't miss our cursor.
                         $this->saveQueue();
-                        $this->output->write('.');
+                        $this->output->write(':');
                         sleep(self::$rateLimitSleep);
                     }
                 }
@@ -612,7 +697,7 @@ class FacebookHelper extends CommonProviderHelper
     {
         if (!empty($this->facebookInsightJobs)) {
             $this->output->write(
-                MediaAccount::PROVIDER_FACEBOOK.' - Processing all requests that had to be queued due to rate limits.'
+                self::$provider.' - Processing all requests that had to be queued due to rate limits.'
             );
             foreach ($this->facebookInsightJobs as $accountId => $jobs) {
                 foreach ($jobs as $id => $job) {

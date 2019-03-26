@@ -15,6 +15,7 @@ use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccountRepository;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use MauticPlugin\MauticMediaBundle\Entity\Summary;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpFoundation\Session\Session;
 
@@ -35,6 +36,14 @@ class CommonProviderHelper
     /** @var int Maximum number of items to pull "per page" if the API supports such a feature. */
     public static $pageLimit = 1000;
 
+    /** @var string If the data is older than this time string, then we consider the data final (if complete)
+     *              Data will not need to be pulled again unless the data is incomplete due to an error
+     */
+    public static $ageSpendBecomesFinal = '2 hour';
+
+    /** @var string */
+    protected static $provider = '';
+
     /** @var string */
     protected $providerAccountId;
 
@@ -49,6 +58,9 @@ class CommonProviderHelper
 
     /** @var array */
     protected $stats = [];
+
+    /** @var array */
+    protected $summaries = [];
 
     /** @var EntityManager */
     protected $em;
@@ -74,8 +86,20 @@ class CommonProviderHelper
     /** @var string */
     protected $state = '';
 
+    /** @var \DateTime */
+    protected $providerDate;
+
     /** @var string */
     protected $reportName = '';
+
+    /** @var \DateTime */
+    protected $dateFrom;
+
+    /** @var \DateTime */
+    protected $dateTo;
+
+    /** @var bool */
+    protected $finalizing = false;
 
     /**
      * ProviderInterface constructor.
@@ -171,12 +195,29 @@ class CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
+     * @return \DateTime
+     */
+    public function getProviderDate()
+    {
+        return $this->providerDate;
+    }
+
+    /**
+     * @param $providerDate
      *
      * @return $this
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function setProviderDate($providerDate)
+    {
+        $this->providerDate = $providerDate;
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function pullData()
     {
         return $this;
     }
@@ -215,6 +256,18 @@ class CommonProviderHelper
     }
 
     /**
+     * @param $finalizing
+     *
+     * @return $this
+     */
+    public function setFinalizing($finalizing)
+    {
+        $this->finalizing = $finalizing;
+
+        return $this;
+    }
+
+    /**
      * Given a Stat entity, add it to the queue to be saved.
      * Save the queue if we have reached a batch level appropriate to do so.
      * Do not queue any stat records without some usable spend data.
@@ -235,7 +288,7 @@ class CommonProviderHelper
             // || $stat->getReach()
         ) {
             // Uniqueness to match the unique_by_ad constraint.
-            $key               = implode(
+            $key = implode(
                 '|',
                 [
                     $stat->getDateAdded()->getTimestamp(),
@@ -244,9 +297,20 @@ class CommonProviderHelper
                     $stat->getProviderAdId(),
                 ]
             );
+            if (isset($this->stats[$key]) && $this->stats[$key] !== $stat) {
+                $a              = explode(PHP_EOL, print_r($this->stats[$key], true));
+                $b              = explode(PHP_EOL, print_r($stat, true));
+                if ($a !== $b) {
+                    $diff           = array_diff($a, $b);
+                    $this->errors[] = 'Duplicate Stat key found with differences: '.$key.PHP_EOL.'Diff: '.var_dump($diff);
+                } else {
+                    // This could just mean we're overlapping on our data pulls. Snapchat does this.
+                    // $this->errors[] = 'Duplicate Stat key found: '.$key;
+                }
+            }
             $this->stats[$key] = $stat;
             if (0 === count($this->stats) % 100) {
-                $this->saveQueue();
+                $this->saveStatQueue();
             }
             $spend += $stat->getSpend();
         }
@@ -255,7 +319,7 @@ class CommonProviderHelper
     /**
      * Save all the stat entities in queue.
      */
-    protected function saveQueue()
+    protected function saveStatQueue()
     {
         if ($this->stats) {
             $this->em()
@@ -283,6 +347,30 @@ class CommonProviderHelper
         }
 
         return $this->em;
+    }
+
+    /**
+     * Save all the entities in queue.
+     */
+    protected function saveQueue()
+    {
+        $this->saveSummaryQueue();
+        $this->saveStatQueue();
+    }
+
+    /**
+     * Save all the summary entities in queue.
+     */
+    protected function saveSummaryQueue()
+    {
+        if ($this->summaries) {
+            $this->em()
+                ->getRepository('MauticMediaBundle:Summary')
+                ->saveEntities($this->summaries);
+
+            $this->summaries = [];
+            $this->em->clear(Summary::class);
+        }
     }
 
     /**
@@ -347,13 +435,163 @@ class CommonProviderHelper
     }
 
     /**
-     * @param $provider
+     * Output errors to CLI.
      */
-    protected function outputErrors($provider)
+    protected function outputErrors()
     {
         $this->output->writeln('');
         foreach ($this->errors as $message) {
-            $this->output->writeln('<error>'.$provider.' - '.$message.'</error>');
+            $this->output->writeln('<error>'.self::$provider.' - '.$message.'</error>');
+        }
+        $this->errors = [];
+    }
+
+    /**
+     * @param \DateTimeZone $timezone
+     *
+     * @return \DateTime
+     *
+     * @throws \Exception
+     */
+    protected function getDateFrom(\DateTimeZone $timezone = null)
+    {
+        if ($this->finalizing) {
+            $date = clone $this->providerDate;
+        } else {
+            $date = clone $this->dateFrom;
+            if ($timezone) {
+                $date->setTimezone($timezone);
+            }
+        }
+
+        return $date;
+    }
+
+    /**
+     * @param $dateFrom
+     *
+     * @return $this
+     */
+    public function setDateFrom($dateFrom)
+    {
+        $this->dateFrom = $dateFrom;
+
+        return $this;
+    }
+
+    /**
+     * @param \DateTimeZone $timezone
+     *
+     * @return \DateTime
+     *
+     * @throws \Exception
+     */
+    protected function getDateTo(\DateTimeZone $timezone = null)
+    {
+        if ($this->finalizing) {
+            $date = clone $this->providerDate;
+        } else {
+            $date = clone $this->dateTo;
+            if ($timezone) {
+                $date->setTimezone($timezone);
+            }
+        }
+
+        return $date;
+    }
+
+    /**
+     * @param $dateTo
+     *
+     * @return $this
+     */
+    public function setDateTo($dateTo)
+    {
+        $this->dateTo = $dateTo;
+
+        return $this;
+    }
+
+    /**
+     * @param string    $providerAccountId
+     * @param string    $providerAccountName
+     * @param string    $currencyCode
+     * @param \DateTime $providerDate
+     * @param int       $spendTotal
+     * @param int       $clicksTotal
+     * @param int       $impressionsTotal
+     * @param bool      $complete
+     *
+     * @throws \Exception
+     */
+    protected function createSummary(
+        $providerAccountId = '',
+        $providerAccountName = '',
+        $currencyCode = '',
+        \DateTime $providerDate,
+        $spendTotal = 0,
+        $clicksTotal = 0,
+        $impressionsTotal = 0,
+        $complete = false
+    ) {
+        $summary = new Summary();
+        $summary->setMediaAccountId($this->mediaAccount->getId());
+        // Date aded in this context is the date the data originated from via the provider.
+        $summary->setDateAdded($providerDate);
+        $summary->setDateModified(new \DateTime());
+        $summary->setProvider(self::$provider);
+        $summary->setProviderAccountId($providerAccountId);
+        $summary->setProviderAccountName($providerAccountName);
+
+        $cpm = $impressionsTotal ? (($spendTotal * 1000) / $impressionsTotal) : 0;
+        $summary->setCpm($cpm);
+
+        $cpc = ($spendTotal && $clicksTotal) ? ($spendTotal / $clicksTotal) : 0;
+        $summary->setCpc($cpc);
+
+        $ctr = ($clicksTotal && $impressionsTotal) ? (($clicksTotal / $impressionsTotal) * 100) : 0;
+        $summary->setCtr($ctr);
+        $summary->setClicks($clicksTotal);
+        $summary->setCurrency($currencyCode);
+        $summary->setSpend($spendTotal);
+        $summary->setImpressions($impressionsTotal);
+        $summary->setComplete($complete);
+
+        $finalDate = clone $providerDate;
+        $finalDate->modify('+'.self::$ageSpendBecomesFinal);
+        $summary->setFinalDate($finalDate);
+
+        $final = $complete && ($finalDate < new \DateTime('-'.self::$ageSpendBecomesFinal));
+        $summary->setFinal($final);
+
+        $summary->setProviderDate($providerDate);
+
+        $this->addSummaryToQueue($summary);
+
+        $this->output->writeln(
+            ' - '.($spendTotal ? '<info>' : '').$currencyCode.' '.$spendTotal.($spendTotal ? '</info>' : '').' - '.($complete ? 'complete' : '<error>incomplete</error>').' - '.($final ? 'final' : '<error>not final</error>')
+        );
+    }
+
+    /**
+     * @param Summary $summary
+     */
+    protected function addSummaryToQueue(Summary $summary)
+    {
+        $key = implode(
+            '|',
+            [
+                $summary->getDateAdded()->getTimestamp(),
+                $summary->getProvider(),
+                $summary->getProviderAccountId(),
+            ]
+        );
+        if (isset($this->stats[$key])) {
+            $this->errors[] = 'Duplicate Summary key found: '.$key;
+        }
+        $this->summaries[$key] = $summary;
+        if (0 === count($this->summaries) % 100) {
+            $this->saveSummaryQueue();
         }
     }
 }

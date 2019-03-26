@@ -37,6 +37,9 @@ use Psr\Log\NullLogger;
  */
 class GoogleHelper extends CommonProviderHelper
 {
+    /** @var string */
+    public static $provider = MediaAccount::PROVIDER_GOOGLE;
+
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 5;
 
@@ -49,6 +52,9 @@ class GoogleHelper extends CommonProviderHelper
     /** @var int */
     public static $pageLimit = 500;
 
+    /** @var string */
+    public static $ageSpendBecomesFinal = '48 hour';
+
     /** @var AdWordsSessionBuilder */
     private $adWordsSessionBuilder;
 
@@ -59,12 +65,9 @@ class GoogleHelper extends CommonProviderHelper
     private $adWordsSessions = [];
 
     /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this
+     * @return $this|CommonProviderHelper
      */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullData()
     {
         $fields = [
             'Date',
@@ -92,17 +95,19 @@ class GoogleHelper extends CommonProviderHelper
                 );
             }
             $this->output->writeln(
-                MediaAccount::PROVIDER_GOOGLE.' - Found '.count(
+                self::$provider.' - Found '.count(
                     $customers
                 ).' accounts active for media account '.$this->mediaAccount->getId().'.'
             );
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
-            $date   = clone $dateTo;
+            $date   = $this->getDateTo();
             $oneDay = new \DateInterval('P1D');
-            while ($date >= $dateFrom) {
+            while ($date >= $this->getDateFrom()) {
                 foreach ($customers as $customerId => $customer) {
-                    $spend = 0;
+                    $spend            = 0;
+                    $clicksTotal      = 0;
+                    $impressionsTotal = 0;
                     /** @var Customer $customer */
                     $timezone = new \DateTimeZone($customer->getDateTimeZone());
                     $since    = clone $date;
@@ -110,8 +115,8 @@ class GoogleHelper extends CommonProviderHelper
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone);
                     $this->output->write(
-                        MediaAccount::PROVIDER_GOOGLE.' - Pulling hourly data - '.
-                        $since->format('Y-m-d').' - '.
+                        self::$provider.' - Pulling hourly data - '.
+                        $since->format(\DateTime::ISO8601).' - '.
                         $customer->getName()
                     );
 
@@ -122,15 +127,16 @@ class GoogleHelper extends CommonProviderHelper
                     $reportDefinition->setDateRangeType(
                         ReportDefinitionDateRangeType::CUSTOM_DATE
                     );
-                    $selector->setPredicates(
-                        [
-                            new Predicate(
-                                'Cost',
-                                PredicateOperator::GREATER_THAN,
-                                ['0']
-                            ),
-                        ]
-                    );
+                    // Limiting by a cost of 0 or more causes the data set to be inaccurate.
+                    // $selector->setPredicates(
+                    //     [
+                    //         new Predicate(
+                    //             'Cost',
+                    //             PredicateOperator::GREATER_THAN,
+                    //             ['0']
+                    //         ),
+                    //     ]
+                    // );
                     // Sorting is not currently supported for reports.
                     // $selector->setOrdering(
                     //     [
@@ -171,15 +177,15 @@ class GoogleHelper extends CommonProviderHelper
                                     if (!$data) {
                                         continue;
                                     }
-                                    $date = \DateTime::createFromFormat(
-                                        'Y-m-d H:i:s',
+                                    $dateAdded = \DateTime::createFromFormat(
+                                        'Y-m-d G:i:s',
                                         $data['Date'].' '.$data['HourOfDay'].':00:00',
                                         $timezone
                                     );
-                                    $stat = new Stat();
+                                    $stat      = new Stat();
                                     $stat->setMediaAccountId($this->mediaAccount->getId());
 
-                                    $stat->setDateAdded($date);
+                                    $stat->setDateAdded($dateAdded);
 
                                     $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                         (string) $customerId,
@@ -191,8 +197,7 @@ class GoogleHelper extends CommonProviderHelper
                                         $stat->setCampaignId($campaignId);
                                     }
 
-                                    $provider = MediaAccount::PROVIDER_GOOGLE;
-                                    $stat->setProvider($provider);
+                                    $stat->setProvider(self::$provider);
 
                                     $stat->setProviderAccountId($customerId);
                                     $stat->setproviderAccountName($customer->getName());
@@ -220,7 +225,9 @@ class GoogleHelper extends CommonProviderHelper
                                     $stat->setCpc(floatval($data['AverageCpc']) / 1000000);
                                     $stat->setCtr(floatval($data['Ctr']));
                                     $stat->setImpressions(intval($data['Impressions']));
+                                    $impressionsTotal += intval($data['Impressions']);
                                     $stat->setClicks(intval($data['Clicks']));
+                                    $clicksTotal += intval($data['Clicks']);
 
                                     $this->addStatToQueue($stat, $spend);
                                 }
@@ -238,15 +245,26 @@ class GoogleHelper extends CommonProviderHelper
                             }
                         }
                     } while (true === $doContinue);
-                    $this->output->writeln(' - '.$customer->getCurrencyCode().' '.$spend);
+                    $spend = round($spend, 2);
+
+                    $this->createSummary(
+                        $customerId,
+                        $customer->getName(),
+                        $customer->getCurrencyCode(),
+                        $date,
+                        $spend,
+                        $clicksTotal,
+                        $impressionsTotal,
+                        true
+                    );
                 }
                 $date->sub($oneDay);
             }
         } catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
-            $this->outputErrors(MediaAccount::PROVIDER_GOOGLE);
         }
         $this->saveQueue();
+        $this->outputErrors();
 
         return $this;
     }

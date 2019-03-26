@@ -43,6 +43,12 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
  */
 class BingHelper extends CommonProviderHelper
 {
+    /** @var string */
+    public static $provider = MediaAccount::PROVIDER_BING;
+
+    /** @var string https://help.bingads.microsoft.com/#apex/3/en/54480/2 */
+    public static $ageSpendBecomesFinal = '48 hour';
+
     /** @var array */
     private $bingServices = [];
 
@@ -52,116 +58,172 @@ class BingHelper extends CommonProviderHelper
     /** @var int */
     private $bingAccountId;
 
+    /** @var \DateTimeZone */
+    private $timezone;
+
+    /** @var string */
+    private $timezoneMs;
+
     /**
-     * For debugging only.
+     * @return $this|CommonProviderHelper
+     */
+    public function pullData()
+    {
+        // microstump reports all billing (spend) data in Pacific time only, so we must use this timezone.
+        $this->timezone = new \DateTimeZone('America/Los_Angeles');
+
+        // microspark invented their own timezone names. how inventive.
+        $this->timezoneMs = ReportTimeZone::PacificTimeUSCanadaTijuana;
+
+        try {
+            $totals = $this->pullDataInBatches();
+            $this->output->writeLn('');
+            foreach ($totals as $accountId => $days) {
+                foreach ($days as $data) {
+                    $localDate = clone $data['providerDate'];
+                    $localDate->setTimezone($this->timezone);
+                    $this->output->write(
+                        self::$provider.' - Hourly data result - '.
+                        $localDate->format(\DateTime::ISO8601).' - '.
+                        $data['accountName']
+                    );
+                    $this->createSummary(
+                        $accountId,
+                        $data['accountName'],
+                        $data['currencyCode'],
+                        $data['providerDate'],
+                        $data['spend'],
+                        $data['clicksTotal'],
+                        $data['impressionsTotal'],
+                        true
+                    );
+                }
+            }
+        } catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+        }
+        $this->saveQueue();
+        $this->outputErrors();
+
+        return $this;
+    }
+
+    /**
+     * Pull reports in batches by customer ID.
      *
-     * @return $this
+     * @return array
      *
      * @throws \Exception
      */
-    public function pullDataOneDayAtATime(\DateTime $dateFrom, \DateTime $dateTo)
+    public function pullDataInBatches()
     {
+        $totals    = [];
         $customers = $this->getAllManagedCustomers();
-        $date      = clone $dateTo;
-        $oneDay    = new \DateInterval('P1D');
-        // Pull one day at a time so microsock doesn't fall over.
-        while ($date >= $dateFrom) {
-            foreach ($customers as $customerId => $accounts) {
-                $this->bingCustomerId = $customerId;
-                foreach ($accounts as $accountId => $account) {
-                    $currencyCode = 'USD';
-                    $spend        = 0;
-                    $timezone     = new \DateTimeZone('UTC');
-                    $since        = clone $date;
-                    $until        = clone $date;
-                    $since->setTimeZone($timezone);
-                    $until->setTimeZone($timezone);
-                    $this->bingAccountId = $accountId;
-                    // $account              = $this->getAccount($accountId);
-                    $this->output->write(
-                        MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-                        $date->format('Y-m-d').' - '.
-                        (isset($account->Name) ? $account->Name : 'NA')
+        foreach ($customers as $customerId => $accounts) {
+            $this->bingCustomerId = $customerId;
+            $currencyCode         = 'USD';
+            // microstump reports all billing (spend) data in Pacific time only, so for things to line up, we must use this timezone.
+            $since = $this->getDateFrom($this->timezone);
+            $until = $this->getDateTo($this->timezone);
+            $this->output->write(
+                self::$provider.' - Pulling hourly data for '.count($accounts).' accounts.'
+            );
+            $this->getAdPerformanceReportRequest(
+                $since,
+                $until,
+                array_keys($accounts),
+                function ($adStat) use (&$spend, &$currencyCode, &$totals) {
+                    if (!$adStat) {
+                        return;
+                    }
+                    $stat = new Stat();
+                    $stat->setMediaAccountId($this->mediaAccount->getId());
+
+                    // microsham invented their own date format for this. It's wonderful.
+                    $dateAdded = \DateTime::createFromFormat(
+                        'n/j/Y 12:00:00 \A\M\|G',
+                        $adStat->TimePeriod,
+                        $this->timezone
                     );
-                    $this->getAdPerformanceReportRequest(
-                        $since,
-                        $until,
-                        [$accountId],
-                        function ($adStat) use (&$spend, &$currencyCode) {
-                            if (!$adStat) {
-                                return;
-                            }
-                            $stat = new Stat();
-                            $stat->setMediaAccountId($this->mediaAccount->getId());
+                    if (!$dateAdded) {
+                        throw new \Exception('Unparsable date: '.$adStat->TimePeriod);
+                    }
+                    $stat->setDateAdded($dateAdded);
 
-                            // microsham invented their own date format for this. It's wonderful.
-                            $dateAdded = \DateTime::createFromFormat(
-                                'n/j/Y 12:00:00 \A\M\|G',
-                                $adStat->TimePeriod
-                            );
-                            if (!$dateAdded) {
-                                throw new \Exception('Unparsable date: '.$adStat->TimePeriod);
-                            }
-                            $stat->setDateAdded($dateAdded);
-
-                            $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                                $adStat->AccountId,
-                                $adStat->CampaignId,
-                                $adStat->AccountName,
-                                $adStat->CampaignName
-                            );
-                            if (is_int($campaignId)) {
-                                $stat->setCampaignId($campaignId);
-                            }
-
-                            $provider = MediaAccount::PROVIDER_BING;
-                            $stat->setProvider($provider);
-
-                            $stat->setProviderAccountId($adStat->AccountId);
-                            $stat->setproviderAccountName($adStat->AccountName);
-
-                            $stat->setProviderCampaignId($adStat->CampaignId);
-                            $stat->setProviderCampaignName($adStat->CampaignName);
-
-                            $stat->setProviderAdsetId($adStat->AdGroupId);
-                            $stat->setproviderAdsetName($adStat->AdGroupName);
-
-                            $stat->setProviderAdId($adStat->AdId);
-                            $stat->setproviderAdName($adStat->AdTitle);
-
-                            // Definitions:
-                            // CPM is total cost for 1k impressions.
-                            //      CPM = cost * 1000 / impressions
-                            // CPC is the cost per action.
-                            //      CPC = cost / clicks
-                            // CTR is the click through rate.
-                            //      CTR = (clicks / impressions) * 100
-                            // For our purposes we are considering swipes as clicks for Snapchat.
-                            $clicks      = intval($adStat->Clicks);
-                            $impressions = intval($adStat->Impressions);
-                            $cost        = floatval($adStat->Spend);
-                            $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
-                            $stat->setCpm($cpm);
-                            $stat->setCpc(floatval($adStat->CostPerConversion));
-                            $stat->setCtr(floatval($adStat->Ctr));
-                            $stat->setClicks($clicks);
-                            if (!empty($adStat->CurrencyCode)) {
-                                $currencyCode = $adStat->CurrencyCode;
-                            }
-                            $stat->setCurrency($adStat->CurrencyCode);
-                            $stat->setSpend($cost);
-                            $stat->setImpressions($impressions);
-
-                            $this->addStatToQueue($stat, $spend);
-                        }
+                    $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
+                        $adStat->AccountId,
+                        $adStat->CampaignId,
+                        $adStat->AccountName,
+                        $adStat->CampaignName
                     );
-                    $this->output->writeln(' - '.$currencyCode.' '.$spend);
+                    if (is_int($campaignId)) {
+                        $stat->setCampaignId($campaignId);
+                    }
+
+                    $stat->setProvider(self::$provider);
+
+                    $stat->setProviderAccountId($adStat->AccountId);
+                    $stat->setproviderAccountName($adStat->AccountName);
+
+                    $stat->setProviderCampaignId($adStat->CampaignId);
+                    $stat->setProviderCampaignName($adStat->CampaignName);
+
+                    $stat->setProviderAdsetId($adStat->AdGroupId);
+                    $stat->setproviderAdsetName($adStat->AdGroupName);
+
+                    $stat->setProviderAdId($adStat->AdId);
+                    $stat->setproviderAdName($adStat->AdTitle);
+
+                    // Definitions:
+                    // CPM is total cost for 1k impressions.
+                    //      CPM = cost * 1000 / impressions
+                    // CPC is the cost per action.
+                    //      CPC = cost / clicks
+                    // CTR is the click through rate.
+                    //      CTR = (clicks / impressions) * 100
+                    // For our purposes we are considering swipes as clicks for Snapchat.
+                    $clicks      = intval($adStat->Clicks);
+                    $impressions = intval($adStat->Impressions);
+                    $cost        = floatval($adStat->Spend);
+                    $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
+                    $stat->setCpm($cpm);
+                    $stat->setCpc(floatval($adStat->CostPerConversion));
+                    $stat->setCtr(floatval($adStat->Ctr));
+                    $stat->setClicks($clicks);
+                    if (!empty($adStat->CurrencyCode)) {
+                        $currencyCode = $adStat->CurrencyCode;
+                    }
+                    $stat->setCurrency($adStat->CurrencyCode);
+                    $stat->setSpend($cost);
+                    $stat->setImpressions($impressions);
+
+                    $this->addStatToQueue($stat, $spend);
+
+                    // We're doing many accounts at once to save time, so we'll need an array of that data by account
+                    // for the sake of the summary entities.
+                    $a = $stat->getProviderAccountId();
+                    if (!isset($totals[$a])) {
+                        $totals[$a] = [];
+                    }
+                    $d = $dateAdded->format('Ymd');
+                    if (!isset($totals[$a][$d])) {
+                        $totals[$a][$d] = [
+                            'accountName'      => $stat->getProviderAccountName(),
+                            'currencyCode'     => $currencyCode,
+                            'providerDate'     => $dateAdded,
+                            'spend'            => 0,
+                            'clicksTotal'      => 0,
+                            'impressionsTotal' => 0,
+                        ];
+                    }
+                    $totals[$a][$d]['spend'] += $stat->getSpend();
+                    $totals[$a][$d]['clicksTotal'] += $stat->getClicks();
+                    $totals[$a][$d]['impressionsTotal'] += $stat->getImpressions();
                 }
-            }
-            $date->sub($oneDay);
+            );
         }
 
-        return $this;
+        return $totals;
     }
 
     /**
@@ -206,7 +268,7 @@ class BingHelper extends CommonProviderHelper
             );
         }
         $this->output->writeln(
-            MediaAccount::PROVIDER_BING.' - Found '.$accountCount.
+            self::$provider.' - Found '.$accountCount.
             ' active accounts in media account '.$this->mediaAccount->getId().'.'
         );
 
@@ -463,8 +525,7 @@ class BingHelper extends CommonProviderHelper
         $report->Time->CustomDateRangeEnd->Month   = (int) $until->format('m');
         $report->Time->CustomDateRangeEnd->Day     = (int) $until->format('d');
 
-        // microspark invented their own timezone names. how inventive.
-        $report->Time->ReportTimeZone = ReportTimeZone::GreenwichMeanTimeDublinEdinburghLisbonLondon;
+        $report->Time->ReportTimeZone = $this->timezoneMs;
 
         // Sorting? What do you think this is, literally any other report generator? You'll get your zips and like em.
         // $report->Sort = [];
@@ -645,136 +706,6 @@ class BingHelper extends CommonProviderHelper
             }
             rmdir($dir);
         }
-    }
-
-    /**
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
-     *
-     * @return $this|array
-     */
-    public function pullData(\DateTime $dateFrom, \DateTime $dateTo)
-    {
-        try {
-            // Batching many accounts together is faster, in general.
-            $this->pullDataInBatches($dateFrom, $dateTo);
-            // $this->pullDataOneDayAtATime($dateFrom, $dateTo);
-        } catch (\Exception $e) {
-            $this->errors[] = $e->getMessage();
-            $this->outputErrors(MediaAccount::PROVIDER_BING);
-        }
-        $this->saveQueue();
-        $this->outputErrors(MediaAccount::PROVIDER_BING);
-
-        return $this;
-    }
-
-    /**
-     * Pull reports in batches by customer ID.
-     *
-     * @return $this
-     *
-     * @throws \Exception
-     */
-    public function pullDataInBatches(\DateTime $dateFrom, \DateTime $dateTo)
-    {
-        $customers = $this->getAllManagedCustomers();
-        foreach ($customers as $customerId => $accounts) {
-            $this->bingCustomerId = $customerId;
-
-            $accountNames = [];
-            foreach ($accounts as $accountId => $account) {
-                $accountNames[] = $account->Name;
-            }
-            $currencyCode = 'USD';
-            $spend        = 0;
-            $timezone     = new \DateTimeZone('UTC');
-            $since        = clone $dateFrom;
-            $until        = clone $dateTo;
-            $since->setTimeZone($timezone);
-            $until->setTimeZone($timezone);
-            $this->output->write(
-                MediaAccount::PROVIDER_BING.' - Pulling hourly data - '.
-                $dateFrom->format('Y-m-d').' ~ '.
-                $dateTo->format('Y-m-d').' - '.
-                implode(', ', $accountNames)
-            );
-            $this->getAdPerformanceReportRequest(
-                $since,
-                $until,
-                array_keys($accounts),
-                function ($adStat) use (&$spend, &$currencyCode) {
-                    if (!$adStat) {
-                        return;
-                    }
-                    $stat = new Stat();
-                    $stat->setMediaAccountId($this->mediaAccount->getId());
-
-                    // microsham invented their own date format for this. It's wonderful.
-                    $dateAdded = \DateTime::createFromFormat(
-                        'n/j/Y 12:00:00 \A\M\|G',
-                        $adStat->TimePeriod
-                    );
-                    if (!$dateAdded) {
-                        throw new \Exception('Unparsable date: '.$adStat->TimePeriod);
-                    }
-                    $stat->setDateAdded($dateAdded);
-
-                    $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                        $adStat->AccountId,
-                        $adStat->CampaignId,
-                        $adStat->AccountName,
-                        $adStat->CampaignName
-                    );
-                    if (is_int($campaignId)) {
-                        $stat->setCampaignId($campaignId);
-                    }
-
-                    $provider = MediaAccount::PROVIDER_BING;
-                    $stat->setProvider($provider);
-
-                    $stat->setProviderAccountId($adStat->AccountId);
-                    $stat->setproviderAccountName($adStat->AccountName);
-
-                    $stat->setProviderCampaignId($adStat->CampaignId);
-                    $stat->setProviderCampaignName($adStat->CampaignName);
-
-                    $stat->setProviderAdsetId($adStat->AdGroupId);
-                    $stat->setproviderAdsetName($adStat->AdGroupName);
-
-                    $stat->setProviderAdId($adStat->AdId);
-                    $stat->setproviderAdName($adStat->AdTitle);
-
-                    // Definitions:
-                    // CPM is total cost for 1k impressions.
-                    //      CPM = cost * 1000 / impressions
-                    // CPC is the cost per action.
-                    //      CPC = cost / clicks
-                    // CTR is the click through rate.
-                    //      CTR = (clicks / impressions) * 100
-                    // For our purposes we are considering swipes as clicks for Snapchat.
-                    $clicks      = intval($adStat->Clicks);
-                    $impressions = intval($adStat->Impressions);
-                    $cost        = floatval($adStat->Spend);
-                    $cpm         = $impressions ? (($cost * 1000) / $impressions) : 0;
-                    $stat->setCpm($cpm);
-                    $stat->setCpc(floatval($adStat->CostPerConversion));
-                    $stat->setCtr(floatval($adStat->Ctr));
-                    $stat->setClicks($clicks);
-                    if (!empty($adStat->CurrencyCode)) {
-                        $currencyCode = $adStat->CurrencyCode;
-                    }
-                    $stat->setCurrency($adStat->CurrencyCode);
-                    $stat->setSpend($cost);
-                    $stat->setImpressions($impressions);
-
-                    $this->addStatToQueue($stat, $spend);
-                }
-            );
-            $this->output->writeln(' - '.$currencyCode.' '.$spend);
-        }
-
-        return $this;
     }
 
     /**

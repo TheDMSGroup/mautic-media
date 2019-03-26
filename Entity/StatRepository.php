@@ -69,7 +69,6 @@ class StatRepository extends CommonRepository
         /** @var Connection $connection */
         $connection = $this->getEntityManager()->getConnection();
         if ($connection instanceof MasterSlaveConnection) {
-            // Prefer a slave connection if available.
             $connection->connect('slave');
         }
 
@@ -226,6 +225,7 @@ class StatRepository extends CommonRepository
             );
 
         $count = 0;
+        krsort($entities);
         foreach ($entities as $entity) {
             /* @var Stat $entity */
             $q->bindValue(++$count, $entity->getDateAdded()->getTimestamp(), Type::INTEGER);

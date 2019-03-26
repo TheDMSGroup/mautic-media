@@ -19,11 +19,11 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * CLI Command : Warms the media caches for all users.
+ * Pull media spend statistics.
  *
- * php app/console mautic:media:boost
+ * php app/console mautic:media:pull
  */
-class MediaCommand extends ModeratedCommand
+class MediaPullCommand extends ModeratedCommand
 {
     /**
      * Maintenance command line task.
@@ -81,15 +81,17 @@ class MediaCommand extends ModeratedCommand
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $container = $this->getContainer();
-        if (!$this->checkRunStatus($input, $output)) {
-            return 0;
-        }
+        $container      = $this->getContainer();
         $limit          = $input->getOption('limit');
         $mediaAccountId = $input->getOption('media-account');
         $dateFromString = $input->getOption('date-from');
         $dateToString   = $input->getOption('date-to');
         $provider       = strtolower($input->getOption('provider'));
+        $moderationKey  = $mediaAccountId.'.'.$provider;
+
+        if (!$this->checkRunStatus($input, $output, $moderationKey)) {
+            return 0;
+        }
 
         /** @var MediaAccountModel $model */
         $model = $container->get('mautic.media.model.media');

@@ -23,6 +23,7 @@ use Mautic\LeadBundle\Model\LeadModel as ContactModel;
 use Mautic\PageBundle\Model\TrackableModel;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
+use MauticPlugin\MauticMediaBundle\Entity\SummaryRepository;
 use MauticPlugin\MauticMediaBundle\Event\MediaAccountEvent;
 use MauticPlugin\MauticMediaBundle\Helper\CampaignSettingsHelper;
 use MauticPlugin\MauticMediaBundle\Helper\CommonProviderHelper;
@@ -39,6 +40,12 @@ use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
  */
 class MediaAccountModel extends FormModel
 {
+    /** @var int $pullCountLimit Maximum number of attempts to pull data for auto-finalization. */
+    protected static $pullCountLimit = 3;
+
+    /** @var int $maxDaysToFinalize Maximum number of days to attempt to finalize in one run. */
+    protected static $maxDaysToFinalize = 90;
+
     /** @var EventDispatcherInterface */
     protected $dispatcher;
 
@@ -384,7 +391,9 @@ class MediaAccountModel extends FormModel
             $dateTo   = new \DateTime($dateToString, $timezone);
             $dateFrom->setTime(0, 0, 0, 0);
             $dateTo->setTime(0, 0, 0, 0);
-            $helper->pullData($dateFrom, $dateTo);
+            $helper->setDateFrom($dateFrom)
+                ->setDateTo($dateTo)
+                ->pullData();
         }
     }
 
@@ -481,6 +490,58 @@ class MediaAccountModel extends FormModel
         }
 
         return $this->campaignNames;
+    }
+
+    /**
+     * @param MediaAccount    $mediaAccount
+     * @param OutputInterface $output
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function finalizeData(
+        MediaAccount $mediaAccount,
+        OutputInterface $output
+    ) {
+        /** @var CommonProviderHelper $helper */
+        $helper = $this->getProviderHelper($mediaAccount, $output, $this->em, true);
+        if ($helper) {
+            $dateStrings = $this->getSummaryRepository()
+                ->getDatesNeedingFinalization(
+                    $mediaAccount->getId(),
+                    $mediaAccount->getProvider(),
+                    self::$pullCountLimit,
+                    self::$maxDaysToFinalize
+                );
+
+            if ($dateStrings) {
+                $output->writeLn(
+                    'Found '.count($dateStrings).' day'.(count($dateStrings) > 1 ? 's' : '').' needing finalization.'
+                );
+                foreach ($dateStrings as $dateString) {
+                    $helper->setProviderDate(new \DateTime($dateString))
+                        ->setFinalizing(true)
+                        ->pullData();
+                }
+            }
+        }
+    }
+
+    /**
+     * @return SummaryRepository
+     *
+     * @throws \Doctrine\ORM\ORMException
+     */
+    public function getSummaryRepository()
+    {
+        if (!$this->em->isOpen()) {
+            $this->em = $this->em->create(
+                $this->em->getConnection(),
+                $this->em->getConfiguration(),
+                $this->em->getEventManager()
+            );
+        }
+
+        return $this->em->getRepository('MauticMediaBundle:Summary');
     }
 
     /**
