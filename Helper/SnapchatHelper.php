@@ -11,9 +11,14 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use DateInterval;
+use DateTime;
+use DateTimeZone;
+use Exception;
 use GuzzleHttp\Client;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
+use stdClass;
 
 /**
  * Class SnapchatHelper.
@@ -24,9 +29,6 @@ use MauticPlugin\MauticMediaBundle\Entity\Stat;
  */
 class SnapchatHelper extends CommonProviderHelper
 {
-    /** @var string */
-    public static $provider = MediaAccount::PROVIDER_SNAPCHAT;
-
     /** @var string */
     private static $snapchatScope = 'snapchat-marketing-api';
 
@@ -41,6 +43,9 @@ class SnapchatHelper extends CommonProviderHelper
 
     /** @var string Snapchat requires rounded hour times, but otherwise ISO 8601. */
     private static $snapchateDateFormat = 'Y-m-d\TH:00:00.000-00:00';
+
+    /** @var string */
+    public $provider = MediaAccount::PROVIDER_SNAPCHAT;
 
     /** @var Client */
     private $snapchatClient;
@@ -107,7 +112,7 @@ class SnapchatHelper extends CommonProviderHelper
     /**
      * @param $params
      *
-     * @return bool|\MauticPlugin\MauticMediaBundle\Entity\MediaAccount|string
+     * @return bool|MediaAccount|string
      */
     public function authCallback($params)
     {
@@ -177,7 +182,7 @@ class SnapchatHelper extends CommonProviderHelper
                     if ($success) {
                         $this->saveMediaAccount();
                     }
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $this->errors[] = $e->getMessage();
                 }
             }
@@ -218,30 +223,34 @@ class SnapchatHelper extends CommonProviderHelper
         try {
             $accounts = $this->getAllActiveAccounts($this->getDateFrom(), $this->getDateTo());
             $this->output->writeln(
-                self::$provider.' - Found '.count(
+                $this->provider.' - Found '.count(
                     $accounts
                 ).' active accounts in media account '.$this->mediaAccount->getId().'.'
             );
 
             $date   = $this->getDateTo();
-            $oneDay = new \DateInterval('P1D');
+            $oneDay = new DateInterval('P1D');
             while ($date >= $this->getDateFrom()) {
                 /** @var AdAccount $account */
                 foreach ($accounts as $account) {
                     $spend            = 0;
                     $clicksTotal      = 0;
                     $impressionsTotal = 0;
-                    $timezone         = new \DateTimeZone($account->timezone);
+                    $timezone         = new DateTimeZone($account->timezone);
                     $since            = clone $date;
                     $until            = clone $date;
                     $this->output->write(
-                        self::$provider.' - Pulling hourly data - '.
-                        $since->format(\DateTime::ISO8601).' - '.
+                        $this->provider.' - Pulling hourly data - '.
+                        $since->format(DateTime::ISO8601).' - '.
                         $account->name
                     );
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone)->add($oneDay);
-                    foreach ($this->getActiveCampaigns($account->id, $this->getDateFrom(), $this->getDateTo()) as $campaign) {
+                    foreach ($this->getActiveCampaigns(
+                        $account->id,
+                        $this->getDateFrom(),
+                        $this->getDateTo()
+                    ) as $campaign) {
                         $adStats = $this->getCampaignStats($campaign->id, $since, $until);
                         foreach ($adStats as $adStat) {
                             if (!$adStat) {
@@ -250,7 +259,7 @@ class SnapchatHelper extends CommonProviderHelper
                             $stat = new Stat();
                             $stat->setMediaAccountId($this->mediaAccount->getId());
 
-                            $stat->setDateAdded((new \DateTime($adStat->start_time)));
+                            $stat->setDateAdded((new DateTime($adStat->start_time)));
 
                             $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
                                 (string) $account->id,
@@ -262,7 +271,7 @@ class SnapchatHelper extends CommonProviderHelper
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $stat->setProvider(self::$provider);
+                            $stat->setProvider($this->provider);
 
                             $stat->setProviderAccountId($account->id);
                             $stat->setproviderAccountName($account->name);
@@ -327,7 +336,7 @@ class SnapchatHelper extends CommonProviderHelper
                 }
                 $date->sub($oneDay);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
         }
         $this->saveQueue();
@@ -339,16 +348,16 @@ class SnapchatHelper extends CommonProviderHelper
     /**
      * Get all accounts from all organizations that are potentially active within the time frame.
      *
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
+     * @param DateTime $dateFrom
+     * @param DateTime $dateTo
      *
      * @return array
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getAllActiveAccounts(
-        \DateTime $dateFrom,
-        \DateTime $dateTo
+        DateTime $dateFrom,
+        DateTime $dateTo
     ) {
         $accounts = [];
         foreach ($this->getOrganizations() as $organization) {
@@ -359,9 +368,9 @@ class SnapchatHelper extends CommonProviderHelper
                 ) as $account) {
                     if (
                         // Account Paused or closed before this date range.
-                        ('ACTIVE' != $account->status && (new \DateTime($account->updated_at)) < $dateFrom)
+                        ('ACTIVE' != $account->status && (new DateTime($account->updated_at)) < $dateFrom)
                         // Created after this date range.
-                        || (new \DateTime($account->created_at)) > $dateTo
+                        || (new DateTime($account->created_at)) > $dateTo
                     ) {
                         continue;
                     }
@@ -477,7 +486,7 @@ class SnapchatHelper extends CommonProviderHelper
                     sleep(self::$betweenOpSleep);
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
             sleep(self::$betweenOpSleep);
         }
@@ -490,9 +499,9 @@ class SnapchatHelper extends CommonProviderHelper
      *
      * @return mixed
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    private function getActiveCampaigns($adAccountId, \DateTime $dateFrom, \DateTime $dateTo)
+    private function getActiveCampaigns($adAccountId, DateTime $dateFrom, DateTime $dateTo)
     {
         $campaigns = [];
         if (!isset($this->campaignCache[$adAccountId])) {
@@ -506,9 +515,9 @@ class SnapchatHelper extends CommonProviderHelper
         foreach ($this->campaignCache[$adAccountId] as $campaign) {
             if (
                 // Paused or closed before this date range.
-                ('ACTIVE' != $campaign->status && (new \DateTime($campaign->updated_at)) < $dateFrom)
+                ('ACTIVE' != $campaign->status && (new DateTime($campaign->updated_at)) < $dateFrom)
                 // Created after this date range.
-                || (new \DateTime($campaign->created_at)) > $dateTo
+                || (new DateTime($campaign->created_at)) > $dateTo
             ) {
                 continue;
             }
@@ -527,7 +536,7 @@ class SnapchatHelper extends CommonProviderHelper
      *
      * @return array
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getCampaignStats(
         $campaignId,
@@ -564,7 +573,7 @@ class SnapchatHelper extends CommonProviderHelper
                 foreach ($statObj->breakdown_stats->ad as $ad) {
                     if (isset($ad->timeseries)) {
                         foreach ($ad->timeseries as $timeset) {
-                            $adStat             = new \stdClass();
+                            $adStat             = new stdClass();
                             $adStat->id         = $ad->id;
                             $adStat->start_time = $timeset->start_time;
                             foreach ($fields as $field) {

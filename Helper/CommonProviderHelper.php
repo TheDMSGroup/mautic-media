@@ -11,7 +11,11 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use DateTime;
+use DateTimeZone;
 use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\ORMException;
+use Exception;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccountRepository;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
@@ -36,13 +40,13 @@ class CommonProviderHelper
     /** @var int Maximum number of items to pull "per page" if the API supports such a feature. */
     public static $pageLimit = 1000;
 
+    /** @var string */
+    public $provider = '';
+
     /** @var string If the data is older than this time string, then we consider the data final (if complete)
      *              Data will not need to be pulled again unless the data is incomplete due to an error
      */
-    public static $ageSpendBecomesFinal = '2 hour';
-
-    /** @var string */
-    protected static $provider = '';
+    public $ageSpendBecomesFinal = '2 hour';
 
     /** @var string */
     protected $providerAccountId;
@@ -86,16 +90,16 @@ class CommonProviderHelper
     /** @var string */
     protected $state = '';
 
-    /** @var \DateTime */
+    /** @var DateTime */
     protected $providerDate;
 
     /** @var string */
     protected $reportName = '';
 
-    /** @var \DateTime */
+    /** @var DateTime */
     protected $dateFrom;
 
-    /** @var \DateTime */
+    /** @var DateTime */
     protected $dateTo;
 
     /** @var bool */
@@ -195,7 +199,7 @@ class CommonProviderHelper
     }
 
     /**
-     * @return \DateTime
+     * @return DateTime
      */
     public function getProviderDate()
     {
@@ -298,11 +302,13 @@ class CommonProviderHelper
                 ]
             );
             if (isset($this->stats[$key]) && $this->stats[$key] !== $stat) {
-                $a              = explode(PHP_EOL, print_r($this->stats[$key], true));
-                $b              = explode(PHP_EOL, print_r($stat, true));
+                $a = explode(PHP_EOL, print_r($this->stats[$key], true));
+                $b = explode(PHP_EOL, print_r($stat, true));
                 if ($a !== $b) {
                     $diff           = array_diff($a, $b);
-                    $this->errors[] = 'Duplicate Stat key found with differences: '.$key.PHP_EOL.'Diff: '.var_dump($diff);
+                    $this->errors[] = 'Duplicate Stat key found with differences: '.$key.PHP_EOL.'Diff: '.var_dump(
+                            $diff
+                        );
                 } else {
                     // This could just mean we're overlapping on our data pulls. Snapchat does this.
                     // $this->errors[] = 'Duplicate Stat key found: '.$key;
@@ -334,7 +340,7 @@ class CommonProviderHelper
     /**
      * @return EntityManager|null
      *
-     * @throws \Doctrine\ORM\ORMException
+     * @throws ORMException
      */
     protected function em()
     {
@@ -441,19 +447,19 @@ class CommonProviderHelper
     {
         $this->output->writeln('');
         foreach ($this->errors as $message) {
-            $this->output->writeln('<error>'.self::$provider.' - '.$message.'</error>');
+            $this->output->writeln('<error>'.$this->provider.' - '.$message.'</error>');
         }
         $this->errors = [];
     }
 
     /**
-     * @param \DateTimeZone $timezone
+     * @param DateTimeZone $timezone
      *
-     * @return \DateTime
+     * @return DateTime
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    protected function getDateFrom(\DateTimeZone $timezone = null)
+    protected function getDateFrom(DateTimeZone $timezone = null)
     {
         if ($this->finalizing) {
             $date = clone $this->providerDate;
@@ -480,13 +486,13 @@ class CommonProviderHelper
     }
 
     /**
-     * @param \DateTimeZone $timezone
+     * @param DateTimeZone $timezone
      *
-     * @return \DateTime
+     * @return DateTime
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    protected function getDateTo(\DateTimeZone $timezone = null)
+    protected function getDateTo(DateTimeZone $timezone = null)
     {
         if ($this->finalizing) {
             $date = clone $this->providerDate;
@@ -513,22 +519,22 @@ class CommonProviderHelper
     }
 
     /**
-     * @param string    $providerAccountId
-     * @param string    $providerAccountName
-     * @param string    $currencyCode
-     * @param \DateTime $providerDate
-     * @param int       $spendTotal
-     * @param int       $clicksTotal
-     * @param int       $impressionsTotal
-     * @param bool      $complete
+     * @param string   $providerAccountId
+     * @param string   $providerAccountName
+     * @param string   $currencyCode
+     * @param DateTime $providerDate
+     * @param int      $spendTotal
+     * @param int      $clicksTotal
+     * @param int      $impressionsTotal
+     * @param bool     $complete
      *
-     * @throws \Exception
+     * @throws Exception
      */
     protected function createSummary(
         $providerAccountId = '',
         $providerAccountName = '',
         $currencyCode = '',
-        \DateTime $providerDate,
+        DateTime $providerDate,
         $spendTotal = 0,
         $clicksTotal = 0,
         $impressionsTotal = 0,
@@ -538,8 +544,8 @@ class CommonProviderHelper
         $summary->setMediaAccountId($this->mediaAccount->getId());
         // Date aded in this context is the date the data originated from via the provider.
         $summary->setDateAdded($providerDate);
-        $summary->setDateModified(new \DateTime());
-        $summary->setProvider(self::$provider);
+        $summary->setDateModified(new DateTime());
+        $summary->setProvider($this->provider);
         $summary->setProviderAccountId($providerAccountId);
         $summary->setProviderAccountName($providerAccountName);
 
@@ -558,10 +564,10 @@ class CommonProviderHelper
         $summary->setComplete($complete);
 
         $finalDate = clone $providerDate;
-        $finalDate->modify('+'.self::$ageSpendBecomesFinal);
+        $finalDate->modify('+'.$this->ageSpendBecomesFinal);
         $summary->setFinalDate($finalDate);
 
-        $final = $complete && ($finalDate < new \DateTime('-'.self::$ageSpendBecomesFinal));
+        $final = $complete && ($finalDate < new DateTime('-'.$this->ageSpendBecomesFinal));
         $summary->setFinal($final);
 
         $summary->setProviderDate($providerDate);

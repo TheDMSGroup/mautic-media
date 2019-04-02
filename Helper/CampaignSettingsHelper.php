@@ -11,6 +11,9 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use Exception;
+use stdClass;
+
 /**
  * Class CampaignSettingsHelper.
  */
@@ -19,7 +22,7 @@ class CampaignSettingsHelper
     /** @var CampaignMapHelper */
     private $campaignMapHelper;
 
-    /** @var \stdClass */
+    /** @var stdClass */
     private $campaignSettingsField;
 
     /** @var array */
@@ -44,7 +47,7 @@ class CampaignSettingsHelper
      * @param string $campaignSettingsField
      * @param array  $providerAccountsWithCampaigns
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function __construct(
         $campaignNames = [],
@@ -62,7 +65,7 @@ class CampaignSettingsHelper
      *
      * @return $this
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function setCampaignSettingsField($campaignSettingsField)
     {
@@ -199,7 +202,7 @@ class CampaignSettingsHelper
     }
 
     /**
-     * @return \stdClass
+     * @return stdClass
      */
     public function getAutoUpdatedCampaignSettings()
     {
@@ -225,7 +228,7 @@ class CampaignSettingsHelper
             }
             if ($newAccount) {
                 unset($accountObj);
-                $accountObj                    = new \stdClass();
+                $accountObj                    = new stdClass();
                 $accountObj->providerAccountId = (string) $providerAccountId;
                 $accountObj->campaigns         = [];
                 // Guess the primary campaign (default) based on the name of the account.
@@ -252,7 +255,7 @@ class CampaignSettingsHelper
                         // Only add campaigns not already mapped
                         if ($newCampaign) {
                             unset($campaignObj);
-                            $campaignObj                     = new \stdClass();
+                            $campaignObj                     = new stdClass();
                             $campaignObj->providerCampaignId = (string) $providerCampaignId;
                         }
                         if (isset($campaignObj)) {
