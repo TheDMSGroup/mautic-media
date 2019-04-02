@@ -320,6 +320,12 @@ class FacebookHelper extends CommonProviderHelper
                             $spend += $data['spend'];
 
                             // Add new insight data to the $account object data for later correlation.
+                            $accountData['clicks']      = $data['clicks'];
+                            $accountData['cpc']         = $data['cpc'];
+                            $accountData['cpp']         = $data['cpp'];
+                            $accountData['ctr']         = $data['ctr'];
+                            $accountData['impressions'] = $data['impressions'];
+                            $accountData['spend']       = $data['spend'];
                             $account->setDataWithoutValidation($accountData);
                             $accounts[] = $account;
 
