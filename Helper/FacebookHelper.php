@@ -194,9 +194,9 @@ class FacebookHelper extends CommonProviderHelper
                         $accountData['currency'],
                         $date,
                         $spend,
-                        intval($data['clicks']),
-                        intval($data['impressions']),
-                        ($spend >= $data['spend'])
+                        intval($accountData['clicks']),
+                        intval($accountData['impressions']),
+                        ($spend >= $accountData['spend'])
                     );
                 }
                 $date->sub($oneDay);
