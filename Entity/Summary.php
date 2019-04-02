@@ -477,7 +477,7 @@ class Summary
      */
     public function getFinal()
     {
-        return $this->complete;
+        return $this->final;
     }
 
     /**
