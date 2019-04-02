@@ -150,9 +150,9 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setDateAdded($date);
 
                             $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                                (string) $data['id'],
+                                (string) $accountData['id'],
                                 (string) $data['campaign_id'],
-                                (string) $data['name'],
+                                (string) $accountData['name'],
                                 (string) $data['campaign_name']
                             );
                             if (is_int($campaignId)) {
@@ -316,7 +316,7 @@ class FacebookHelper extends CommonProviderHelper
                         &$spend,
                         &$accounts
                     ) {
-                        if (!empty($data['spend']) && $data['spend'] > 0 && 'Auto Warranty' == $accountData['name']) {
+                        if (!empty($data['spend']) && $data['spend'] > 0) {
                             $spend += $data['spend'];
 
                             // Add new insight data to the $account object data for later correlation.
