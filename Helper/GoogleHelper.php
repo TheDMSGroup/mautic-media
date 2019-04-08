@@ -11,6 +11,10 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use DateInterval;
+use DateTime;
+use DateTimeZone;
+use Exception;
 use Google\AdsApi\AdWords\AdWordsServices;
 use Google\AdsApi\AdWords\AdWordsSessionBuilder;
 use Google\AdsApi\AdWords\Reporting\v201809\DownloadFormat;
@@ -28,6 +32,7 @@ use Google\AdsApi\AdWords\v201809\mcm\Customer;
 use Google\AdsApi\AdWords\v201809\mcm\ManagedCustomerService;
 use Google\AdsApi\Common\Configuration;
 use Google\AdsApi\Common\OAuth2TokenBuilder;
+use InvalidArgumentException;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use Psr\Log\NullLogger;
@@ -37,9 +42,6 @@ use Psr\Log\NullLogger;
  */
 class GoogleHelper extends CommonProviderHelper
 {
-    /** @var string */
-    public static $provider = MediaAccount::PROVIDER_GOOGLE;
-
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 5;
 
@@ -53,7 +55,10 @@ class GoogleHelper extends CommonProviderHelper
     public static $pageLimit = 500;
 
     /** @var string */
-    public static $ageSpendBecomesFinal = '48 hour';
+    public $provider = MediaAccount::PROVIDER_GOOGLE;
+
+    /** @var string */
+    public $ageSpendBecomesFinal = '48 hour';
 
     /** @var AdWordsSessionBuilder */
     private $adWordsSessionBuilder;
@@ -90,33 +95,33 @@ class GoogleHelper extends CommonProviderHelper
         try {
             $customers = $this->getAllManagedCustomers();
             if (!$customers) {
-                throw new \Exception(
+                throw new Exception(
                     'No Google Ads customer accounts accessible by media account '.$this->providerAccountId.'.'
                 );
             }
             $this->output->writeln(
-                self::$provider.' - Found '.count(
+                $this->provider.' - Found '.count(
                     $customers
                 ).' accounts active for media account '.$this->mediaAccount->getId().'.'
             );
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
             $date   = $this->getDateTo();
-            $oneDay = new \DateInterval('P1D');
+            $oneDay = new DateInterval('P1D');
             while ($date >= $this->getDateFrom()) {
                 foreach ($customers as $customerId => $customer) {
                     $spend            = 0;
                     $clicksTotal      = 0;
                     $impressionsTotal = 0;
                     /** @var Customer $customer */
-                    $timezone = new \DateTimeZone($customer->getDateTimeZone());
+                    $timezone = new DateTimeZone($customer->getDateTimeZone());
                     $since    = clone $date;
                     $until    = clone $date;
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone);
                     $this->output->write(
-                        self::$provider.' - Pulling hourly data - '.
-                        $since->format(\DateTime::ISO8601).' - '.
+                        $this->provider.' - Pulling hourly data - '.
+                        $since->format(DateTime::ISO8601).' - '.
                         $customer->getName()
                     );
 
@@ -177,7 +182,7 @@ class GoogleHelper extends CommonProviderHelper
                                     if (!$data) {
                                         continue;
                                     }
-                                    $dateAdded = \DateTime::createFromFormat(
+                                    $dateAdded = DateTime::createFromFormat(
                                         'Y-m-d G:i:s',
                                         $data['Date'].' '.$data['HourOfDay'].':00:00',
                                         $timezone
@@ -197,7 +202,7 @@ class GoogleHelper extends CommonProviderHelper
                                         $stat->setCampaignId($campaignId);
                                     }
 
-                                    $stat->setProvider(self::$provider);
+                                    $stat->setProvider($this->provider);
 
                                     $stat->setProviderAccountId($customerId);
                                     $stat->setproviderAccountName($customer->getName());
@@ -241,7 +246,7 @@ class GoogleHelper extends CommonProviderHelper
                                 $this->output->write('.');
                                 sleep(self::$rateLimitSleep);
                             } else {
-                                throw new \Exception('Too many request errors. '.$e->getMessage());
+                                throw new Exception('Too many request errors. '.$e->getMessage());
                             }
                         }
                     } while (true === $doContinue);
@@ -260,7 +265,7 @@ class GoogleHelper extends CommonProviderHelper
                 }
                 $date->sub($oneDay);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
         }
         $this->saveQueue();
@@ -274,7 +279,7 @@ class GoogleHelper extends CommonProviderHelper
      *
      * @return array
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getAllManagedCustomers()
     {
@@ -320,7 +325,7 @@ class GoogleHelper extends CommonProviderHelper
      *
      * @return mixed|null
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getSession($customerId = '')
     {
@@ -378,7 +383,7 @@ class GoogleHelper extends CommonProviderHelper
                 || !$this->adWordsConfiguration->getConfiguration('clientSecret', 'OAUTH2')
                 || !$this->adWordsConfiguration->getConfiguration('refreshToken', 'OAUTH2')
             ) {
-                throw new \Exception(
+                throw new Exception(
                     'Missing credentials for this media account '.$this->mediaAccount->getId().'.'
                 );
             }
@@ -404,13 +409,13 @@ class GoogleHelper extends CommonProviderHelper
                 } else {
                     $this->adWordsSessions[$customerId] = $this->adWordsSessionBuilder->build();
                 }
-            } catch (\Exception $e) {
-                if ($e instanceof \InvalidArgumentException) {
-                    throw new \Exception(
+            } catch (Exception $e) {
+                if ($e instanceof InvalidArgumentException) {
+                    throw new Exception(
                         'Missing credentials for this media account '.$this->mediaAccount->getId().'. '.$e->getMessage()
                     );
                 } else {
-                    throw new \Exception(
+                    throw new Exception(
                         'Cannot establish Google session for media account '.$this->mediaAccount->getId(
                         ).'. '.$e->getMessage()
                     );

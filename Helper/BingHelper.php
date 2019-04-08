@@ -11,6 +11,9 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use DateTime;
+use DateTimeZone;
+use Exception;
 use Guzzle\Http\Client;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
@@ -34,6 +37,10 @@ use Microsoft\BingAds\V12\Reporting\ReportRequestStatusType;
 use Microsoft\BingAds\V12\Reporting\ReportTime;
 use Microsoft\BingAds\V12\Reporting\ReportTimeZone;
 use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
+use SoapFault;
+use SoapVar;
+use stdClass;
+use ZipArchive;
 
 /**
  * Class BingHelper.
@@ -44,10 +51,10 @@ use Microsoft\BingAds\V12\Reporting\SubmitGenerateReportRequest;
 class BingHelper extends CommonProviderHelper
 {
     /** @var string */
-    public static $provider = MediaAccount::PROVIDER_BING;
+    public $provider = MediaAccount::PROVIDER_BING;
 
     /** @var string https://help.bingads.microsoft.com/#apex/3/en/54480/2 */
-    public static $ageSpendBecomesFinal = '48 hour';
+    public $ageSpendBecomesFinal = '48 hour';
 
     /** @var array */
     private $bingServices = [];
@@ -58,7 +65,7 @@ class BingHelper extends CommonProviderHelper
     /** @var int */
     private $bingAccountId;
 
-    /** @var \DateTimeZone */
+    /** @var DateTimeZone */
     private $timezone;
 
     /** @var string */
@@ -70,7 +77,7 @@ class BingHelper extends CommonProviderHelper
     public function pullData()
     {
         // microstump reports all billing (spend) data in Pacific time only, so we must use this timezone.
-        $this->timezone = new \DateTimeZone('America/Los_Angeles');
+        $this->timezone = new DateTimeZone('America/Los_Angeles');
 
         // microspark invented their own timezone names. how inventive.
         $this->timezoneMs = ReportTimeZone::PacificTimeUSCanadaTijuana;
@@ -83,8 +90,8 @@ class BingHelper extends CommonProviderHelper
                     $localDate = clone $data['providerDate'];
                     $localDate->setTimezone($this->timezone);
                     $this->output->write(
-                        self::$provider.' - Hourly data result - '.
-                        $localDate->format(\DateTime::ISO8601).' - '.
+                        $this->provider.' - Hourly data result - '.
+                        $localDate->format(DateTime::ISO8601).' - '.
                         $data['accountName']
                     );
                     $this->createSummary(
@@ -99,7 +106,7 @@ class BingHelper extends CommonProviderHelper
                     );
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
         }
         $this->saveQueue();
@@ -113,7 +120,7 @@ class BingHelper extends CommonProviderHelper
      *
      * @return array
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function pullDataInBatches()
     {
@@ -126,7 +133,7 @@ class BingHelper extends CommonProviderHelper
             $since = $this->getDateFrom($this->timezone);
             $until = $this->getDateTo($this->timezone);
             $this->output->write(
-                self::$provider.' - Pulling hourly data for '.count($accounts).' accounts.'
+                $this->provider.' - Pulling hourly data for '.count($accounts).' accounts.'
             );
             $this->getAdPerformanceReportRequest(
                 $since,
@@ -140,13 +147,13 @@ class BingHelper extends CommonProviderHelper
                     $stat->setMediaAccountId($this->mediaAccount->getId());
 
                     // microsham invented their own date format for this. It's wonderful.
-                    $dateAdded = \DateTime::createFromFormat(
+                    $dateAdded = DateTime::createFromFormat(
                         'n/j/Y 12:00:00 \A\M\|G',
                         $adStat->TimePeriod,
                         $this->timezone
                     );
                     if (!$dateAdded) {
-                        throw new \Exception('Unparsable date: '.$adStat->TimePeriod);
+                        throw new Exception('Unparsable date: '.$adStat->TimePeriod);
                     }
                     $stat->setDateAdded($dateAdded);
 
@@ -160,7 +167,7 @@ class BingHelper extends CommonProviderHelper
                         $stat->setCampaignId($campaignId);
                     }
 
-                    $stat->setProvider(self::$provider);
+                    $stat->setProvider($this->provider);
 
                     $stat->setProviderAccountId($adStat->AccountId);
                     $stat->setproviderAccountName($adStat->AccountName);
@@ -230,7 +237,7 @@ class BingHelper extends CommonProviderHelper
      * Authenticates the user and returns an array of managed customers and linked accounts.
      * $customers[<customerId>] = [<accountId>,<accountId>].
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getAllManagedCustomers()
     {
@@ -240,7 +247,7 @@ class BingHelper extends CommonProviderHelper
         // Authenticate as a user and also pull in linked accounts.
         $user = $this->getUser(true);
         if (!$user || !isset($user->User->Name->FirstName)) {
-            throw new \Exception(
+            throw new Exception(
                 'Could not authenticate as a user in Bing. Make sure the account has access to Bing ads.'
             );
         }
@@ -263,12 +270,12 @@ class BingHelper extends CommonProviderHelper
             }
         }
         if (!$customers) {
-            throw new \Exception(
+            throw new Exception(
                 'No Bing Ads customer accounts accessible by media account '.$this->providerAccountId.'.'
             );
         }
         $this->output->writeln(
-            self::$provider.' - Found '.$accountCount.
+            $this->provider.' - Found '.$accountCount.
             ' active accounts in media account '.$this->mediaAccount->getId().'.'
         );
 
@@ -308,9 +315,9 @@ class BingHelper extends CommonProviderHelper
                 if ($attempt) {
                     $result = $attempt;
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 if (
-                    $e instanceof \SoapFault
+                    $e instanceof SoapFault
                     && isset($e->detail->AdApiFaultDetail->Errors->AdApiError->Message)
                 ) {
                     $this->errors[] = $e->detail->AdApiFaultDetail->Errors->AdApiError->Message;
@@ -338,7 +345,7 @@ class BingHelper extends CommonProviderHelper
      *
      * @return ServiceClient
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getServiceClient($type)
     {
@@ -358,7 +365,7 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     private function getAuthData()
     {
@@ -368,7 +375,7 @@ class BingHelper extends CommonProviderHelper
             $authorization = $this->session->get('mautic.media.helper.bing.auth');
         }
         if (!$authorization) {
-            throw new \Exception('Unable to get a fresh Refresh Token.');
+            throw new Exception('Unable to get a fresh Refresh Token.');
         }
         if ($this->bingAccountId) {
             $authorization->AccountId = $this->bingAccountId;
@@ -464,16 +471,16 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param \DateTime $since
-     * @param \DateTime $until
-     * @param           $accountIds
-     * @param           $callback
+     * @param DateTime $since
+     * @param DateTime $until
+     * @param          $accountIds
+     * @param          $callback
      *
      * @return array|false|null
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    private function getAdPerformanceReportRequest(\DateTime $since, \DateTime $until, $accountIds, $callback)
+    private function getAdPerformanceReportRequest(DateTime $since, DateTime $until, $accountIds, $callback)
     {
         $columns = [
             AdPerformanceReportColumn::TimePeriod,
@@ -534,7 +541,7 @@ class BingHelper extends CommonProviderHelper
         // $keywordPerformanceReportSort->SortOrder = SortOrder::Ascending;
         // $report->Sort[] = $keywordPerformanceReportSort;
 
-        $report = new \SoapVar(
+        $report = new SoapVar(
             $report,
             SOAP_ENC_OBJECT,
             'AdPerformanceReportRequest',
@@ -545,15 +552,15 @@ class BingHelper extends CommonProviderHelper
     }
 
     /**
-     * @param \SoapVar $report
+     * @param SoapVar  $report
      * @param array    $columns
      * @param callable $callback
      *
      * @return array|false|null
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    private function submitReportAndDownloadWhenDone(\SoapVar $report, $columns, $callback)
+    private function submitReportAndDownloadWhenDone(SoapVar $report, $columns, $callback)
     {
         // microshaft must create the report offline then provide us a link (maybe). it's super convenient.
         $result                       = null;
@@ -628,7 +635,7 @@ class BingHelper extends CommonProviderHelper
      *
      * @return array|false|null
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function downloadReport($reportUrl, $columns, $callback)
     {
@@ -645,17 +652,17 @@ class BingHelper extends CommonProviderHelper
             ]
         );
         if (!$client->get($reportUrl)->send()) {
-            throw new \Exception('Could not download zip from Bing.');
+            throw new Exception('Could not download zip from Bing.');
         }
         fclose($handle);
 
         // microscar gives us a zip file that contains an unpredictable file contents. it's perfect.
         $destPath = $zipFile.'.unzipped';
-        $zip      = new \ZipArchive();
+        $zip      = new ZipArchive();
         $file     = $zip->open($zipFile);
         if (true === $file) {
             if (!$zip->extractTo($destPath)) {
-                throw new \Exception('Could not extract zip downloaded from Bing.');
+                throw new Exception('Could not extract zip downloaded from Bing.');
             }
             $zip->close();
             // Should find one or more CSV files in here...
@@ -663,7 +670,7 @@ class BingHelper extends CommonProviderHelper
                 if (!is_dir($file)) {
                     if (false !== ($csv = fopen($destPath.'/'.$file, 'r'))) {
                         while (false !== ($data = fgetcsv($csv))) {
-                            $adStat = new \stdClass();
+                            $adStat = new stdClass();
                             foreach ($columns as $i => $column) {
                                 // microshirt has inserted utf8 data in here for some reason. it's neat.
                                 $adStat->{$column} = isset($data[$i]) ? trim(utf8_decode($data[$i]), '"?') : '';
@@ -676,7 +683,7 @@ class BingHelper extends CommonProviderHelper
             }
             $success = true;
         } else {
-            throw new \Exception('Could not open zip downloaded from Bing.');
+            throw new Exception('Could not open zip downloaded from Bing.');
         }
 
         // No longer need temporary files.
@@ -769,7 +776,7 @@ class BingHelper extends CommonProviderHelper
                     $this->session->set('mautic.media.helper.bing.auth', $authorization);
                     $success = $this->saveTokens($tokens);
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->errors[] = $e->getMessage();
             }
         }

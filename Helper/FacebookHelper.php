@@ -11,8 +11,14 @@
 
 namespace MauticPlugin\MauticMediaBundle\Helper;
 
+use DateInterval;
+use DateTime;
+use DateTimeZone;
+use Exception;
 use FacebookAds\Api;
+use FacebookAds\Cursor;
 use FacebookAds\Http\Exception\AuthorizationException;
+use FacebookAds\Logger\CurlLogger;
 use FacebookAds\Object\AdAccount;
 use FacebookAds\Object\AdAccountUser;
 use FacebookAds\Object\User;
@@ -20,6 +26,7 @@ use FacebookAds\Object\Values\ReachFrequencyPredictionStatuses;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use MauticPlugin\MauticMediaBundle\Entity\Summary;
+use stdClass;
 
 /**
  * Class FacebookHelper.
@@ -28,9 +35,6 @@ use MauticPlugin\MauticMediaBundle\Entity\Summary;
  */
 class FacebookHelper extends CommonProviderHelper
 {
-    /** @var string */
-    public static $provider = MediaAccount::PROVIDER_FACEBOOK;
-
     /** @var int Number of rate limit errors after which we abort. */
     public static $rateLimitMaxErrors = 100000;
 
@@ -40,11 +44,14 @@ class FacebookHelper extends CommonProviderHelper
     /** @var int Number of seconds to sleep when we hit API rate limits. */
     public static $rateLimitSleep = 60;
 
-    /** @var string */
-    public static $ageSpendBecomesFinal = '48 hours';
-
     /** @var bool */
     private static $facebookImplicitFetch = true;
+
+    /** @var string */
+    public $provider = MediaAccount::PROVIDER_FACEBOOK;
+
+    /** @var string */
+    public $ageSpendBecomesFinal = '48 hours';
 
     /** @var Api */
     private $facebookApi;
@@ -68,21 +75,21 @@ class FacebookHelper extends CommonProviderHelper
 
             // Using the active accounts, go backwards through time one day at a time to pull hourly data.
             $date   = $this->getDateTo();
-            $oneDay = new \DateInterval('P1D');
+            $oneDay = new DateInterval('P1D');
             while ($date >= $this->getDateFrom()) {
                 /** @var AdAccount $account */
                 foreach ($this->getActiveAccounts($date, $date) as $account) {
                     $spend       = 0;
                     $accountData = $account->getData();
-                    $timezone    = new \DateTimeZone($accountData['timezone_name']);
+                    $timezone    = new DateTimeZone($accountData['timezone_name']);
                     $since       = clone $date;
                     $until       = clone $date;
                     // Since we are pulling one day at a time, these can be the same day for this provider.
                     $since->setTimeZone($timezone);
                     $until->setTimeZone($timezone);
                     $this->output->write(
-                        self::$provider.' - Pulling hourly data - '.
-                        $since->format(\DateTime::ISO8601).' - '.
+                        $this->provider.' - Pulling hourly data - '.
+                        $since->format(DateTime::ISO8601).' - '.
                         $accountData['name']
                     );
 
@@ -129,11 +136,10 @@ class FacebookHelper extends CommonProviderHelper
                         $accountData['id'],
                         $fields,
                         $params,
-                        function ($accountInsightData) use (&$spend, $timezone, $accountData) {
-                            $data = array_merge($accountData, array_filter($accountInsightData));
+                        function ($data) use (&$spend, $timezone, $accountData) {
                             // Convert the date to our standard.
                             $time = substr($data['hourly_stats_aggregated_by_advertiser_time_zone'], 0, 8);
-                            $date = \DateTime::createFromFormat(
+                            $date = DateTime::createFromFormat(
                                 'Y-m-d H:i:s',
                                 $data['date_start'].' '.$time,
                                 $timezone
@@ -144,19 +150,19 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setDateAdded($date);
 
                             $campaignId = $this->campaignSettingsHelper->getAccountCampaignMap(
-                                (string) $data['id'],
+                                (string) $accountData['id'],
                                 (string) $data['campaign_id'],
-                                (string) $data['name'],
+                                (string) $accountData['name'],
                                 (string) $data['campaign_name']
                             );
                             if (is_int($campaignId)) {
                                 $stat->setCampaignId($campaignId);
                             }
 
-                            $stat->setProvider(self::$provider);
+                            $stat->setProvider($this->provider);
 
-                            $stat->setProviderAccountId($data['id']);
-                            $stat->setproviderAccountName($data['name']);
+                            $stat->setProviderAccountId($accountData['id']);
+                            $stat->setproviderAccountName($accountData['name']);
 
                             $stat->setProviderCampaignId($data['campaign_id']);
                             $stat->setProviderCampaignName($data['campaign_name']);
@@ -167,7 +173,7 @@ class FacebookHelper extends CommonProviderHelper
                             $stat->setProviderAdId($data['ad_id']);
                             $stat->setproviderAdName($data['ad_name']);
 
-                            $stat->setCurrency($data['currency']);
+                            $stat->setCurrency($accountData['currency']);
                             $stat->setSpend(floatval($data['spend']));
                             $stat->setCpm(floatval($data['cpm']));
                             $stat->setCpc(floatval($data['cpc']));
@@ -195,7 +201,7 @@ class FacebookHelper extends CommonProviderHelper
                 }
                 $date->sub($oneDay);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
             // Unexpected error.
             sleep(self::$rateLimitSleep);
@@ -203,7 +209,7 @@ class FacebookHelper extends CommonProviderHelper
         $this->saveQueue();
         try {
             $this->processInsightJobs();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->errors[] = $e->getMessage();
         }
         $this->outputErrors();
@@ -212,14 +218,14 @@ class FacebookHelper extends CommonProviderHelper
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     private function authenticate()
     {
         if (!$this->facebookApi || !$this->facebookUser) {
             // Check mandatory credentials.
             if (!trim($this->providerClientId) || !trim($this->providerClientSecret) || !trim($this->providerToken)) {
-                throw new \Exception(
+                throw new Exception(
                     'Missing credentials for this media account '.$this->providerAccountId.'.'
                 );
             }
@@ -228,13 +234,13 @@ class FacebookHelper extends CommonProviderHelper
             Api::init($this->providerClientId, $this->providerClientSecret, $this->providerToken);
             $this->facebookApi = Api::instance();
             if (256 == $this->output->getVerbosity()) {
-                $this->facebookApi->setLogger(new \FacebookAds\Logger\CurlLogger());
+                $this->facebookApi->setLogger(new CurlLogger());
             }
 
             // Authenticate and get the primary user ID in the same call.
             $me = $this->facebookApi->call('/me')->getContent();
             if (!$me || !isset($me['id'])) {
-                throw new \Exception(
+                throw new Exception(
                     'Cannot discern Facebook user for account '.$this->providerAccountId.'. You likely need to reauthenticate.'
                 );
             }
@@ -247,14 +253,14 @@ class FacebookHelper extends CommonProviderHelper
      * Find Ad accounts this user has access to with activity in this date range to reduce overall API call count.
      * Build summary data from the daily data.
      *
-     * @param \DateTime $dateFrom
-     * @param \DateTime $dateTo
+     * @param DateTime $dateFrom
+     * @param DateTime $dateTo
      *
      * @return array
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    private function getActiveAccounts(\DateTime $dateFrom, \DateTime $dateTo)
+    private function getActiveAccounts(DateTime $dateFrom, DateTime $dateTo)
     {
         $accounts = [];
         /* @var AdAccount $account */
@@ -264,11 +270,11 @@ class FacebookHelper extends CommonProviderHelper
                 $accountData = $account->getData();
 
                 $this->output->write(
-                    self::$provider.' - Checking activity - '.
+                    $this->provider.' - Checking activity - '.
                     $dateFrom->format('Y-m-d').($dateFrom === $dateTo ? '' : ' ~ '.$dateTo->format('Y-m-d')).' - '.
                     $accountData['name']
                 );
-                $timezone = new \DateTimeZone($accountData['timezone_name']);
+                $timezone = new DateTimeZone($accountData['timezone_name']);
                 $since    = clone $dateFrom;
                 $until    = clone $dateTo;
                 $since->setTimeZone($timezone);
@@ -303,18 +309,23 @@ class FacebookHelper extends CommonProviderHelper
                     $accountData['id'],
                     $fields,
                     $params,
-                    function ($accountInsightData) use (
+                    function ($data) use (
                         $account,
                         $since,
                         $accountData,
                         &$spend,
                         &$accounts
                     ) {
-                        $accountData = array_merge($accountData, array_filter($accountInsightData));
-                        if (!empty($accountData['spend']) && $accountData['spend'] > 0) {
-                            $spend += $accountData['spend'];
+                        if (!empty($data['spend']) && $data['spend'] > 0) {
+                            $spend += $data['spend'];
 
                             // Add new insight data to the $account object data for later correlation.
+                            $accountData['clicks']      = $data['clicks'];
+                            $accountData['cpc']         = $data['cpc'];
+                            $accountData['cpp']         = $data['cpp'];
+                            $accountData['ctr']         = $data['ctr'];
+                            $accountData['impressions'] = $data['impressions'];
+                            $accountData['spend']       = $data['spend'];
                             $account->setDataWithoutValidation($accountData);
                             $accounts[] = $account;
 
@@ -322,22 +333,22 @@ class FacebookHelper extends CommonProviderHelper
                                 $summary = new Summary();
                                 $summary->setMediaAccountId($this->mediaAccount->getId());
                                 $summary->setDateAdded($since);
-                                $summary->setDateModified(new \DateTime());
-                                $summary->setProvider(self::$provider);
+                                $summary->setDateModified(new DateTime());
+                                $summary->setProvider($this->provider);
                                 $summary->setProviderAccountId($accountData['id']);
                                 $summary->setProviderAccountName($accountData['name']);
-                                $summary->setCpm(floatval($accountData['cpm']));
-                                $summary->setCpc(floatval($accountData['cpc']));
-                                $summary->setCtr(floatval($accountData['ctr']));
-                                $summary->setClicks(intval($accountData['clicks']));
+                                $summary->setCpm(floatval($data['cpm']));
+                                $summary->setCpc(floatval($data['cpc']));
+                                $summary->setCtr(floatval($data['ctr']));
+                                $summary->setClicks(intval($data['clicks']));
                                 $summary->setCurrency($accountData['currency']);
-                                $summary->setSpend(floatval($accountData['spend']));
-                                $summary->setImpressions(intval($accountData['impressions']));
+                                $summary->setSpend(floatval($data['spend']));
+                                $summary->setImpressions(intval($data['impressions']));
                                 // Set to false by default until we've correlated the result.
                                 $summary->setComplete(false);
                                 $summary->setFinal(false);
                                 $finalDate = clone $since;
-                                $finalDate->modify('+'.self::$ageSpendBecomesFinal);
+                                $finalDate->modify('+'.$this->ageSpendBecomesFinal);
                                 $summary->setFinalDate($finalDate);
                                 $summary->setProviderDate($since);
                                 $this->addSummaryToQueue($summary);
@@ -350,7 +361,7 @@ class FacebookHelper extends CommonProviderHelper
             }
         );
         $this->output->writeln(
-            self::$provider.' - Found '.count(
+            $this->provider.' - Found '.count(
                 $accounts
             ).' accounts active for media account '.$this->mediaAccount->getId().'.'
         );
@@ -365,12 +376,12 @@ class FacebookHelper extends CommonProviderHelper
      *
      * @return $this
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getAllAdAccounts($callback)
     {
         if (!is_callable($callback)) {
-            throw new \Exception('Callback is not callable.');
+            throw new Exception('Callback is not callable.');
         }
         $cursor = null;
         $fields = [
@@ -387,7 +398,7 @@ class FacebookHelper extends CommonProviderHelper
         do {
             try {
                 if (!$cursor) {
-                    /** @var \FacebookAds\Cursor $cursor */
+                    /** @var Cursor $cursor */
                     $cursor = $this->facebookUser->getAdAccounts($fields, $params);
                     $cursor->setUseImplicitFetch(self::$facebookImplicitFetch);
                 }
@@ -402,11 +413,11 @@ class FacebookHelper extends CommonProviderHelper
                 }
                 sleep(self::$betweenOpSleep);
                 $cursor->next();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $code           = $e->getCode();
                 $this->errors[] = $e->getMessage();
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
-                    throw new \Exception('Too many request errors.');
+                    throw new Exception('Too many request errors.');
                 }
                 if (
                     $e instanceof AuthorizationException
@@ -432,7 +443,7 @@ class FacebookHelper extends CommonProviderHelper
      * @param $params
      * @param $timezone
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function applyPresetDateRanges(&$params, $timezone)
     {
@@ -442,8 +453,8 @@ class FacebookHelper extends CommonProviderHelper
             && isset($params['time_range']['since'])
             && isset($params['time_range']['until'])
         ) {
-            $today     = (new \DateTime('today', $timezone))->format('Y-m-d');
-            $yesterday = (new \DateTime('yesterday', $timezone))->format('Y-m-d');
+            $today     = (new DateTime('today', $timezone))->format('Y-m-d');
+            $yesterday = (new DateTime('yesterday', $timezone))->format('Y-m-d');
             if (
                 $params['time_range']['since'] === $params['time_range']['until']
                 && $params['time_range']['until'] === $today
@@ -455,96 +466,96 @@ class FacebookHelper extends CommonProviderHelper
             ) {
                 $params['date_preset'] = 'yesterday';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-1 sunday', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-1 sunday', $timezone))
                         ->format('Y-m-d'))
                 && $params['time_range']['until'] === $today
             ) {
                 $params['date_preset'] = 'this_week_sun_today';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('last monday', $timezone))
+                ($params['time_range']['since'] === (new DateTime('last monday', $timezone))
                         ->format('Y-m-d'))
                 && $params['time_range']['until'] === $today
             ) {
                 $params['date_preset'] = 'this_week_mon_today';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-2 sunday', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-2 sunday', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('last saturday', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('last saturday', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_week_sun_sat';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-2 monday', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-2 monday', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('last sunday', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('last sunday', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_week_mon_sun';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('this month midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('this month midnight', $timezone))
                         ->format('Y-m-d'))
                 && $params['time_range']['until'] === $today
             ) {
                 $params['date_preset'] = 'this_month';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('last month midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('last month midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('last day of last month midnight', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('last day of last month midnight', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_month';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-3 days midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-3 days midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('midnight -1 minute', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_3d';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-7 days midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-7 days midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('midnight -1 minute', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_7d';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-14 days midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-14 days midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('midnight -1 minute', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_14d';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-28 days midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-28 days midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('midnight -1 minute', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_28d';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-30 days midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-30 days midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('midnight -1 minute', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_30d';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('-90 days midnight', $timezone))
+                ($params['time_range']['since'] === (new DateTime('-90 days midnight', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('midnight -1 minute', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('midnight -1 minute', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_90d';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('january 1', $timezone))
+                ($params['time_range']['since'] === (new DateTime('january 1', $timezone))
                         ->format('Y-m-d'))
                 && $params['time_range']['until'] === $today
             ) {
                 $params['date_preset'] = 'this_year';
             } elseif (
-                ($params['time_range']['since'] === (new \DateTime('january 1 last year', $timezone))
+                ($params['time_range']['since'] === (new DateTime('january 1 last year', $timezone))
                         ->format('Y-m-d'))
-                && ($params['time_range']['until'] === (new \DateTime('january 1 -1 day', $timezone))
+                && ($params['time_range']['until'] === (new DateTime('january 1 -1 day', $timezone))
                         ->format('Y-m-d'))
             ) {
                 $params['date_preset'] = 'last_year';
@@ -566,7 +577,7 @@ class FacebookHelper extends CommonProviderHelper
      *
      * @return $this|FacebookHelper
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function getInsights(
         AdAccount $account,
@@ -578,7 +589,7 @@ class FacebookHelper extends CommonProviderHelper
         $cursor = null
     ) {
         if (!is_callable($callback)) {
-            throw new \Exception('Callback is not callable.');
+            throw new Exception('Callback is not callable.');
         }
 
         if (
@@ -593,7 +604,7 @@ class FacebookHelper extends CommonProviderHelper
         do {
             try {
                 if (!$cursor) {
-                    /** @var \FacebookAds\Cursor $cursor */
+                    /** @var Cursor $cursor */
                     $cursor = $account->getInsights($fields, $params);
                     $cursor->setUseImplicitFetch(self::$facebookImplicitFetch);
                 }
@@ -625,7 +636,7 @@ class FacebookHelper extends CommonProviderHelper
                     sleep(self::$betweenOpSleep);
                 }
                 $cursor->next();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $code           = $e->getCode();
                 $this->errors[] = $e->getMessage();
                 if (
@@ -643,7 +654,7 @@ class FacebookHelper extends CommonProviderHelper
                     }
                 }
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
-                    throw new \Exception('Too many request errors.');
+                    throw new Exception('Too many request errors.');
                 }
             }
         } while (!$cursor || $cursor->valid());
@@ -678,7 +689,7 @@ class FacebookHelper extends CommonProviderHelper
         if (!isset($this->facebookInsightAccounts[$accountId])) {
             $this->facebookInsightAccounts[$accountId] = $account;
         }
-        $job                                     = new \stdClass();
+        $job                                     = new stdClass();
         $job->fields                             = $fields;
         $job->params                             = $params;
         $job->callback                           = $callback;
@@ -691,13 +702,13 @@ class FacebookHelper extends CommonProviderHelper
     /**
      * Process job queue that was populated by hitting rate limits on a per-account basis.
      *
-     * @throws \Exception
+     * @throws Exception
      */
     private function processInsightJobs()
     {
         if (!empty($this->facebookInsightJobs)) {
             $this->output->write(
-                self::$provider.' - Processing all requests that had to be queued due to rate limits.'
+                $this->provider.' - Processing all requests that had to be queued due to rate limits.'
             );
             foreach ($this->facebookInsightJobs as $accountId => $jobs) {
                 foreach ($jobs as $id => $job) {
