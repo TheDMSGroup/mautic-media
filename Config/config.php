@@ -71,6 +71,9 @@ return [
                     'doctrine.orm.entity_manager',
                 ],
             ],
+            'mautic.media.subscriber.widget'         => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\WidgetSubscriber',
+            ],
         ],
         'forms'        => [
             'mautic.media.form.type.mediashow_list' => [
