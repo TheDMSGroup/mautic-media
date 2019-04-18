@@ -285,4 +285,39 @@ class StatRepository extends CommonRepository
 
         return $q->execute()->fetchAll();
     }
+
+    /**
+     *
+     * @param int $campaignId
+     * @param \DateTime $from
+     * @param \DateTime $to
+     */
+    public function getCostBreakdown($campaignId, $dateFrom, $dateTo)
+    {
+        $qb = $this->getEntityManager()->getConnection()->createQueryBuilder();
+        $qb->select([
+            's.provider',
+            "DATE(CONVERT_TZ(s.date_added, 'UTC', 'US/Eastern')) as ymd",
+            'SUM(s.clicks) as clicks',
+            'SUM(s.impressions) as impressions',
+            'ROUND(SUM(s.spend), 2) as spend',
+        ])
+            ->from(MAUTIC_TABLE_PREFIX . 'media_account_stats', 's')
+            ->where(
+                $qb->expr()->gte('s.date_added', 'FROM_UNIXTIME(:dateFrom)'),
+                $qb->expr()->lte('s.date_added', 'FROM_UNIXTIME(:dateTo)'),
+                $qb->expr()->isNotNull('s.media_account_id'),
+                $qb->expr()->eq('s.campaign_id', ':campaign_id')
+            )
+            ->groupBy(['s.provider','ymd'])
+            ->setParameter(':dateFrom', $dateFrom->getTimestamp(), Type::INTEGER)
+            ->setParameter(':dateTo', $dateTo->getTimestamp(), Type::INTEGER)
+            ->setParameter('campaign_id', $campaignId);
+
+        dump($dateFrom, $dateTo);
+
+        dump($qb->getSQL());
+
+        return $qb->execute()->fetchAll();
+    }
 }

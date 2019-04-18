@@ -73,6 +73,10 @@ return [
             ],
             'mautic.media.subscriber.widget'         => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\WidgetSubscriber',
+                'arguments' => [
+                    'doctrine.orm.entity_manager',
+                    'session',
+                ],
             ],
         ],
         'forms'        => [
