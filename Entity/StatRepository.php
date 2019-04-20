@@ -291,16 +291,19 @@ class StatRepository extends CommonRepository
      * @param int $campaignId
      * @param \DateTime $from
      * @param \DateTime $to
+     *
+     * @return array
      */
-    public function getCostBreakdown($campaignId, $dateFrom, $dateTo)
+    public function getProviderCostBreakdown($campaignId, $dateFrom, $dateTo, $interval, $timeFormat)
     {
         $qb = $this->getEntityManager()->getConnection()->createQueryBuilder();
         $qb->select([
             's.provider',
-            "DATE(CONVERT_TZ(s.date_added, 'UTC', 'US/Eastern')) as ymd",
-            'SUM(s.clicks) as clicks',
-            'SUM(s.impressions) as impressions',
-            'ROUND(SUM(s.spend), 2) as spend',
+            'DATE_FORMAT(DATE_ADD(s.date_added, INTERVAL :interval HOUR), :timeFormat) date_time',
+            's.date_added',
+            'SUM(IFNULL(s.clicks, 0.00)) as clicks',
+            'SUM(IFNULL(s.impressions, 0.00)) as impressions',
+            'ROUND(SUM(IFNULL(s.spend, 0.00)), 2) as spend',
         ])
             ->from(MAUTIC_TABLE_PREFIX . 'media_account_stats', 's')
             ->where(
@@ -309,14 +312,12 @@ class StatRepository extends CommonRepository
                 $qb->expr()->isNotNull('s.media_account_id'),
                 $qb->expr()->eq('s.campaign_id', ':campaign_id')
             )
-            ->groupBy(['s.provider','ymd'])
+            ->groupBy(['s.provider'])
+            ->setParameter(':interval', $interval)
+            ->setParameter(':timeFormat', $timeFormat)
             ->setParameter(':dateFrom', $dateFrom->getTimestamp(), Type::INTEGER)
             ->setParameter(':dateTo', $dateTo->getTimestamp(), Type::INTEGER)
-            ->setParameter('campaign_id', $campaignId);
-
-        dump($dateFrom, $dateTo);
-
-        dump($qb->getSQL());
+            ->setParameter(':campaign_id', $campaignId, Type::INTEGER);
 
         return $qb->execute()->fetchAll();
     }

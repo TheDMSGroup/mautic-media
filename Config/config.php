@@ -71,8 +71,8 @@ return [
                     'doctrine.orm.entity_manager',
                 ],
             ],
-            'mautic.media.subscriber.widget'         => [
-                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\WidgetSubscriber',
+            'mautic.media.subscriber.cost_breakdown_chart'         => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\CostBreakdownChartSubscriber',
                 'arguments' => [
                     'doctrine.orm.entity_manager',
                     'session',
