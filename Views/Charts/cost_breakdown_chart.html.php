@@ -9,19 +9,17 @@
                             <?php echo $view['translator']->trans('mautic.media.widget.campaign_cost_breakdown_title');?>
                         </h5>
                     </div>
-<?php
-/* echo $view->render( */
-/*     'MauticCoreBundle:Helper:graph_dateselect.html.php', */
-/*                     ['dateRangeForm' => $dateRangeForm, 'class' => 'pull-right'] */
-/*                   ); */
-?>
+                    <div class="col-md-9 va-m">
                     </div>
                 </div>
                 <div class="pt-0 pl-15 pb-10 pr-15">
-                <?php echo $view->render(
-                    'MauticCoreBundle:Helper:chart.html.php',
-                 ['chartData' => $costBreakdown, 'chartType' => 'line', 'chartHeight' => 300]
-             ); ?> 
-</div> </div> </div>
+                    <?php echo $view->render(
+                        'MauticCoreBundle:Helper:chart.html.php',
+                        ['chartData' => $costBreakdown, 'chartType' => 'line', 'chartHeight' => 300]
+);
+                    ?> 
+                </div>
+             </div>
+         </div>
     </div>
 </div>

@@ -18,26 +18,26 @@ class CostBreakdownChart
      */
     private $providerColors = [
         'facebook' => [
-            'backgroundColor'           => 'rgba(59,89,153 ,0.5 )',
-            'borderColor'               => 'rgba(59,89,153 ,0.5 )',
-            'pointHoverBackgroundColor' => 'rgba(59,89,153 ,0.5 )',
-            'pointHoverBorderColor'     => 'rgba(59,89,153 ,0.5 )',
+            'backgroundColor'           => 'rgba(59,89,153 ,0.5)',
+            'borderColor'               => 'rgba(59,89,153 ,1)',
+            'pointHoverBackgroundColor' => 'rgba(59,89,153 ,0.5)',
+            'pointHoverBorderColor'     => 'rgba(59,89,153 ,0.5)',
         ],
         'snapchat' => [
             'backgroundColor'           => 'rgba(255,252,0 ,0.5)',
-            'borderColor'               => 'rgba(255,255,255 ,0.5)',
+            'borderColor'               => 'rgba(255,205,0, 1)',
             'pointHoverBackgroundColor' => 'rgba(255,252,0 ,0.5)',
             'pointHoverBorderColor'     => 'rgba(255,252,0 ,0.5)',
         ],
         'bing' => [
             'backgroundColor'           => 'rgba(0, 255, 0, 0.5)',
-            'borderColor'               => 'rgba(0, 255, 0, 0.5)',
+            'borderColor'               => 'rgba(0, 144, 0, 1)',
             'pointHoverBackgroundColor' => 'rgba(0, 255, 0, 0.5)',
             'pointHoverBorderColor'     => 'rgba(0, 255, 0, 0.5)',
         ],
         'google' => [
             'backgroundColor'           => 'rgba(221,75,57 ,0.5)',
-            'borderColor'               => 'rgba(221,75,57 ,0.5)',
+            'borderColor'               => 'rgba(221,75,57 ,1)',
             'pointHoverBackgroundColor' => 'rgba(221,75,57 ,0.5)',
             'pointHoverBorderColor'     => 'rgba(221,75,57 ,0.5)',
         ],
