@@ -3,6 +3,7 @@
 namespace MauticPlugin\MauticMediaBundle\Report;
 
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
+use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 
 class CostBreakdownChart
 {
@@ -42,38 +43,46 @@ class CostBreakdownChart
         ],
     ];
 
+    /** @var EntityManager  */
+    private $em;
+
     /**
      * CostBreakdownReport's constructor.
+     * @param StatRepository $statRepository
+     * @param EntityManager $em
      */
-    public function __construct(StatRepository $repo)
+    public function __construct($statRepository, $em)
     {
-        $this->repo = $repo;
+        $this->repo = $statRepository;
+        $this->em = $em;
     }
 
     /**
      * @param int $campaignId
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
+     *
+     * @return array
      */
     public function getChart($campaignId, $dateFrom, $dateTo)
     {
+        $timeInterval = DatePadder::getTimeUnitFromDateRange($dateFrom, $dateTo);
+        $chartQueryHelper = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $timeInterval);
+        $dbTimeInterval = $chartQueryHelper->translateTimeUnit($timeInterval);
         $report = $this->repo->getProviderCostBreakdown(
                     $campaignId,
                     $dateFrom,
-                    $dateTo
+                    $dateTo,
+                    $timeInterval,
+                    $dbTimeInterval
                 );
-        $report = $this->transformReportForCharts($report);
-        dump($report);
-    
-        return $report;
-    }
 
-    /**
-     * @param array $report
-     */
-    private function transformReportForCharts($report)
-    {
-        $labels = ['one','two'];
+        // Because this report is broken down into media providers, (facebook,
+        // snapchat, etc). It doesn't pad properly, so we can just pull the
+        // date_added column for our chart labels.
+        $padded = (new DatePadder($report, 'date_added', $timeInterval))->getPaddedReport($dateFrom, $dateTo, []);
+        $labels = array_column($padded, 'date_added');
+
         $datasets = [];
         foreach ($report as $row) {
             if (!isset($datasets[$row['provider']])) {
@@ -81,20 +90,15 @@ class CostBreakdownChart
                     'label' => ucfirst($row['provider']),
                     'data' => [],
                 ];
-
                 if (isset($this->providerColors[$row['provider']])) {
                     $provider = array_merge($provider, $this->providerColors[$row['provider']]);
                 }
-
                 $datasets[$row['provider']] = $provider;
             }
 
             $datasets[$row['provider']]['data'][] = $row['spend'];
         }
 
-
-
-        
         return [
             'labels' => $labels,
             'datasets' => array_values($datasets),

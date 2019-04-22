@@ -5,6 +5,10 @@ namespace MauticPlugin\MauticMediaBundle\Tests\Report;
 use PHPUnit\Framework\TestCase;
 use MauticPlugin\MauticMediaBundle\Report\DatePadder;
 
+/**
+ * Test class to test DatePadder, there should be 'technically' be tests for
+ * every time interval, but I'm lazy...
+ */
 class DatePadderTest extends TestCase
 {
     public function setUp()
@@ -15,30 +19,6 @@ class DatePadderTest extends TestCase
     }
 
     /**
-     * Report to be used in testing.
-     * @var array
-     */
-    private $report = [
-            [
-                'label' => '2019-03-01 23:59:59',
-                'cost' => 24.99
-            ],
-            [
-                'label' => '2019-03-01 05:23:43',
-                'cost' => 24.99
-            ],
-            [
-                'label' => '2019-03-01 23:59:59',
-                'cost' => 24.99
-            ],
-            [
-                'label' => '2019-03-01 23:59:50',
-                'cost' => 24.99
-            ],
-        ];
-
-    /**
-     * Date from to be used in testing.
      * @var \DateTime
      */
     private $dateFrom;
@@ -50,17 +30,34 @@ class DatePadderTest extends TestCase
 
 
     /** @test */
-    public function it_pads_a_report()
+    public function it_pads_a_report_by_hours()
     {
-        $padder = new DatePadder($this->report, 'label', 'H');
+        $report = [
+            [ 'label' => '2019-03-01 23:00', 'cost' => 5.99 ],
+            [ 'label' => '2019-03-01 05:00', 'cost' => 24.99 ],
+            [ 'label' => '2019-03-01 06:00', 'cost' => 24.99 ],
+            [ 'label' => '2019-03-01 02:00', 'cost' => 24.99 ],
+        ];
 
-        $padded = $padder->getPaddedResults($this->dateFrom, $this->dateTo);
+        $expectedResult = [];
+        for ($i = 0; $i < 24; $i++) {
+            $hour = ($i >= 10) ? $i : "0" . $i;
+            $date = "2019-03-01 {$hour}:00";
+            $cost = 0;
+            foreach ($report as $key => $row) {
+                if ($row['label'] == $date) {
+                    $cost = $row['cost'];
+                }
+            }
+            $expectedResult[] = [
+                'label' => $date,
+                'cost' => $cost,
+            ];
+        }
 
-        var_dump($padded);
-    }
+        $padder = new DatePadder($report, 'label', 'H');
+        $padded = $padder->getPaddedReport($this->dateFrom, $this->dateTo);
 
-    /** @test */
-    public function it_organizes_a_report_by_date()
-    {
+        $this->assertEquals($padded, $expectedResult);
     }
 }

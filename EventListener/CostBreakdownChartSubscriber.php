@@ -62,7 +62,7 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
                 $dates = new Dates($this->request, $this->session);
                 $vars = $event->getVars();
 
-                $costBreakdown = new CostBreakdownChart($this->em->getRepository('MauticMediaBundle:Stat'));
+                $costBreakdown = new CostBreakdownChart($this->em->getRepository('MauticMediaBundle:Stat'), $this->em);
                 
                 $event->addTemplate(
                     'MauticMediaBundle:Charts:cost_breakdown_chart.html.php',

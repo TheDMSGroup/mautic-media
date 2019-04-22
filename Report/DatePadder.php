@@ -52,24 +52,74 @@ class DatePadder
     /**
      * @param \DateTime $dateFrom
      * $param \DateTime $dateTo
+     * @param null|array $filler Zeroed out array to use as the padding.
      */
-    public function getPaddedResults($dateFrom, $dateTo)
+    public function getPaddedReport($dateFrom, $dateTo, $filler = null)
     {
         // Sort and pad-out the results to match the other charts.
         $interval    = \DateInterval::createFromDateString('1 '.$this->intervalMap[$this->timeUnit][0]);
         $periods     = new \DatePeriod($dateFrom, $interval, $dateTo);
         $updatedData = [];
-        $filler = reset($this->report);
+
+        if (is_null($filler)) {
+            $filler = reset($this->report);
+            foreach ($filler as $key => $row) {
+                if ($key !== $this->dateKey) {
+                    $filler[$key] = 0;
+                }
+            }
+        }
+
         foreach ($periods as $period) {
             $dateToCheck   = $period->format($this->intervalMap[$this->timeUnit][1]);
             $dataKey       = array_search($dateToCheck, array_column($this->report, $this->dateKey));
 
-            $updatedData[] = array_merge(
+            $updatedData[] = array_replace(
                     (false !== $dataKey) ? $this->report[$dataKey] : $filler,
-                    [$this->dateKey => $dateToCheck],
+                    [$this->dateKey => $dateToCheck]
                 );
         }
 
         return $updatedData;
+    }
+
+    /**
+     * Returns appropriate time unit from a date range so the line/bar charts won't be too full/empty.
+     *
+     * @param $dateFrom
+     * @param $dateTo
+     *
+     * @return string
+     */
+    public static function getTimeUnitFromDateRange($dateFrom, $dateTo)
+    {
+        $dayDiff = $dateTo->diff($dateFrom)->format('%a');
+        $unit    = 'd';
+
+        if ($dayDiff <= 1) {
+            $unit = 'H';
+
+            $sameDay    = $dateTo->format('d') == $dateFrom->format('d') ? 1 : 0;
+            $hourDiff   = $dateTo->diff($dateFrom)->format('%h');
+            $minuteDiff = $dateTo->diff($dateFrom)->format('%i');
+            if ($sameDay && !intval($hourDiff) && intval($minuteDiff)) {
+                $unit = 'i';
+            }
+            $secondDiff = $dateTo->diff($dateFrom)->format('%s');
+            if (!intval($minuteDiff) && intval($secondDiff)) {
+                $unit = 'i';
+            }
+        }
+        if ($dayDiff > 31) {
+            $unit = 'W';
+        }
+        if ($dayDiff > 100) {
+            $unit = 'm';
+        }
+        if ($dayDiff > 1000) {
+            $unit = 'Y';
+        }
+
+        return $unit;
     }
 }
