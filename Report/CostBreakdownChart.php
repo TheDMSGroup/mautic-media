@@ -100,7 +100,9 @@ class CostBreakdownChart
             // Transform the report to be chart readable.
             $datasets[$name] = [
                 'label' => ucfirst($name),
-                'data' => array_column($provider, 'spend'),
+                'data' => array_map(function ($cost) {
+                    return $cost * -1;
+                }, array_column($provider, 'spend')),
             ];
             // If they have custom colors set, apply it.
             if (isset($this->providerColors[$row['provider']])) {
