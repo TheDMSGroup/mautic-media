@@ -52,9 +52,10 @@ class DatePadder
     /**
      * @param \DateTime $dateFrom
      * $param \DateTime $dateTo
-     * @param null|array $filler Zeroed out array to use as the padding.
+     * @param \Closure|null|array $filler Zeroed out array to use as the padding.
+     * @return array
      */
-    public function getPaddedReport($dateFrom, $dateTo, $filler = null)
+    public function pad($dateFrom, $dateTo, $filler = null)
     {
         // Sort and pad-out the results to match the other charts.
         $interval    = \DateInterval::createFromDateString('1 '.$this->intervalMap[$this->timeUnit][0]);

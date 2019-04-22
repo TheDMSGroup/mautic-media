@@ -312,7 +312,7 @@ class StatRepository extends CommonRepository
                 $qb->expr()->isNotNull('s.media_account_id'),
                 $qb->expr()->eq('s.campaign_id', ':campaign_id')
             )
-            ->groupBy(['s.provider'])
+            ->groupBy(['s.provider', 'date_time'])
             ->setParameter(':interval', $interval)
             ->setParameter(':timeFormat', $timeFormat)
             ->setParameter(':dateFrom', $dateFrom->getTimestamp(), Type::INTEGER)

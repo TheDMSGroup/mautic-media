@@ -77,31 +77,42 @@ class CostBreakdownChart
                     $dbTimeInterval
                 );
 
-        // Because this report is broken down into media providers, (facebook,
-        // snapchat, etc). It doesn't pad properly, so we can just pull the
-        // date_added column for our chart labels.
-        $padded = (new DatePadder($report, 'date_added', $timeInterval))->getPaddedReport($dateFrom, $dateTo, []);
-        $labels = array_column($padded, 'date_added');
-
-        $datasets = [];
+        // Since the default report has all the providers in one array, we need
+        // to group and separate based on the provider so we can properly pad
+        // the report.
+        $providers = [];
         foreach ($report as $row) {
-            if (!isset($datasets[$row['provider']])) {
-                $provider = [
-                    'label' => ucfirst($row['provider']),
-                    'data' => [],
-                ];
-                if (isset($this->providerColors[$row['provider']])) {
-                    $provider = array_merge($provider, $this->providerColors[$row['provider']]);
-                }
-                $datasets[$row['provider']] = $provider;
+            if (!isset($providers[$row['provider']])) {
+                $providers[$row['provider']] = [];
             }
-
-            $datasets[$row['provider']]['data'][] = $row['spend'];
+            $providers[$row['provider']][] = $row;
         }
 
-        return [
+        foreach ($providers as $key => $provider) {
+            $providers[$key] = (new DatePadder($provider, 'date_time', $timeInterval))->pad($dateFrom, $dateTo);
+        }
+
+        // We can just pull the first provider to get it's date_time to use to
+        // match up the report.
+        $labels = array_column(reset($providers), 'date_time');
+        $datasets = [];
+        foreach ($providers as $name => $provider) {
+            // Transform the report to be chart readable.
+            $datasets[$name] = [
+                'label' => ucfirst($name),
+                'data' => array_column($provider, 'spend'),
+            ];
+            // If they have custom colors set, apply it.
+            if (isset($this->providerColors[$row['provider']])) {
+                $datasets[$name] = array_merge($datasets[$name], $this->providerColors[$name]);
+            }
+        }
+
+        $report = [
             'labels' => $labels,
             'datasets' => array_values($datasets),
         ];
+
+        return $report;
     }
 }

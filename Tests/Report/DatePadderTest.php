@@ -56,7 +56,7 @@ class DatePadderTest extends TestCase
         }
 
         $padder = new DatePadder($report, 'label', 'H');
-        $padded = $padder->getPaddedReport($this->dateFrom, $this->dateTo);
+        $padded = $padder->pad($this->dateFrom, $this->dateTo);
 
         $this->assertEquals($padded, $expectedResult);
     }
