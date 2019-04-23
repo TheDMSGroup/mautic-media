@@ -59,6 +59,8 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
             switch ($event->getContext()) {
 
             case 'left.section.top':
+
+                
                 $dates = new Dates($this->request, $this->session);
                 $vars = $event->getVars();
 

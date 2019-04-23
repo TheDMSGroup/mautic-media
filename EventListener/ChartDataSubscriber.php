@@ -81,12 +81,16 @@ class ChartDataSubscriber extends CommonSubscriber
         $data = $event->getData();
 
         $statRepo  = $this->model->getStatRepository();
-        $spendData = $statRepo->getCampaignSpend(
+        $spendData = $statRepo->getProviderCostBreakdown(
             $campaignId,
             $from,
             $to,
-            ['dbunit' => $params['dbunit'], 'unit' => $params['unit']]
-        );
+            $params['unit'],
+            $params['dbunit']
+        )->resetQueryPart('groupBy')
+         ->groupBy('date_time')
+         ->execute()->fetchAll();
+
         if (!empty($spendData)) {
             $mergedData = $this->mergeSpendData(
                 $data,
@@ -119,7 +123,7 @@ class ChartDataSubscriber extends CommonSubscriber
         foreach ($periods as $period) {
             $dateToCheck = $period->format($intervalMap[$args['unit']][1]);
             $dataKey     = array_search($dateToCheck, array_column($data, 'label'));
-            $spendKey    = array_search($dateToCheck, array_column($spendData, 'spendDate'));
+            $spendKey    = array_search($dateToCheck, array_column($spendData, 'date_time'));
             if (false !== $dataKey) {
                 $updatedData[$iteratorCount] = [
                     'label'   => $dateToCheck,

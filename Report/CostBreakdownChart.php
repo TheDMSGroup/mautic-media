@@ -75,7 +75,7 @@ class CostBreakdownChart
                     $dateTo,
                     $timeInterval,
                     $dbTimeInterval
-                );
+                )->execute()->fetchAll();
 
         // Since the default report has all the providers in one array, we need
         // to group and separate based on the provider so we can properly pad

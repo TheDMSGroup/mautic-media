@@ -253,6 +253,7 @@ class StatRepository extends CommonRepository
     }
 
     /**
+     * @deprecated ?
      * @param int        $campaignId
      * @param \DateTime  $from
      * @param \DateTime  $to
@@ -279,7 +280,7 @@ class StatRepository extends CommonRepository
         $q->setParameter('dbUnit', $args['dbunit']);
         $q->setParameter('fromDate', (int) $from->getTimestamp());
         $q->setParameter('toDate', (int) $to->getTimestamp());
-
+   
         $q->where($expr);
         $q->addGroupBy('spendDate');
 
@@ -319,6 +320,6 @@ class StatRepository extends CommonRepository
             ->setParameter(':dateTo', $dateTo->getTimestamp(), Type::INTEGER)
             ->setParameter(':campaign_id', $campaignId, Type::INTEGER);
 
-        return $qb->execute()->fetchAll();
+        return $qb;
     }
 }
