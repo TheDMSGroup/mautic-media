@@ -53,11 +53,7 @@ class Dates
             /** @var \DateTime[] $dateRange */
             $sessionDateFrom = $this->session->get('mautic.daterange.form.from'); // session Vars
             $sessionDateTo   = $this->session->get('mautic.daterange.form.to');
-            if (empty($sessionDateFrom) && empty($sessionDateTo)) {
-                $dateRange = $this->dashboardModel->getDefaultFilter(); // App Default setting
-                $dateFrom  = new \DateTime($dateRange['date_from']);
-                $dateTo    = new \DateTime($dateRange['date_to']);
-            } else {
+            if (!empty($sessionDateFrom) && !empty($sessionDateTo)) {
                 $dateFrom = new \DateTime($sessionDateFrom);
                 $dateTo   = new \DateTime($sessionDateTo);
             }

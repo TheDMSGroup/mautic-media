@@ -2,6 +2,7 @@
 
 namespace MauticPlugin\MauticMediaBundle\Report;
 
+use Doctrine\ORM\EntityManager;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 

@@ -25,6 +25,10 @@ use MauticPlugin\MauticMediaBundle\Report\CostBreakdownChart;
  */
 class CostBreakdownChartSubscriber extends CommonSubscriber
 {
+    /**
+     * @var Session
+     */
+    private $session;
 
     /**
      * CostBreakdownChartSubscriber constructor.
