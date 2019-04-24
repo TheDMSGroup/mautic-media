@@ -12,8 +12,11 @@
 namespace MauticPlugin\MauticMediaBundle\EventListener;
 
 use DateInterval;
+use Doctrine\Common\Cache\CacheProvider;
+use Doctrine\DBAL\Cache\QueryCacheProfile;
 use Mautic\CoreBundle\EventListener\CommonSubscriber;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
+use MauticPlugin\MauticMediaBundle\Report\CostBreakdownReporter;
 
 /**
  * Class ChartDataSubscriber.
@@ -26,13 +29,20 @@ class ChartDataSubscriber extends CommonSubscriber
     protected $model;
 
     /**
+     * @var CostBreakdownReporter
+     */
+    private $reporter;
+
+
+    /**
      * ChartDataSubscribe constructor.
      *
      * @param MediaAccountModel $model
      */
-    public function __construct(MediaAccountModel $model)
+    public function __construct(MediaAccountModel $model, CostBreakdownReporter $reporter)
     {
         $this->model = $model;
+        $this->reporter = $reporter;
     }
 
     /**
@@ -80,16 +90,16 @@ class ChartDataSubscriber extends CommonSubscriber
 
         $data = $event->getData();
 
-        $statRepo  = $this->model->getStatRepository();
-        $spendData = $statRepo->getProviderCostBreakdown(
-            $campaignId,
-            $from,
-            $to,
-            $params['unit'],
-            $params['dbunit']
-        )->resetQueryPart('groupBy')
-         ->groupBy('date_time')
-         ->execute()->fetchAll();
+
+        $report = $this->reporter->getReport($campaignId, $from, $to);
+
+        // TODO:
+        // We need to modify the report to group by __only__ date_time, instead
+        // of date_time and provider_media_name
+        foreach($report as $key => $row) {
+            // ....
+        }
+
 
         if (!empty($spendData)) {
             $mergedData = $this->mergeSpendData(

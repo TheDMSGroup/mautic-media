@@ -25,6 +25,11 @@ use Symfony\Component\HttpFoundation\Session\Session;
 class CostBreakdownChartSubscriber extends CommonSubscriber
 {
     /**
+     * @var CostBreakdownChart
+     */
+    private $chart;
+
+    /**
      * @var Session
      */
     private $session;
@@ -33,14 +38,11 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
      * CostBreakdownChartSubscriber constructor.
      *
      * @param EntityManager $em
-     * @param Session       $session
      */
-    public function __construct(
-        EntityManager $em,
-        Session $session
-    ) {
-        $this->em               = $em;
-        $this->session          = $session;
+    public function __construct(CostBreakdownChart $costBreakdownChart, Session $session)
+    {
+        $this->chart   = $costBreakdownChart;
+        $this->session = $session;
     }
 
     /**
@@ -62,15 +64,13 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
             switch ($event->getContext()) {
             case 'left.section.top':
 
-                $dates = new Dates($this->request, $this->session);
                 $vars  = $event->getVars();
-
-                $costBreakdown = new CostBreakdownChart($this->em->getRepository('MauticMediaBundle:Stat'), $this->em);
+                $dates = new Dates($this->request, $this->session);
 
                 $event->addTemplate(
                     'MauticMediaBundle:Charts:cost_breakdown_chart.html.php',
                     [
-                        'costBreakdown' => $costBreakdown->getChart(
+                        'costBreakdown' => $this->chart->getChart(
                             $vars['campaign']->getId(),
                             $dates->getFrom(),
                             $dates->getTo()

@@ -11,6 +11,8 @@
 
 namespace MauticPlugin\MauticMediaBundle\Entity;
 
+use Doctrine\Common\Cache\CacheProvider;
+use Doctrine\DBAL\Cache\QueryCacheProfile;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Connections\MasterSlaveConnection;
 use Doctrine\DBAL\Query\QueryBuilder;
@@ -22,6 +24,7 @@ use Mautic\CoreBundle\Entity\CommonRepository;
  */
 class StatRepository extends CommonRepository
 {
+
     /**
      * To be Deprecated.
      *
@@ -322,4 +325,5 @@ class StatRepository extends CommonRepository
 
         return $qb;
     }
+
 }

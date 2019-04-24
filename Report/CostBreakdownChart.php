@@ -11,17 +11,12 @@
 
 namespace MauticPlugin\MauticMediaBundle\Report;
 
+use Doctrine\Common\Cache\CacheProvider;
 use Doctrine\ORM\EntityManager;
-use Mautic\CoreBundle\Helper\Chart\ChartQuery;
 use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 
 class CostBreakdownChart
 {
-    /**
-     * @var StatRepository
-     */
-    private $repo;
-
     /**
      * Pretty colors ooooooo.
      *
@@ -54,19 +49,21 @@ class CostBreakdownChart
         ],
     ];
 
-    /** @var EntityManager */
-    private $em;
+    /**
+     * @var CostBreakdownReporter
+     */
+    private $reporter;
 
     /**
-     * CostBreakdownReport's constructor.
+     * CostBreakdownChart's constructor.
      *
-     * @param StatRepository $statRepository
-     * @param EntityManager  $em
+     * @param StatRepository     $statRepository
+     * @param EntityManager      $em
+     * @param CacheProvider|null $cache
      */
-    public function __construct($statRepository, $em)
+    public function __construct(CostBreakdownReporter $reporter)
     {
-        $this->repo = $statRepository;
-        $this->em   = $em;
+        $this->reporter = $reporter;
     }
 
     /**
@@ -78,16 +75,7 @@ class CostBreakdownChart
      */
     public function getChart($campaignId, $dateFrom, $dateTo)
     {
-        $timeInterval     = DatePadder::getTimeUnitFromDateRange($dateFrom, $dateTo);
-        $chartQueryHelper = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $timeInterval);
-        $dbTimeInterval   = $chartQueryHelper->translateTimeUnit($timeInterval);
-        $report           = $this->repo->getProviderCostBreakdown(
-            $campaignId,
-            $dateFrom,
-            $dateTo,
-            $timeInterval,
-            $dbTimeInterval
-                )->execute()->fetchAll();
+        $report = $this->reporter->getReport($campaignId, $dateFrom, $dateTo);
 
         // Since the default report has all the providers in one array, we need
         // to group and separate based on the provider so we can properly pad
@@ -101,6 +89,7 @@ class CostBreakdownChart
         }
 
         foreach ($providers as $key => $provider) {
+            $timeInterval    = DatePadder::getTimeUnitFromDateRange($dateFrom, $dateTo);
             $providers[$key] = (new DatePadder($provider, 'date_time', $timeInterval))->pad($dateFrom, $dateTo);
         }
 

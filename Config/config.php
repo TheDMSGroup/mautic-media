@@ -50,6 +50,7 @@ return [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\ChartDataSubscriber',
                 'arguments' => [
                     'mautic.media.model.media',
+                    'plugin.media.report.cost_breakdown_reporter'
                 ],
             ],
             'mautic.media.subscriber.media'      => [
@@ -74,7 +75,7 @@ return [
             'mautic.media.subscriber.cost_breakdown_chart'         => [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\CostBreakdownChartSubscriber',
                 'arguments' => [
-                    'doctrine.orm.entity_manager',
+                    'plugin.media.report.cost_breakdown_chart',
                     'session',
                 ],
             ],
@@ -120,6 +121,29 @@ return [
             'mautic.media.integration' => [
                 'class' => 'MauticPlugin\MauticMediaBundle\Integration\MediaIntegration',
             ],
+        ],
+
+        'other' => [
+            'plugin.media.report.cache' => [
+                'class' => 'Doctrine\Common\Cache\FilesystemCache',
+                'arguments' => [
+                    '"' . __DIR__ . '/sql"',
+                ],
+            ],
+            'plugin.media.report.cost_breakdown_reporter' => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\Report\CostBreakdownReporter',
+                'arguments' => [
+                    'doctrine.orm.entity_manager',
+                    'plugin.media.report.cache'
+                ],
+            ],
+
+            'plugin.media.report.cost_breakdown_chart' => [
+                'class' => 'MauticPlugin\MauticMediaBundle\Report\CostBreakdownChart',
+                'arguments' => [
+                    'plugin.media.report.cost_breakdown_reporter' 
+                ],
+            ], 
         ],
     ],
 
