@@ -12,8 +12,6 @@
 namespace MauticPlugin\MauticMediaBundle\EventListener;
 
 use DateInterval;
-use Doctrine\Common\Cache\CacheProvider;
-use Doctrine\DBAL\Cache\QueryCacheProfile;
 use Mautic\CoreBundle\EventListener\CommonSubscriber;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
 use MauticPlugin\MauticMediaBundle\Report\CostBreakdownReporter;
@@ -33,7 +31,6 @@ class ChartDataSubscriber extends CommonSubscriber
      */
     private $reporter;
 
-
     /**
      * ChartDataSubscribe constructor.
      *
@@ -41,7 +38,7 @@ class ChartDataSubscriber extends CommonSubscriber
      */
     public function __construct(MediaAccountModel $model, CostBreakdownReporter $reporter)
     {
-        $this->model = $model;
+        $this->model    = $model;
         $this->reporter = $reporter;
     }
 
@@ -90,16 +87,19 @@ class ChartDataSubscriber extends CommonSubscriber
 
         $data = $event->getData();
 
-
         $report = $this->reporter->getReport($campaignId, $from, $to);
 
-        // TODO:
-        // We need to modify the report to group by __only__ date_time, instead
-        // of date_time and provider_media_name
-        foreach($report as $key => $row) {
-            // ....
+        $spendData = [];
+        foreach ($report as $key => $row) {
+            if (!isset($spendData[$row['date_time']])) {
+                $spendData[$row['date_time']] = [
+                    'date_time' => $row['date_time'],
+                    'spend' => $row['spend'],
+                ];
+            } else { 
+                $spendData[$row['date_time']]['spend'] += $row['spend'];
+            }
         }
-
 
         if (!empty($spendData)) {
             $mergedData = $this->mergeSpendData(
