@@ -28,8 +28,8 @@ $view['slots']->set(
 
 <div class="panel panel-default bdr-t-wdh-0 mb-0">
     <?php echo $view->render(
-        'MauticCoreBundle:Helper:list_toolbar.html.php',
-        [
+    'MauticCoreBundle:Helper:list_toolbar.html.php',
+    [
             'searchValue' => $searchValue,
             'searchHelp'  => 'mautic.core.help.searchcommands',
             'action'      => $currentRoute,

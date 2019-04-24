@@ -644,7 +644,8 @@ class BingHelper extends CommonProviderHelper
         $zipFile = tempnam(sys_get_temp_dir(), 'mautic-bing-download');
         $handle  = fopen($zipFile, 'w');
         $client  = new Client(
-            '', [
+            '',
+            [
                 Client::CURL_OPTIONS => [
                     'CURLOPT_RETURNTRANSFER' => true,
                     'CURLOPT_FILE'           => $handle,

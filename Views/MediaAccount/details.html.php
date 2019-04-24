@@ -59,8 +59,8 @@ $view['slots']->set(
                     </div>
                     <div class="col-xs-2 text-right">
                         <?php echo $view->render(
-                            'MauticCoreBundle:Helper:publishstatus_badge.html.php',
-                            ['entity' => $item]
+    'MauticCoreBundle:Helper:publishstatus_badge.html.php',
+    ['entity' => $item]
                         ); ?>
                     </div>
                 </div>
@@ -74,8 +74,8 @@ $view['slots']->set(
                         <table class="table table-bordered table-striped mb-0">
                             <tbody>
                             <?php echo $view->render(
-                                'MauticCoreBundle:Helper:details.html.php',
-                                ['entity' => $item]
+                            'MauticCoreBundle:Helper:details.html.php',
+                            ['entity' => $item]
                             ); ?>
                             </tbody>
                         </table>
@@ -92,7 +92,7 @@ $view['slots']->set(
                     <a href="javascript:void(0)" class="arrow text-muted collapsed" data-toggle="collapse"
                        data-target="#media-details"><span
                                 class="caret"></span> <?php echo $view['translator']->trans(
-                            'mautic.core.details'
+                                'mautic.core.details'
                         ); ?></a>
                 </span>
             </div>
@@ -112,15 +112,15 @@ $view['slots']->set(
                                 </div>
                                 <div class="col-xs-8 va-m">
                                     <?php echo $view->render(
-                                        'MauticMediaBundle:Helper:graph_chartfilter.html.php',
-                                        ['chartFilterForm' => $chartFilterForm, 'class' => 'pull-right']
+                            'MauticMediaBundle:Helper:graph_chartfilter.html.php',
+                            ['chartFilterForm' => $chartFilterForm, 'class' => 'pull-right']
                                     ); ?>
                                 </div>
                             </div>
                             <div class="pt-0 pl-15 pb-10 pr-15">
                                 <?php echo $view->render(
-                                    'MauticCoreBundle:Helper:chart.html.php',
-                                    ['chartData' => $stats, 'chartType' => 'line', 'chartHeight' => 300]
+                                        'MauticCoreBundle:Helper:chart.html.php',
+                                        ['chartData' => $stats, 'chartType' => 'line', 'chartHeight' => 300]
                                 ); ?>
                             </div>
                         </div>
@@ -149,8 +149,8 @@ $view['slots']->set(
 
             <!-- recent activity -->
             <?php echo $view->render(
-                'MauticCoreBundle:Helper:recentactivity.html.php',
-                ['logs' => $auditlog['events']]
+                                    'MauticCoreBundle:Helper:recentactivity.html.php',
+                                    ['logs' => $auditlog['events']]
             ); ?>
 
         </div>

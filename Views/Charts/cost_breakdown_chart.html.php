@@ -14,8 +14,8 @@
                 </div>
                 <div class="pt-0 pl-15 pb-10 pr-15">
                     <?php echo $view->render(
-                        'MauticCoreBundle:Helper:chart.html.php',
-                        ['chartData' => $costBreakdown, 'chartType' => 'line', 'chartHeight' => 300]
+    'MauticCoreBundle:Helper:chart.html.php',
+    ['chartData' => $costBreakdown, 'chartType' => 'line', 'chartHeight' => 300]
 );
                     ?> 
                 </div>

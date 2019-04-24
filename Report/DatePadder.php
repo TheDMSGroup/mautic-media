@@ -76,8 +76,8 @@ class DatePadder
             $dataKey       = array_search($dateToCheck, array_column($this->report, $this->dateKey));
 
             $updatedData[] = array_replace(
-                    (false !== $dataKey) ? $this->report[$dataKey] : $filler,
-                    [$this->dateKey => $dateToCheck]
+                (false !== $dataKey) ? $this->report[$dataKey] : $filler,
+                [$this->dateKey => $dateToCheck]
                 );
         }
 

@@ -71,11 +71,11 @@ class CostBreakdownChart
         $chartQueryHelper = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $timeInterval);
         $dbTimeInterval = $chartQueryHelper->translateTimeUnit($timeInterval);
         $report = $this->repo->getProviderCostBreakdown(
-                    $campaignId,
-                    $dateFrom,
-                    $dateTo,
-                    $timeInterval,
-                    $dbTimeInterval
+            $campaignId,
+            $dateFrom,
+            $dateTo,
+            $timeInterval,
+            $dbTimeInterval
                 )->execute()->fetchAll();
 
         // Since the default report has all the providers in one array, we need
