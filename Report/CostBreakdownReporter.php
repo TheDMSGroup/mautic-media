@@ -6,7 +6,6 @@ use Doctrine\Common\Cache\CacheProvider;
 use Doctrine\DBAL\Cache\QueryCacheProfile;
 use Doctrine\ORM\EntityManager;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
-use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 
 class CostBreakdownReporter
 {
@@ -24,11 +23,11 @@ class CostBreakdownReporter
      * CostBreakdownReport's constructor.
      *
      * @param EntityManager $em
-     * @param CacheProvider  $cache
+     * @param CacheProvider $cache
      */
     public function __construct($em, $cache = null)
     {
-        $this->em = $em;
+        $this->em    = $em;
         $this->cache = $cache;
     }
 

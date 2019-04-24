@@ -94,9 +94,9 @@ class ChartDataSubscriber extends CommonSubscriber
             if (!isset($spendData[$row['date_time']])) {
                 $spendData[$row['date_time']] = [
                     'date_time' => $row['date_time'],
-                    'spend' => $row['spend'],
+                    'spend'     => $row['spend'],
                 ];
-            } else { 
+            } else {
                 $spendData[$row['date_time']]['spend'] += $row['spend'];
             }
         }
