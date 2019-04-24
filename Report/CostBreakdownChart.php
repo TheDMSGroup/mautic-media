@@ -3,8 +3,8 @@
 namespace MauticPlugin\MauticMediaBundle\Report;
 
 use Doctrine\ORM\EntityManager;
-use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 use Mautic\CoreBundle\Helper\Chart\ChartQuery;
+use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
 
 class CostBreakdownChart
 {
@@ -15,6 +15,7 @@ class CostBreakdownChart
 
     /**
      * Pretty colors ooooooo.
+     *
      * @var array
      */
     private $providerColors = [
@@ -44,22 +45,23 @@ class CostBreakdownChart
         ],
     ];
 
-    /** @var EntityManager  */
+    /** @var EntityManager */
     private $em;
 
     /**
      * CostBreakdownReport's constructor.
+     *
      * @param StatRepository $statRepository
-     * @param EntityManager $em
+     * @param EntityManager  $em
      */
     public function __construct($statRepository, $em)
     {
         $this->repo = $statRepository;
-        $this->em = $em;
+        $this->em   = $em;
     }
 
     /**
-     * @param int $campaignId
+     * @param int       $campaignId
      * @param \DateTime $dateFrom
      * @param \DateTime $dateTo
      *
@@ -67,10 +69,10 @@ class CostBreakdownChart
      */
     public function getChart($campaignId, $dateFrom, $dateTo)
     {
-        $timeInterval = DatePadder::getTimeUnitFromDateRange($dateFrom, $dateTo);
+        $timeInterval     = DatePadder::getTimeUnitFromDateRange($dateFrom, $dateTo);
         $chartQueryHelper = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $timeInterval);
-        $dbTimeInterval = $chartQueryHelper->translateTimeUnit($timeInterval);
-        $report = $this->repo->getProviderCostBreakdown(
+        $dbTimeInterval   = $chartQueryHelper->translateTimeUnit($timeInterval);
+        $report           = $this->repo->getProviderCostBreakdown(
             $campaignId,
             $dateFrom,
             $dateTo,
@@ -95,13 +97,13 @@ class CostBreakdownChart
 
         // We can just pull the first provider to get it's date_time to use to
         // match up the report.
-        $labels = array_column(reset($providers), 'date_time');
+        $labels   = array_column(reset($providers), 'date_time');
         $datasets = [];
         foreach ($providers as $name => $provider) {
             // Transform the report to be chart readable.
             $datasets[$name] = [
                 'label' => ucfirst($name),
-                'data' => array_column($provider, 'spend'),
+                'data'  => array_column($provider, 'spend'),
             ];
             // If they have custom colors set, apply it.
             if (isset($this->providerColors[$row['provider']])) {
@@ -110,7 +112,7 @@ class CostBreakdownChart
         }
 
         $report = [
-            'labels' => $labels,
+            'labels'   => $labels,
             'datasets' => array_values($datasets),
         ];
 

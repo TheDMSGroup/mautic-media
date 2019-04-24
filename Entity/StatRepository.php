@@ -254,6 +254,7 @@ class StatRepository extends CommonRepository
 
     /**
      * @deprecated ?
+     *
      * @param int        $campaignId
      * @param \DateTime  $from
      * @param \DateTime  $to
@@ -280,7 +281,7 @@ class StatRepository extends CommonRepository
         $q->setParameter('dbUnit', $args['dbunit']);
         $q->setParameter('fromDate', (int) $from->getTimestamp());
         $q->setParameter('toDate', (int) $to->getTimestamp());
-   
+
         $q->where($expr);
         $q->addGroupBy('spendDate');
 
@@ -288,8 +289,7 @@ class StatRepository extends CommonRepository
     }
 
     /**
-     *
-     * @param int $campaignId
+     * @param int       $campaignId
      * @param \DateTime $from
      * @param \DateTime $to
      *
@@ -306,7 +306,7 @@ class StatRepository extends CommonRepository
             'SUM(IFNULL(s.impressions, 0.00)) as impressions',
             'ROUND(SUM(IFNULL(s.spend, 0.00)), 2) as spend',
         ])
-            ->from(MAUTIC_TABLE_PREFIX . 'media_account_stats', 's')
+            ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
             ->where(
                 $qb->expr()->gte('s.date_added', 'FROM_UNIXTIME(:dateFrom)'),
                 $qb->expr()->lte('s.date_added', 'FROM_UNIXTIME(:dateTo)'),

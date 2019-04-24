@@ -11,13 +11,12 @@
 namespace MauticPlugin\MauticMediaBundle\EventListener;
 
 use Doctrine\ORM\EntityManager;
-use MauticPlugin\MauticFocusBundle\Entity\StatRepository;
 use Mautic\CoreBundle\CoreEvents;
-use Mautic\CoreBundle\EventListener\CommonSubscriber;
 use Mautic\CoreBundle\Event\CustomContentEvent;
-use Symfony\Component\HttpFoundation\Session\Session;
-use MauticPlugin\MauticMediaBundle\Report\Dates;
+use Mautic\CoreBundle\EventListener\CommonSubscriber;
 use MauticPlugin\MauticMediaBundle\Report\CostBreakdownChart;
+use MauticPlugin\MauticMediaBundle\Report\Dates;
+use Symfony\Component\HttpFoundation\Session\Session;
 
 /**
  * Adds the "Cost Breakdown" and "Revenue Breakdown" charts on the Campaign
@@ -33,8 +32,8 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
     /**
      * CostBreakdownChartSubscriber constructor.
      *
-     * @param EntityManager    $em
-     * @param Session          $session
+     * @param EntityManager $em
+     * @param Session       $session
      */
     public function __construct(
         EntityManager $em,
@@ -59,17 +58,15 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
      */
     public function injectReportWidgets(CustomContentEvent $event)
     {
-        if ($event->getViewName() == 'MauticCampaignBundle:Campaign:details.html.php') {
+        if ('MauticCampaignBundle:Campaign:details.html.php' == $event->getViewName()) {
             switch ($event->getContext()) {
-
             case 'left.section.top':
 
-                
                 $dates = new Dates($this->request, $this->session);
-                $vars = $event->getVars();
+                $vars  = $event->getVars();
 
                 $costBreakdown = new CostBreakdownChart($this->em->getRepository('MauticMediaBundle:Stat'), $this->em);
-                
+
                 $event->addTemplate(
                     'MauticMediaBundle:Charts:cost_breakdown_chart.html.php',
                     [
@@ -77,11 +74,10 @@ class CostBreakdownChartSubscriber extends CommonSubscriber
                             $vars['campaign']->getId(),
                             $dates->getFrom(),
                             $dates->getTo()
-                        )
+                        ),
                     ]
                 );
                 break;
-            
             }
         }
     }

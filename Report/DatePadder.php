@@ -7,8 +7,7 @@ namespace MauticPlugin\MauticMediaBundle\Report;
  */
 class DatePadder
 {
-    
-    /** @var array  */
+    /** @var array */
     private $intervalMap = [
             'H' => ['hour', 'Y-m-d H:00'],
             'd' => ['day', 'Y-m-d'],
@@ -20,39 +19,43 @@ class DatePadder
 
     /**
      * The report to pad out.
+     *
      * @var array
      */
     private $report;
 
     /**
-     * The array key
+     * The array key.
+     *
      * @var string
      */
     private $dateKey;
 
     /**
      * The time unit used to pad the report.
+     *
      * @var string
      */
     private $timeUnit;
 
     /**
-     * @param array $report
-     * @param string $dateKey The key in the $report array that contains the
+     * @param array  $report
+     * @param string $dateKey  The key in the $report array that contains the
      * @param string $timeUnit
-     * dates.
+     *                         dates
      */
     public function __construct($report, $dateKey, $timeUnit)
     {
-        $this->report = $report;
-        $this->dateKey = $dateKey;
+        $this->report   = $report;
+        $this->dateKey  = $dateKey;
         $this->timeUnit = $timeUnit;
     }
 
     /**
-     * @param \DateTime $dateFrom
-     * $param \DateTime $dateTo
-     * @param \Closure|null|array $filler Zeroed out array to use as the padding.
+     * @param \DateTime           $dateFrom
+     *                                      $param \DateTime $dateTo
+     * @param \Closure|array|null $filler   zeroed out array to use as the padding
+     *
      * @return array
      */
     public function pad($dateFrom, $dateTo, $filler = null)

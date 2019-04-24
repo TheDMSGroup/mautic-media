@@ -6,7 +6,7 @@
                     <div class="col-md-3 va-m">
                         <h5 class="text-white dark-md fw-sb mb-xs">
                             <span class="fa fa-line-chart"></span> 
-                            <?php echo $view['translator']->trans('mautic.media.widget.campaign_cost_breakdown_title');?>
+                            <?php echo $view['translator']->trans('mautic.media.widget.campaign_cost_breakdown_title'); ?>
                         </h5>
                     </div>
                     <div class="col-md-9 va-m">

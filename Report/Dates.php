@@ -1,6 +1,5 @@
 <?php
 
-
 namespace MauticPlugin\MauticMediaBundle\Report;
 
 use Symfony\Component\HttpFoundation\Request;
@@ -14,7 +13,7 @@ class Dates
 {
     /**
      * @var \DateTime
-    */
+     */
     private $dateFrom;
 
     /**
@@ -34,6 +33,7 @@ class Dates
 
     /**
      * ReportHelper constructor.
+     *
      * @param Request $request
      */
     public function __construct(Request $request, Session $session)
@@ -69,9 +69,9 @@ class Dates
         $dateTo->setTime(23, 59, 59);
 
         $this->dateFrom = $dateFrom;
-        $this->dateTo = $dateTo;
+        $this->dateTo   = $dateTo;
     }
-    
+
     /**
      * @return \DateTime
      */

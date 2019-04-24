@@ -2,8 +2,8 @@
 
 namespace MauticPlugin\MauticMediaBundle\Tests\Report;
 
-use PHPUnit\Framework\TestCase;
 use MauticPlugin\MauticMediaBundle\Report\DatePadder;
+use PHPUnit\Framework\TestCase;
 
 /**
  * Test class to test DatePadder, there should be 'technically' be tests for
@@ -14,7 +14,7 @@ class DatePadderTest extends TestCase
     public function setUp()
     {
         $this->dateFrom = new \DateTime('2019-03-01 00:00:00');
-        $this->dateTo = new \DateTime('2019-03-01 23:59:59');
+        $this->dateTo   = new \DateTime('2019-03-01 23:59:59');
         parent::setUp();
     }
 
@@ -28,20 +28,19 @@ class DatePadderTest extends TestCase
      */
     private $dateTo;
 
-
     /** @test */
     public function it_pads_a_report_by_hours()
     {
         $report = [
-            [ 'label' => '2019-03-01 23:00', 'cost' => 5.99 ],
-            [ 'label' => '2019-03-01 05:00', 'cost' => 24.99 ],
-            [ 'label' => '2019-03-01 06:00', 'cost' => 24.99 ],
-            [ 'label' => '2019-03-01 02:00', 'cost' => 24.99 ],
+            ['label' => '2019-03-01 23:00', 'cost' => 5.99],
+            ['label' => '2019-03-01 05:00', 'cost' => 24.99],
+            ['label' => '2019-03-01 06:00', 'cost' => 24.99],
+            ['label' => '2019-03-01 02:00', 'cost' => 24.99],
         ];
 
         $expectedResult = [];
-        for ($i = 0; $i < 24; $i++) {
-            $hour = ($i >= 10) ? $i : "0" . $i;
+        for ($i = 0; $i < 24; ++$i) {
+            $hour = ($i >= 10) ? $i : '0'.$i;
             $date = "2019-03-01 {$hour}:00";
             $cost = 0;
             foreach ($report as $key => $row) {
@@ -51,7 +50,7 @@ class DatePadderTest extends TestCase
             }
             $expectedResult[] = [
                 'label' => $date,
-                'cost' => $cost,
+                'cost'  => $cost,
             ];
         }
 

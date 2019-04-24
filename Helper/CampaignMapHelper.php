@@ -110,7 +110,7 @@ class CampaignMapHelper
                             break;
                         } elseif ($lev > $maxDistance) {
                             continue;
-                        } elseif ($lev <= $shortest || $shortest == -1) {
+                        } elseif ($lev <= $shortest || -1 == $shortest) {
                             $closestCampaignId = $campaignId;
                             $shortest          = $lev;
                         }
