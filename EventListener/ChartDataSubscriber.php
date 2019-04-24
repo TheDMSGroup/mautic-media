@@ -85,10 +85,8 @@ class ChartDataSubscriber extends CommonSubscriber
             $to->modify('+1 day - 1 second');
         }
 
-        $data = $event->getData();
-
-        $report = $this->reporter->getReport($campaignId, $from, $to);
-
+        $data      = $event->getData();
+        $report    = $this->reporter->getReport($campaignId, $from, $to);
         $spendData = [];
         foreach ($report as $key => $row) {
             if (!isset($spendData[$row['date_time']])) {
@@ -100,6 +98,8 @@ class ChartDataSubscriber extends CommonSubscriber
                 $spendData[$row['date_time']]['spend'] += $row['spend'];
             }
         }
+
+        $spendData = array_values($spendData);
 
         if (!empty($spendData)) {
             $mergedData = $this->mergeSpendData(
