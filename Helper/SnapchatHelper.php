@@ -483,6 +483,8 @@ class SnapchatHelper extends CommonProviderHelper
                     $this->refreshToken();
                     sleep(self::$betweenOpSleep);
                 } else {
+                    // We're not sure to handle this, nop.
+                    $done = true;
                     sleep(self::$betweenOpSleep);
                 }
             }
