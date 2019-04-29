@@ -9,6 +9,8 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 
+$sql_cache_dir = $container->getParameter('kernel.cache_dir') . "/sql";
+
 return [
     'name'        => 'Media',
     'description' => 'Pulls cost data from media advertising services for campaign correlation.',
@@ -127,7 +129,7 @@ return [
             'plugin.media.report.cache' => [
                 'class'     => 'Doctrine\Common\Cache\FilesystemCache',
                 'arguments' => [
-                    '"'.__DIR__.'/sql"',
+                    "\"{$sql_cache_dir}\""
                 ],
             ],
             'plugin.media.report.cost_breakdown_reporter' => [
