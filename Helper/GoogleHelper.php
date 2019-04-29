@@ -133,6 +133,7 @@ class GoogleHelper extends CommonProviderHelper
                         ReportDefinitionDateRangeType::CUSTOM_DATE
                     );
                     // Limiting by a cost of 0 or more causes the data set to be inaccurate.
+                    // We now want all impressions and clicks for accounts with spend in the same day.
                     // $selector->setPredicates(
                     //     [
                     //         new Predicate(
