@@ -11,10 +11,6 @@
 
 namespace MauticPlugin\MauticMediaBundle\Report;
 
-use Doctrine\Common\Cache\CacheProvider;
-use Doctrine\ORM\EntityManager;
-use MauticPlugin\MauticMediaBundle\Entity\StatRepository;
-
 class CostBreakdownChart
 {
     /**
@@ -57,9 +53,7 @@ class CostBreakdownChart
     /**
      * CostBreakdownChart's constructor.
      *
-     * @param StatRepository     $statRepository
-     * @param EntityManager      $em
-     * @param CacheProvider|null $cache
+     * @param CostBreakdownReporter $reporter
      */
     public function __construct(CostBreakdownReporter $reporter)
     {

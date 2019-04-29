@@ -62,7 +62,7 @@ class DatePadder
 
     /**
      * @param \DateTime           $dateFrom
-     *                                      $param \DateTime $dateTo
+     * @param                     $param    \DateTime $dateTo
      * @param \Closure|array|null $filler   zeroed out array to use as the padding
      *
      * @return array
