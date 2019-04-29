@@ -512,6 +512,7 @@ class BingHelper extends CommonProviderHelper
         $report->ReturnOnlyCompleteData = false;
         $report->Aggregation            = ReportAggregation::Hourly;
         $report->Columns                = $columns;
+        // We now want all impressions and clicks for accounts with spend in the same day.
         //  $report->Filter = new AccountPerformanceReportFilter();
         //  $report->Filter->DeviceType = array (
         //      DeviceTypeReportFilter::Computer,
