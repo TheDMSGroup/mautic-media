@@ -44,6 +44,7 @@ class Dates
      * ReportHelper constructor.
      *
      * @param Request $request
+     * @param Session $session
      */
     public function __construct(Request $request, Session $session)
     {
