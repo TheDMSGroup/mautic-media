@@ -9,7 +9,7 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 
-$sql_cache_dir = $container->getParameter('kernel.cache_dir') . "/sql";
+$sql_cache_dir = $container->getParameter('kernel.cache_dir').'/sql';
 
 return [
     'name'        => 'Media',
@@ -129,7 +129,7 @@ return [
             'plugin.media.report.cache' => [
                 'class'     => 'Doctrine\Common\Cache\FilesystemCache',
                 'arguments' => [
-                    "\"{$sql_cache_dir}\""
+                    "\"{$sql_cache_dir}\"",
                 ],
             ],
             'plugin.media.report.cost_breakdown_reporter' => [
