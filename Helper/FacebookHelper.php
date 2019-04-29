@@ -111,13 +111,14 @@ class FacebookHelper extends CommonProviderHelper
                     $params = [
                         'limit'      => self::$pageLimit,
                         'level'      => 'ad',
-                        'filtering'  => [
-                            [
-                                'field'    => 'spend',
-                                'operator' => 'GREATER_THAN',
-                                'value'    => '0',
-                            ],
-                        ],
+                        // We now want all impressions and clicks for accounts with spend in the same day.
+                        // 'filtering'  => [
+                        //     [
+                        //         'field'    => 'spend',
+                        //         'operator' => 'GREATER_THAN',
+                        //         'value'    => '0',
+                        //     ],
+                        // ],
                         'breakdowns' => [
                             'hourly_stats_aggregated_by_advertiser_time_zone',
                         ],
