@@ -233,6 +233,7 @@ class SnapchatHelper extends CommonProviderHelper
             while ($date >= $this->getDateFrom()) {
                 /** @var AdAccount $account */
                 foreach ($accounts as $account) {
+                    $isComplete = true;
                     $spend            = 0;
                     $clicksTotal      = 0;
                     $impressionsTotal = 0;
@@ -252,6 +253,9 @@ class SnapchatHelper extends CommonProviderHelper
                         $this->getDateTo()
                     ) as $campaign) {
                         $adStats = $this->getCampaignStats($campaign->id, $since, $until);
+                        if(empty($adStats)) {
+                            $isComplete = false;
+                        }
                         foreach ($adStats as $adStat) {
                             if (!$adStat) {
                                 continue;
@@ -331,7 +335,7 @@ class SnapchatHelper extends CommonProviderHelper
                         $clicksTotal,
                         $impressionsTotal,
                         // @todo - Add validation for completion for Snapchat data sets.
-                        true
+                        $isComplete
                     );
                 }
                 $date->sub($oneDay);
