@@ -150,7 +150,7 @@ class MediaAccountModel extends FormModel
     /**
      * @param null $id
      *
-     * @return MediaAccount|null|object
+     * @return MediaAccount|object|null
      */
     public function getEntity($id = null)
     {

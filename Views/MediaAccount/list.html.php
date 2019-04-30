@@ -20,8 +20,8 @@ if ('index' == $tmpl) {
             <tr>
                 <?php
                 echo $view->render(
-                    'MauticCoreBundle:Helper:tableheader.html.php',
-                    [
+    'MauticCoreBundle:Helper:tableheader.html.php',
+    [
                         'checkall'        => 'true',
                         'target'          => '#mediaTable',
                         'routeBase'       => 'media',
@@ -81,8 +81,8 @@ if ('index' == $tmpl) {
                     <td>
                         <?php
                         echo $view->render(
-                            'MauticCoreBundle:Helper:list_actions.html.php',
-                            [
+                    'MauticCoreBundle:Helper:list_actions.html.php',
+                    [
                                 'item'            => $item,
                                 'templateButtons' => [
                                     'edit'   => $view['security']->hasEntityAccess(
@@ -105,8 +105,8 @@ if ('index' == $tmpl) {
                     <td>
                         <div>
                             <?php echo $view->render(
-                                'MauticCoreBundle:Helper:publishstatus_icon.html.php',
-                                ['item' => $item, 'model' => 'media']
+                            'MauticCoreBundle:Helper:publishstatus_icon.html.php',
+                            ['item' => $item, 'model' => 'media']
                             ); ?>
                             <a data-toggle="ajax" href="<?php echo $view['router']->path(
                                 'mautic_media_action',
@@ -124,7 +124,7 @@ if ('index' == $tmpl) {
                     <td class="visible-md visible-lg">
                         <?php $category = $item->getCategory(); ?>
                         <?php $catName  = ($category) ? $category->getTitle() : $view['translator']->trans(
-                            'mautic.core.form.uncategorized'
+                                'mautic.core.form.uncategorized'
                         ); ?>
                         <?php $color = ($category) ? '#'.$category->getColor() : 'inherit'; ?>
                         <span style="white-space: nowrap;"><span class="label label-default pa-4"
@@ -141,8 +141,8 @@ if ('index' == $tmpl) {
     </div>
     <div class="panel-footer">
         <?php echo $view->render(
-            'MauticCoreBundle:Helper:pagination.html.php',
-            [
+                            'MauticCoreBundle:Helper:pagination.html.php',
+                            [
                 'totalItems' => count($items),
                 'page'       => $page,
                 'limits'     => $limit,
@@ -153,7 +153,7 @@ if ('index' == $tmpl) {
     </div>
 <?php else: ?>
     <?php echo $view->render(
-        'MauticCoreBundle:Helper:noresults.html.php',
-        ['tip' => 'mautic.media.noresults.tip']
+            'MauticCoreBundle:Helper:noresults.html.php',
+            ['tip' => 'mautic.media.noresults.tip']
     ); ?>
 <?php endif; ?>

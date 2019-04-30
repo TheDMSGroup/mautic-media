@@ -14,6 +14,7 @@ namespace MauticPlugin\MauticMediaBundle\EventListener;
 use DateInterval;
 use Mautic\CoreBundle\EventListener\CommonSubscriber;
 use MauticPlugin\MauticMediaBundle\Model\MediaAccountModel;
+use MauticPlugin\MauticMediaBundle\Report\CostBreakdownReporter;
 
 /**
  * Class ChartDataSubscriber.
@@ -26,13 +27,19 @@ class ChartDataSubscriber extends CommonSubscriber
     protected $model;
 
     /**
+     * @var CostBreakdownReporter
+     */
+    private $reporter;
+
+    /**
      * ChartDataSubscribe constructor.
      *
      * @param MediaAccountModel $model
      */
-    public function __construct(MediaAccountModel $model)
+    public function __construct(MediaAccountModel $model, CostBreakdownReporter $reporter)
     {
-        $this->model = $model;
+        $this->model    = $model;
+        $this->reporter = $reporter;
     }
 
     /**
@@ -78,15 +85,22 @@ class ChartDataSubscriber extends CommonSubscriber
             $to->modify('+1 day - 1 second');
         }
 
-        $data = $event->getData();
+        $data      = $event->getData();
+        $report    = $this->reporter->getReport($campaignId, $from, $to);
+        $spendData = [];
+        foreach ($report as $key => $row) {
+            if (!isset($spendData[$row['date_time']])) {
+                $spendData[$row['date_time']] = [
+                    'date_time' => $row['date_time'],
+                    'spend'     => $row['spend'],
+                ];
+            } else {
+                $spendData[$row['date_time']]['spend'] += $row['spend'];
+            }
+        }
 
-        $statRepo  = $this->model->getStatRepository();
-        $spendData = $statRepo->getCampaignSpend(
-            $campaignId,
-            $from,
-            $to,
-            ['dbunit' => $params['dbunit'], 'unit' => $params['unit']]
-        );
+        $spendData = array_values($spendData);
+
         if (!empty($spendData)) {
             $mergedData = $this->mergeSpendData(
                 $data,
@@ -119,7 +133,7 @@ class ChartDataSubscriber extends CommonSubscriber
         foreach ($periods as $period) {
             $dateToCheck = $period->format($intervalMap[$args['unit']][1]);
             $dataKey     = array_search($dateToCheck, array_column($data, 'label'));
-            $spendKey    = array_search($dateToCheck, array_column($spendData, 'spendDate'));
+            $spendKey    = array_search($dateToCheck, array_column($spendData, 'date_time'));
             if (false !== $dataKey) {
                 $updatedData[$iteratorCount] = [
                     'label'   => $dateToCheck,

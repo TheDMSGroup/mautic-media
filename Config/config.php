@@ -9,6 +9,8 @@
  * @license     GNU/GPLv3 http://www.gnu.org/licenses/gpl-3.0.html
  */
 
+$sql_cache_dir = $container->getParameter('kernel.cache_dir').'/sql';
+
 return [
     'name'        => 'Media',
     'description' => 'Pulls cost data from media advertising services for campaign correlation.',
@@ -50,6 +52,7 @@ return [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\ChartDataSubscriber',
                 'arguments' => [
                     'mautic.media.model.media',
+                    'plugin.media.report.cost_breakdown_reporter',
                 ],
             ],
             'mautic.media.subscriber.media'      => [
@@ -69,6 +72,13 @@ return [
                 'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\StatsSubscriber',
                 'arguments' => [
                     'doctrine.orm.entity_manager',
+                ],
+            ],
+            'mautic.media.subscriber.cost_breakdown_chart'         => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\EventListener\CostBreakdownChartSubscriber',
+                'arguments' => [
+                    'plugin.media.report.cost_breakdown_chart',
+                    'session',
                 ],
             ],
         ],
@@ -112,6 +122,29 @@ return [
         'integrations' => [
             'mautic.media.integration' => [
                 'class' => 'MauticPlugin\MauticMediaBundle\Integration\MediaIntegration',
+            ],
+        ],
+
+        'other' => [
+            'plugin.media.report.cache' => [
+                'class'     => 'Doctrine\Common\Cache\FilesystemCache',
+                'arguments' => [
+                    "\"{$sql_cache_dir}\"",
+                ],
+            ],
+            'plugin.media.report.cost_breakdown_reporter' => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\Report\CostBreakdownReporter',
+                'arguments' => [
+                    'doctrine.orm.entity_manager',
+                    'plugin.media.report.cache',
+                ],
+            ],
+
+            'plugin.media.report.cost_breakdown_chart' => [
+                'class'     => 'MauticPlugin\MauticMediaBundle\Report\CostBreakdownChart',
+                'arguments' => [
+                    'plugin.media.report.cost_breakdown_reporter',
+                ],
             ],
         ],
     ],

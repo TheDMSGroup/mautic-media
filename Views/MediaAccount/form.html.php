@@ -47,7 +47,7 @@ $callbackUri = str_replace('http://', 'https://', $callbackUri);
                 <li class="active">
                     <a href="#details" role="tab" data-toggle="tab" class="media-tab">
                         <i class="fa fa-cog fa-lg pull-left"></i><?php echo $view['translator']->trans(
-                            'mautic.media.form.group.details'
+    'mautic.media.form.group.details'
                         ); ?>
                     </a>
                 </li>
@@ -145,13 +145,13 @@ $callbackUri = str_replace('http://', 'https://', $callbackUri);
                         </div>
                         <span id="media-campaigns-loading">
                                 <?php echo $view['translator']->trans(
-                                    'mautic.media.form.campaign_settings.loading'
+                            'mautic.media.form.campaign_settings.loading'
                                 ); ?>
                             <i class="fa fa-spinner fa-spin"></i>
                         </span>
                         <span id="media-campaigns-empty" class="hide">
                             <?php echo $view['translator']->trans(
-                                'mautic.media.form.campaign_settings.empty'
+                                    'mautic.media.form.campaign_settings.empty'
                             ); ?>
                         </span>
                         <!-- <hr class="mnr-md mnl-md"> -->
@@ -182,7 +182,7 @@ $callbackUri = str_replace('http://', 'https://', $callbackUri);
 <input type="hidden" name="entityId" id="entityId" value="<?php echo $entity->getId(); ?>"/>
 <script>
     mauticLang['mautic.media.form.provider.bing.account_id'] = '<?php echo $view['translator']->trans(
-        'mautic.media.form.provider.bing.account_id'
+                'mautic.media.form.provider.bing.account_id'
     ); ?>';
     mauticLang['mautic.media.form.provider.bing.client_id'] = '<?php echo $view['translator']->trans(
         'mautic.media.form.provider.bing.client_id'
