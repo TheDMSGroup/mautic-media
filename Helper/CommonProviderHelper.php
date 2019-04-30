@@ -307,7 +307,7 @@ class CommonProviderHelper
                 if ($a !== $b) {
                     $diff           = array_diff($a, $b);
                     $this->errors[] = 'Duplicate Stat key found with differences: '.$key.PHP_EOL.'Diff: '.var_dump(
-                            $diff
+                        $diff
                         );
                 } else {
                     // This could just mean we're overlapping on our data pulls. Snapchat does this.

@@ -512,6 +512,7 @@ class BingHelper extends CommonProviderHelper
         $report->ReturnOnlyCompleteData = false;
         $report->Aggregation            = ReportAggregation::Hourly;
         $report->Columns                = $columns;
+        // We now want all impressions and clicks for accounts with spend in the same day.
         //  $report->Filter = new AccountPerformanceReportFilter();
         //  $report->Filter->DeviceType = array (
         //      DeviceTypeReportFilter::Computer,
@@ -644,7 +645,8 @@ class BingHelper extends CommonProviderHelper
         $zipFile = tempnam(sys_get_temp_dir(), 'mautic-bing-download');
         $handle  = fopen($zipFile, 'w');
         $client  = new Client(
-            '', [
+            '',
+            [
                 Client::CURL_OPTIONS => [
                     'CURLOPT_RETURNTRANSFER' => true,
                     'CURLOPT_FILE'           => $handle,
