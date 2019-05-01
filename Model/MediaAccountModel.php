@@ -216,9 +216,10 @@ class MediaAccountModel extends FormModel
         $dateFormat = null,
         $canViewOthers = true
     ) {
-
-        if($dateFrom == $dateTo) {
-            $dateTo = $dateTo->add(\DateInterval::createFromDateString('1 day'))->sub(\DateInterval::createFromDateString('1 second')); 
+        if ($dateFrom == $dateTo) {
+            $dateTo = $dateTo->add(
+                \DateInterval::createFromDateString('1 day')
+            )->sub(\DateInterval::createFromDateString('1 second'));
         }
 
         $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $unit);
