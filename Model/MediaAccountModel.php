@@ -240,8 +240,6 @@ class MediaAccountModel extends FormModel
             $MediaAccount->getProvider()
         );
 
-        dump($dateFrom, $dateTo);
-
         $totals = [];
         foreach ($providerAccounts as $providerAccountId => $providerAccountName) {
             $params['provider_account_id'] = $providerAccountId;
