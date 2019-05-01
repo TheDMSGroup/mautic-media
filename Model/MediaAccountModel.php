@@ -216,6 +216,11 @@ class MediaAccountModel extends FormModel
         $dateFormat = null,
         $canViewOthers = true
     ) {
+
+        if($dateFrom == $dateTo) {
+            $dateTo = $dateTo->add(\DateInterval::createFromDateString('1 day'))->sub(\DateInterval::createFromDateString('1 second')); 
+        }
+
         $query = new ChartQuery($this->em->getConnection(), $dateFrom, $dateTo, $unit);
         $unit  = (null === $unit) ? $this->getTimeUnitFromDateRange($dateFrom, $dateTo) : $unit;
         $chart = new LineChart($unit, $dateFrom, $dateTo, $dateFormat);
@@ -233,6 +238,8 @@ class MediaAccountModel extends FormModel
             $MediaAccount->getId(),
             $MediaAccount->getProvider()
         );
+
+        dump($dateFrom, $dateTo);
 
         $totals = [];
         foreach ($providerAccounts as $providerAccountId => $providerAccountName) {
