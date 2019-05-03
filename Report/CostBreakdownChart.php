@@ -70,6 +70,9 @@ class CostBreakdownChart
     public function getChart($campaignId, $dateFrom, $dateTo)
     {
         $report = $this->reporter->getReport($campaignId, $dateFrom, $dateTo);
+        if (empty($report) || is_null($report)) {
+            return [];
+        }
 
         // Since the default report has all the providers in one array, we need
         // to group and separate based on the provider so we can properly pad
