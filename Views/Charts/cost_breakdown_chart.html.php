@@ -24,11 +24,21 @@
                     </div>
                 </div>
                 <div class="pt-0 pl-15 pb-10 pr-15">
-                    <?php echo $view->render(
-    'MauticCoreBundle:Helper:chart.html.php',
-    ['chartData' => $costBreakdown, 'chartType' => 'line', 'chartHeight' => 300]
-);
-                    ?> 
+<?php
+if (is_array($costBreakdown) && !empty($costBreakdown)) {
+    echo $view->render(
+        'MauticCoreBundle:Helper:chart.html.php',
+        ['chartData' => $costBreakdown, 'chartType' => 'line', 'chartHeight' => 300]
+    );
+} else {
+    ?>
+    <h3>No media accounts/campaigns mapped</h3>
+    <p>This campaign has no media spending mapped to it for this date range.
+    <br>
+    This can be mapped for charting by an media manager or administrator <a href="/s/media">here</a>.</p>
+<?php
+}
+?>
                 </div>
              </div>
          </div>
