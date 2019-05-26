@@ -567,7 +567,7 @@ class CommonProviderHelper
         $finalDate->modify('+'.$this->ageSpendBecomesFinal);
         $summary->setFinalDate($finalDate);
 
-        $final = $complete && ($finalDate < new DateTime('-'.$this->ageSpendBecomesFinal));
+        $final = $complete && ($finalDate < new DateTime());
         $summary->setFinal($final);
 
         $summary->setProviderDate($providerDate);

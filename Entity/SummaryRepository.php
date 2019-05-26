@@ -126,14 +126,16 @@ class SummaryRepository extends CommonRepository
             'where',
             $query->expr()->andX(
                 $query->expr()->lte($alias.'.final_date', 'NOW()'),
+                $query->expr()->gte($alias.'.final_date', 'DATE_SUB(NOW(), INTERVAL '.$maxDays.' DAY)'),
                 $query->expr()->eq($alias.'.provider', ':provider'),
                 $query->expr()->eq($alias.'.media_account_id', (int) $mediaAccountId),
-                $query->expr()->eq($alias.'.final', 0),
+                $query->expr()->isNotNull($alias.'.final'),
                 $query->expr()->lte($alias.'.pull_count', (int) $pullCountLimit)
             )
         );
         $query->setParameter('provider', $provider);
         $query->groupBy($alias.'.provider_date');
+        $query->having('MAX('.$alias.'.final) = 0');
         // Start with the newest and go backward. We always care more about recent data accuracy.
         $query->orderBy($alias.'.final_date', 'DESC');
         $query->setMaxResults((int) $maxDays);

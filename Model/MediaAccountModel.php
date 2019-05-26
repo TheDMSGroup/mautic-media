@@ -41,10 +41,10 @@ use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 class MediaAccountModel extends FormModel
 {
     /** @var int $pullCountLimit Maximum number of attempts to pull data for auto-finalization. */
-    protected static $pullCountLimit = 3;
+    protected static $pullCountLimit = 50;
 
     /** @var int $maxDaysToFinalize Maximum number of days to attempt to finalize in one run. */
-    protected static $maxDaysToFinalize = 90;
+    protected static $maxDaysToFinalize = 30;
 
     /** @var EventDispatcherInterface */
     protected $dispatcher;
