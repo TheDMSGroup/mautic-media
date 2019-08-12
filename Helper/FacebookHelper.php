@@ -35,7 +35,7 @@ use stdClass;
 class FacebookHelper extends CommonProviderHelper
 {
     /** @var int Number of rate limit errors after which we abort. */
-    public static $rateLimitMaxErrors = 100000;
+    public static $rateLimitMaxErrors = 1000;
 
     /** @var int Number of seconds to sleep between looping API operations. */
     public static $betweenOpSleep = .5;
