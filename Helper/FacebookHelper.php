@@ -22,7 +22,6 @@ use FacebookAds\Logger\CurlLogger;
 use FacebookAds\Object\AdAccount;
 use FacebookAds\Object\AdAccountUser;
 use FacebookAds\Object\User;
-use FacebookAds\Object\Values\ReachFrequencyPredictionStatuses;
 use MauticPlugin\MauticMediaBundle\Entity\MediaAccount;
 use MauticPlugin\MauticMediaBundle\Entity\Stat;
 use MauticPlugin\MauticMediaBundle\Entity\Summary;
@@ -46,6 +45,9 @@ class FacebookHelper extends CommonProviderHelper
 
     /** @var bool */
     private static $facebookImplicitFetch = true;
+
+    /** @var array https://developers.facebook.com/docs/graph-api/overview/rate-limiting/ */
+    private static $rateLimitCodes = [4, 17, 32, 613, 80000, 80001, 80002];
 
     /** @var string */
     public $provider = MediaAccount::PROVIDER_FACEBOOK;
@@ -422,7 +424,7 @@ class FacebookHelper extends CommonProviderHelper
                 }
                 if (
                     $e instanceof AuthorizationException
-                    && ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code
+                    && in_array($code, self::$rateLimitCodes)
                 ) {
                     $this->output->write(':');
                     sleep(self::$rateLimitSleep);
@@ -642,20 +644,24 @@ class FacebookHelper extends CommonProviderHelper
                 $this->errors[] = $e->getMessage();
                 if (
                     $e instanceof AuthorizationException
-                    && ReachFrequencyPredictionStatuses::MINIMUM_REACH_NOT_AVAILABLE === $code
+                    && $queueJobs
+                    && in_array($code, self::$rateLimitCodes)
                 ) {
-                    if ($queueJobs) {
-                        // We'll nope out till we come back to the queue later.
-                        return $this->queueInsightJob($account, $accountId, $fields, $params, $callback, $cursor);
-                    } else {
-                        // We've already been rate limited, let's add delays now so that we don't miss our cursor.
-                        $this->saveQueue();
-                        $this->output->write(':');
-                        sleep(self::$rateLimitSleep);
-                    }
+                    // We'll nope out till we come back to the queue later.
+                    return $this->queueInsightJob($account, $accountId, $fields, $params, $callback, $cursor);
                 }
+                // Any other error or a timeout.
+                $this->saveQueue();
+                $this->output->write(':');
                 if (count($this->errors) > self::$rateLimitMaxErrors) {
                     throw new Exception('Too many request errors.');
+                }
+                if (
+                    $e instanceof AuthorizationException
+                    && in_array($code, self::$rateLimitCodes)
+                ) {
+                    // Let's add delays now so that we don't miss our cursor.
+                    sleep(self::$rateLimitSleep);
                 }
             }
         } while (!$cursor || $cursor->valid());
