@@ -314,11 +314,11 @@ class StatRepository extends CommonRepository
                 $qb->expr()->eq('s.campaign_id', ':campaign_id')
             )
             ->groupBy(['s.provider', 'date_time'])
-            ->setParameter(':interval', $interval)
-            ->setParameter(':timeFormat', $timeFormat)
+            ->setParameter(':interval', (int) $interval, Type::INTEGER)
+            ->setParameter(':timeFormat', $timeFormat, Type::STRING)
             ->setParameter(':dateFrom', $dateFrom->getTimestamp(), Type::INTEGER)
             ->setParameter(':dateTo', $dateTo->getTimestamp(), Type::INTEGER)
-            ->setParameter(':campaign_id', $campaignId, Type::INTEGER);
+            ->setParameter(':campaign_id', (int) $campaignId, Type::INTEGER);
 
         return $qb;
     }

@@ -56,7 +56,7 @@ class CostBreakdownReporter
                 $qb->getSQL(),
                 $qb->getParameters(),
                 $qb->getParameterTypes(),
-                new QueryCacheProfile(900, 'plugin_media_cost_breakdown_query', $this->cache)
+                new QueryCacheProfile(600, 'plugin_media_cost_breakdown_query', $this->cache)
             );
         } else {
             $qb = $qb->execute();
