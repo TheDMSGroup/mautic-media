@@ -269,7 +269,7 @@ class StatRepository extends CommonRepository
         $q = $this->getEntityManager()->getConnection()->createQueryBuilder()
             ->from(MAUTIC_TABLE_PREFIX.'media_account_stats', 's')
             ->select(
-                'DATE_FORMAT(DATE_SUB(s.date_added, INTERVAL :interval HOUR), :dbUnit) as spendDate, s.campaign_id, SUM(s.spend) AS spend'
+                'DATE_FORMAT(DATE_SUB(s.date_added, INTERVAL :interval SECOND), :dbUnit) as spendDate, s.campaign_id, SUM(s.spend) AS spend'
             );
 
         $expr = $q->expr()->andX(
@@ -277,7 +277,7 @@ class StatRepository extends CommonRepository
             $q->expr()->gte('s.date_added', 'FROM_UNIXTIME(:fromDate)'),
             $q->expr()->lte('s.date_added', 'FROM_UNIXTIME(:toDate)')
         );
-        $q->setParameter('interval', (int) abs((new \DateTime())->getOffset() / 3600));
+        $q->setParameter('interval', (new \DateTime())->getOffset());
         $q->setParameter('dbUnit', $args['dbunit']);
         $q->setParameter('fromDate', (int) $from->getTimestamp());
         $q->setParameter('toDate', (int) $to->getTimestamp());
@@ -292,16 +292,19 @@ class StatRepository extends CommonRepository
      * @param int       $campaignId
      * @param \DateTime $from
      * @param \DateTime $to
+     * @param $interval
+     * @param $timeFormat
      *
-     * @return array
+     * @return QueryBuilder
+     *
+     * @throws \Exception
      */
     public function getProviderCostBreakdown($campaignId, $dateFrom, $dateTo, $interval, $timeFormat)
     {
         $qb = $this->getEntityManager()->getConnection()->createQueryBuilder();
         $qb->select([
             's.provider',
-            'DATE_FORMAT(DATE_ADD(s.date_added, INTERVAL :interval HOUR), :timeFormat) date_time',
-            's.date_added',
+            'DATE_FORMAT(DATE_ADD(s.date_added, INTERVAL :interval SECOND), :timeFormat) as date_time',
             'SUM(IFNULL(s.clicks, 0.00)) as clicks',
             'SUM(IFNULL(s.impressions, 0.00)) as impressions',
             'ROUND(SUM(IFNULL(s.spend, 0.00)), 2) as spend',
@@ -314,11 +317,11 @@ class StatRepository extends CommonRepository
                 $qb->expr()->eq('s.campaign_id', ':campaign_id')
             )
             ->groupBy(['s.provider', 'date_time'])
-            ->setParameter(':interval', (int) $interval, Type::INTEGER)
-            ->setParameter(':timeFormat', $timeFormat, Type::STRING)
-            ->setParameter(':dateFrom', $dateFrom->getTimestamp(), Type::INTEGER)
-            ->setParameter(':dateTo', $dateTo->getTimestamp(), Type::INTEGER)
-            ->setParameter(':campaign_id', (int) $campaignId, Type::INTEGER);
+            ->setParameter('interval', (new \DateTime())->getOffset(), Type::INTEGER)
+            ->setParameter('timeFormat', $timeFormat, Type::STRING)
+            ->setParameter('dateFrom', (int) $dateFrom->getTimestamp(), Type::INTEGER)
+            ->setParameter('dateTo', (int) $dateTo->getTimestamp(), Type::INTEGER)
+            ->setParameter('campaign_id', (int) $campaignId, Type::INTEGER);
 
         return $qb;
     }
