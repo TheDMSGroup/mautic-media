@@ -82,7 +82,7 @@ class ChartDataSubscriber extends CommonSubscriber
 
         // fix single day date ranges
         if ($from == $to) {
-            $to->modify('+1 day - 1 second');
+            $to->modify('+1 day');
         }
 
         $data      = $event->getData();
